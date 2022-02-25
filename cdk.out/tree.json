@@ -1,0 +1,1163 @@
+{
+  "version": "tree-0.1",
+  "tree": {
+    "id": "App",
+    "path": "",
+    "children": {
+      "Tree": {
+        "id": "Tree",
+        "path": "Tree",
+        "constructInfo": {
+          "fqn": "constructs.Construct",
+          "version": "10.0.72"
+        }
+      },
+      "CoreStack": {
+        "id": "CoreStack",
+        "path": "CoreStack",
+        "children": {
+          "Function": {
+            "id": "Function",
+            "path": "CoreStack/Function",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "CoreStack/Function/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudFront::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "name": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          {
+                            "Ref": "AWS::StackName"
+                          },
+                          "_checkJWTToken"
+                        ]
+                      ]
+                    },
+                    "autoPublish": true,
+                    "functionCode": "//DO NOT CHANGE THESE 4 LINES\nvar secrets = { \"secret1_key\": \"to_replace\",\"secret1_value\": \"to_replace\",\"secret2_key\": \"to_replace\",\"secret2_value\": \"to_replace\"}\n// END\n\nvar crypto = require('crypto');\n\n//Response when JWT is not valid.\nvar response401 = {\n    statusCode: 401,\n    statusDescription: 'Unauthorized'\n};\n\nfunction jwt_decode(headerSeg, payloadSeg, signatureSeg, key) {\n    console.log(\"jwt decoding..\")\n\n    var signingMethod = 'sha256';\n    var signingType = 'hmac';\n\n    var payload = JSON.parse(_base64urlDecode(payloadSeg));\n\n    // Verify signature. `sign` will return base64 string.\n    var signingInput = [headerSeg, payloadSeg].join('.');\n\n    if (!_verify(signingInput, key, signingMethod, signingType, signatureSeg)) {\n        throw new Error('Signature verification failed');\n    }else{\n        console.log(\"Token verified - OK\")\n    }\n\n\n    //TODO check path\n    //if (!uri.includes(payload.filename)) {\n    //    throw new Error('File paths do not match ' + uri + \" \" + payload.filename)\n    //    }\n    // Support for nbf and exp claims.\n    // According to the RFC, they should be in seconds.\n    if (payload.nbf && Date.now() < payload.nbf * 1000) {\n        throw new Error('Token not yet active');\n    }else{\n        console.log(\"Token active - OK\")\n    }\n\n    if (payload.exp && (Date.now() > payload.exp * 1000)) {\n        throw new Error('Token expired');\n    }else{\n        console.log(\"Token not expired - OK\")\n    }\n\n\n}\n\nfunction _verify(input, key, method, type, signature) {\n    if (type === \"hmac\") {\n        return (signature === _sign(input, key, method));\n    } else {\n        throw new Error('Algorithm type not recognized');\n    }\n}\n\nfunction _sign(input, key, method) {\n    return crypto.createHmac(method, key).update(input).digest('base64url');\n}\n\nfunction _base64urlDecode(str) {\n    return String.bytesFrom(str, 'base64url')\n}\n\nfunction handler(event) {\n    // NOTE: This example function is for a viewer request event trigger.\n    // Choose viewer request for event trigger when you associate this function with a distribution.\n    //console.log(event);\n    var check_token = \"INVALID\";\n    var request = event.request;\n    var headers = request.headers;\n    var uri = request.uri;\n\n\n    // If no JWT token, then generate HTTP redirect 401 response.\n    //console.log(\"URI=\" + uri)\n    var pathArray = uri.split('/');\n    var jwtToken = pathArray[1];\n    delete pathArray[1];\n    var newUri = pathArray.join(\"/\")\n    newUri = newUri.replace(/\\/\\/+/g, '/')\n    console.log(\"NEW_URI=\" + newUri);\n    //console.log(\"token=\" + jwtToken);\n\n    if (jwtToken.length < 60) {\n        console.log(\"Error: No JWT in the querystring or path\");\n        return response401;\n    }\n\n    var segments = jwtToken.split('.');\n    if (segments.length !== 3) {\n        throw new Error('Not enough or too many segments');\n    }\n\n    // All segment should be base64\n    var headerSeg = segments[0];\n    var payloadSeg = segments[1];\n    var signatureSeg = segments[2];\n\n    console.log(\"1\");\n    // base64 decode and parse JSON\n    var header = JSON.parse(_base64urlDecode(headerSeg));\n    console.log(\"header=\" + JSON.stringify(header));\n    var keyToDecode = \"\";\n\n    if (secrets.secret1_key === header.kid) {\n        keyToDecode = secrets.secret1_value;\n    } else if (secrets.secret2_key === header.kid) {\n        keyToDecode = secrets.secret2_value;\n    } else {\n        throw new Error('Invalid kid in header');\n    }\n\n    try {\n        jwt_decode(headerSeg, payloadSeg, signatureSeg, keyToDecode);\n        check_token = \"VALID\";\n    } catch (e) {\n        console.log(e);\n\n    }\n\n    console.log('X_JWT_CHECK ' + check_token);\n\n    request.uri = newUri\n    //console.log(newUri)\n    return request;\n}",
+                    "functionConfig": {
+                      "comment": "CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery",
+                      "runtime": "cloudfront-js-1.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudfront.CfnFunction",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudfront.Function",
+              "version": "2.14.0"
+            }
+          },
+          "Secrets": {
+            "id": "Secrets",
+            "path": "CoreStack/Secrets",
+            "children": {
+              "Primary": {
+                "id": "Primary",
+                "path": "CoreStack/Secrets/Primary",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/Secrets/Primary/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SecretsManager::Secret",
+                      "aws:cdk:cloudformation:props": {
+                        "description": "Primary secret for Secure Media Stream Delivery",
+                        "generateSecretString": {
+                          "secretStringTemplate": "{\"UUID\":\"\"}",
+                          "generateStringKey": "UUID"
+                        },
+                        "name": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_PrimarySecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_secretsmanager.CfnSecret",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_secretsmanager.Secret",
+                  "version": "2.14.0"
+                }
+              },
+              "Secondary": {
+                "id": "Secondary",
+                "path": "CoreStack/Secrets/Secondary",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/Secrets/Secondary/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SecretsManager::Secret",
+                      "aws:cdk:cloudformation:props": {
+                        "description": "Secondary secret for Secure Media Stream Delivery",
+                        "generateSecretString": {
+                          "secretStringTemplate": "{\"UUID\":\"\"}",
+                          "generateStringKey": "UUID"
+                        },
+                        "name": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_SecondarySecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_secretsmanager.CfnSecret",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_secretsmanager.Secret",
+                  "version": "2.14.0"
+                }
+              },
+              "Temporary": {
+                "id": "Temporary",
+                "path": "CoreStack/Secrets/Temporary",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/Secrets/Temporary/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SecretsManager::Secret",
+                      "aws:cdk:cloudformation:props": {
+                        "description": "Temporary secret for Secure Media Stream Delivery",
+                        "generateSecretString": {
+                          "secretStringTemplate": "{\"UUID\":\"\"}",
+                          "generateStringKey": "UUID"
+                        },
+                        "name": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_TemporarySecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_secretsmanager.CfnSecret",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_secretsmanager.Secret",
+                  "version": "2.14.0"
+                }
+              },
+              "PrimarySecret": {
+                "id": "PrimarySecret",
+                "path": "CoreStack/Secrets/PrimarySecret",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.14.0"
+                }
+              },
+              "SecondarySecret": {
+                "id": "SecondarySecret",
+                "path": "CoreStack/Secrets/SecondarySecret",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.72"
+            }
+          },
+          "RotateSecrets": {
+            "id": "RotateSecrets",
+            "path": "CoreStack/RotateSecrets",
+            "children": {
+              "GenerateNewSecret": {
+                "id": "GenerateNewSecret",
+                "path": "CoreStack/RotateSecrets/GenerateNewSecret",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "CoreStack/RotateSecrets/GenerateNewSecret/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "CoreStack/RotateSecrets/GenerateNewSecret/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.14.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "CoreStack/RotateSecrets/GenerateNewSecret/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "CoreStack/RotateSecrets/GenerateNewSecret/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsTemporary49A96AA2"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": "cloudfront:DescribeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "Function76856677",
+                                          "FunctionARN"
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsGenerateNewSecretServiceRoleDefaultPolicy095C457D",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsGenerateNewSecretServiceRole87E436EE"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.14.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "CoreStack/RotateSecrets/GenerateNewSecret/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "CoreStack/RotateSecrets/GenerateNewSecret/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.14.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "CoreStack/RotateSecrets/GenerateNewSecret/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/RotateSecrets/GenerateNewSecret/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "67f3472ac6b10899e8fe113644857b0b074c4838ff763f3fdab5b1503e35dc8d.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsGenerateNewSecretServiceRole87E436EE",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "TEMPORARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_TemporarySecret"
+                                ]
+                              ]
+                            },
+                            "PRIMARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_PrimarySecret"
+                                ]
+                              ]
+                            },
+                            "CFF_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_checkJWTToken"
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_GenerateNewSecret"
+                            ]
+                          ]
+                        },
+                        "handler": "index.lambda_handler",
+                        "runtime": "python3.7"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.14.0"
+                }
+              },
+              "GenerateNewSecretLogs": {
+                "id": "GenerateNewSecretLogs",
+                "path": "CoreStack/RotateSecrets/GenerateNewSecretLogs",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/RotateSecrets/GenerateNewSecretLogs/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "logGroupName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "/aws/lambda/",
+                              {
+                                "Ref": "RotateSecretsGenerateNewSecretC2931F7A"
+                              }
+                            ]
+                          ]
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.14.0"
+                }
+              },
+              "SwapSecrets": {
+                "id": "SwapSecrets",
+                "path": "CoreStack/RotateSecrets/SwapSecrets",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "CoreStack/RotateSecrets/SwapSecrets/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "CoreStack/RotateSecrets/SwapSecrets/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.14.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "CoreStack/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "CoreStack/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsTemporary49A96AA2"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsTemporary49A96AA2"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsSecondaryBE68E89A"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsSecondaryBE68E89A"
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsSwapSecretsServiceRole0C5A9507"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.14.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "CoreStack/RotateSecrets/SwapSecrets/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "CoreStack/RotateSecrets/SwapSecrets/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.14.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "CoreStack/RotateSecrets/SwapSecrets/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/RotateSecrets/SwapSecrets/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "085b750cf2f189af986758dde76709cdf1235379fa10aeab1b4da557b3093f9b.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsSwapSecretsServiceRole0C5A9507",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "TEMPORARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_TemporarySecret"
+                                ]
+                              ]
+                            },
+                            "PRIMARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_PrimarySecret"
+                                ]
+                              ]
+                            },
+                            "SECONDARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_SecondarySecret"
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_SwapSecrets"
+                            ]
+                          ]
+                        },
+                        "handler": "index.lambda_handler",
+                        "runtime": "python3.7"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.14.0"
+                }
+              },
+              "KeyRotationLogs": {
+                "id": "KeyRotationLogs",
+                "path": "CoreStack/RotateSecrets/KeyRotationLogs",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/RotateSecrets/KeyRotationLogs/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "logGroupName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "/aws/lambda/",
+                              {
+                                "Ref": "RotateSecretsSwapSecretsD91628F3"
+                              }
+                            ]
+                          ]
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.14.0"
+                }
+              },
+              "Generate new secret": {
+                "id": "Generate new secret",
+                "path": "CoreStack/RotateSecrets/Generate new secret",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
+                  "version": "2.14.0"
+                }
+              },
+              "Swap secrets": {
+                "id": "Swap secrets",
+                "path": "CoreStack/RotateSecrets/Swap secrets",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
+                  "version": "2.14.0"
+                }
+              },
+              "Update CloudFront Function": {
+                "id": "Update CloudFront Function",
+                "path": "CoreStack/RotateSecrets/Update CloudFront Function",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.CallAwsService",
+                  "version": "2.14.0"
+                }
+              },
+              "RotateSecretSFLogGroup": {
+                "id": "RotateSecretSFLogGroup",
+                "path": "CoreStack/RotateSecrets/RotateSecretSFLogGroup",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/RotateSecrets/RotateSecretSFLogGroup/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "retentionInDays": 731
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.14.0"
+                }
+              },
+              "RotateSecret": {
+                "id": "RotateSecret",
+                "path": "CoreStack/RotateSecrets/RotateSecret",
+                "children": {
+                  "Role": {
+                    "id": "Role",
+                    "path": "CoreStack/RotateSecrets/RotateSecret/Role",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "CoreStack/RotateSecrets/RotateSecret/Role/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": {
+                                      "Fn::FindInMap": [
+                                        "ServiceprincipalMap",
+                                        {
+                                          "Ref": "AWS::Region"
+                                        },
+                                        "states"
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.14.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "CoreStack/RotateSecrets/RotateSecret/Role/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "CoreStack/RotateSecrets/RotateSecret/Role/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "logs:CreateLogDelivery",
+                                        "logs:GetLogDelivery",
+                                        "logs:UpdateLogDelivery",
+                                        "logs:DeleteLogDelivery",
+                                        "logs:ListLogDeliveries",
+                                        "logs:PutResourcePolicy",
+                                        "logs:DescribeResourcePolicies",
+                                        "logs:DescribeLogGroups"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    },
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsGenerateNewSecretC2931F7A",
+                                          "Arn"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "Action": "cloudfront:updateFunction",
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    },
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsSwapSecretsD91628F3",
+                                          "Arn"
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsRotateSecretRoleDefaultPolicy07F45AC5",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsRotateSecretRoleE274F410"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.14.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/RotateSecrets/RotateSecret/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::StepFunctions::StateMachine",
+                      "aws:cdk:cloudformation:props": {
+                        "roleArn": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsRotateSecretRoleE274F410",
+                            "Arn"
+                          ]
+                        },
+                        "definitionString": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{\"StartAt\":\"Generate new secret\",\"States\":{\"Generate new secret\":{\"Next\":\"Update CloudFront Function\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$\",\"ResultSelector\":{\"Output.$\":\"$.Payload\"},\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsGenerateNewSecretC2931F7A",
+                                  "Arn"
+                                ]
+                              },
+                              "\",\"Payload.$\":\"$\"}},\"Update CloudFront Function\":{\"Next\":\"Swap secrets\",\"Type\":\"Task\",\"ResultPath\":\"$.transcription\",\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::aws-sdk:cloudfront:updateFunction\",\"Parameters\":{\"Name\":\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"IfMatch.$\":\"$.Output.etag\",\"FunctionConfig\":{\"Comment\":\"my comment\",\"Runtime\":\"cloudfront-js-1.0\"},\"FunctionCode.$\":\"$.Output.cff_content\"}},\"Swap secrets\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsSwapSecretsD91628F3",
+                                  "Arn"
+                                ]
+                              },
+                              "\",\"Payload.$\":\"$\"}}},\"TimeoutSeconds\":3600}"
+                            ]
+                          ]
+                        },
+                        "loggingConfiguration": {
+                          "destinations": [
+                            {
+                              "cloudWatchLogsLogGroup": {
+                                "logGroupArn": {
+                                  "Fn::GetAtt": [
+                                    "RotateSecretsRotateSecretSFLogGroupC2F1790C",
+                                    "Arn"
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "level": "ALL"
+                        },
+                        "stateMachineName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_RotateSecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_stepfunctions.CfnStateMachine",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.StateMachine",
+                  "version": "2.14.0"
+                }
+              },
+              "SFRotateSecrets": {
+                "id": "SFRotateSecrets",
+                "path": "CoreStack/RotateSecrets/SFRotateSecrets",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.72"
+            }
+          },
+          "CoreDashboard": {
+            "id": "CoreDashboard",
+            "path": "CoreStack/CoreDashboard",
+            "children": {
+              "MonitoringDashboard": {
+                "id": "MonitoringDashboard",
+                "path": "CoreStack/CoreDashboard/MonitoringDashboard",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "CoreStack/CoreDashboard/MonitoringDashboard/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::CloudWatch::Dashboard",
+                      "aws:cdk:cloudformation:props": {
+                        "dashboardBody": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{\"widgets\":[{\"type\":\"log\",\"width\":9,\"height\":8,\"x\":0,\"y\":0,\"properties\":{\"view\":\"pie\",\"title\":\"Verify JWT token\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"query\":\"SOURCE '/aws/cloudfront/function/",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken' | fields @timestamp, @message\\n| filter @message like /X_JWT_CHECK/\\n| parse \\\"* * *\\\" as a,b,result\\n| stats count(*) as RESULT by result as total\"}},{\"type\":\"metric\",\"width\":9,\"height\":8,\"x\":9,\"y\":0,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Rotate Secrets\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/States\",\"ExecutionsFailed\",\"StateMachineArn\",\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsRotateSecret12675F76",
+                                  "Name"
+                                ]
+                              },
+                              "\",{\"label\":\"Failure\",\"stat\":\"Sum\"}],[\"AWS/States\",\"ExecutionsSucceeded\",\"StateMachineArn\",\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsRotateSecret12675F76",
+                                  "Name"
+                                ]
+                              },
+                              "\",{\"label\":\"Success\",\"stat\":\"Sum\"}]],\"yAxis\":{},\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":6,\"height\":8,\"x\":18,\"y\":0,\"properties\":{\"view\":\"singleValue\",\"title\":\"Tokens checked\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/CloudFront\",\"FunctionInvocations\",\"FunctionName\",\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"Region\",\"Global\",{\"stat\":\"Sum\"}]],\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":24,\"height\":12,\"x\":0,\"y\":8,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Check JWT Token Function - Compute Utilization (Avg)\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/CloudFront\",\"FunctionComputeUtilization\",\"FunctionName\",\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"Region\",\"Global\",{\"label\":\"Compute usage\"}]],\"yAxis\":{},\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":24,\"height\":12,\"x\":0,\"y\":20,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Check JWT Token Function - Invocations (Sum)\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"stacked\":true,\"metrics\":[[\"AWS/CloudFront\",\"FunctionInvocations\",\"FunctionName\",\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"Region\",\"Global\",{\"label\":\"Compute usage\",\"stat\":\"Sum\"}]],\"yAxis\":{},\"setPeriodToTimeRange\":true}}]}"
+                            ]
+                          ]
+                        },
+                        "dashboardName": "SecureMediaStreamCoreModule"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_cloudwatch.CfnDashboard",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.Dashboard",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.72"
+            }
+          },
+          "CDKMetadata": {
+            "id": "CDKMetadata",
+            "path": "CoreStack/CDKMetadata",
+            "children": {
+              "Default": {
+                "id": "Default",
+                "path": "CoreStack/CDKMetadata/Default",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.14.0"
+                }
+              },
+              "Condition": {
+                "id": "Condition",
+                "path": "CoreStack/CDKMetadata/Condition",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnCondition",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.72"
+            }
+          },
+          "Service-principalMap": {
+            "id": "Service-principalMap",
+            "path": "CoreStack/Service-principalMap",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnMapping",
+              "version": "2.14.0"
+            }
+          }
+        },
+        "constructInfo": {
+          "fqn": "aws-cdk-lib.Stack",
+          "version": "2.14.0"
+        }
+      }
+    },
+    "constructInfo": {
+      "fqn": "aws-cdk-lib.App",
+      "version": "2.14.0"
+    }
+  }
+}

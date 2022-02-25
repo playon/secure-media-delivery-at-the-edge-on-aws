@@ -1,0 +1,196 @@
+{
+  "version": "16.0.0",
+  "artifacts": {
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    },
+    "CoreStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "CoreStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "CoreStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "CoreStack.template.json",
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/222fa0ddddc8cbfc61cbdbaa3fbed40dd4102837a6afca0f41dc9edd306aa81e.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "CoreStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "CoreStack.assets"
+      ],
+      "metadata": {
+        "/CoreStack/Function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "Function76856677"
+          }
+        ],
+        "/CoreStack/Secrets/Primary/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsPrimaryB2FD59FF"
+          }
+        ],
+        "/CoreStack/Secrets/Secondary/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsSecondaryBE68E89A"
+          }
+        ],
+        "/CoreStack/Secrets/Temporary/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsTemporary49A96AA2"
+          }
+        ],
+        "/CoreStack/Secrets/PrimarySecret": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsPrimarySecretEDCB1C24"
+          }
+        ],
+        "/CoreStack/Secrets/SecondarySecret": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsSecondarySecret91CCF14C"
+          }
+        ],
+        "/CoreStack/RotateSecrets/GenerateNewSecret/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateNewSecretServiceRole87E436EE"
+          }
+        ],
+        "/CoreStack/RotateSecrets/GenerateNewSecret/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateNewSecretServiceRoleDefaultPolicy095C457D"
+          }
+        ],
+        "/CoreStack/RotateSecrets/GenerateNewSecret/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateNewSecretC2931F7A"
+          }
+        ],
+        "/CoreStack/RotateSecrets/GenerateNewSecretLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateNewSecretLogs9DC62D0F"
+          }
+        ],
+        "/CoreStack/RotateSecrets/SwapSecrets/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSwapSecretsServiceRole0C5A9507"
+          }
+        ],
+        "/CoreStack/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1"
+          }
+        ],
+        "/CoreStack/RotateSecrets/SwapSecrets/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSwapSecretsD91628F3"
+          }
+        ],
+        "/CoreStack/RotateSecrets/KeyRotationLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsKeyRotationLogsA1A412E8"
+          }
+        ],
+        "/CoreStack/RotateSecrets/RotateSecretSFLogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateSecretSFLogGroupC2F1790C"
+          }
+        ],
+        "/CoreStack/RotateSecrets/RotateSecret/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateSecretRoleE274F410"
+          }
+        ],
+        "/CoreStack/RotateSecrets/RotateSecret/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateSecretRoleDefaultPolicy07F45AC5"
+          }
+        ],
+        "/CoreStack/RotateSecrets/RotateSecret/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateSecret12675F76"
+          }
+        ],
+        "/CoreStack/RotateSecrets/SFRotateSecrets": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSFRotateSecrets1D481A31"
+          }
+        ],
+        "/CoreStack/CoreDashboard/MonitoringDashboard/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CoreDashboardMonitoringDashboardB3A63980"
+          }
+        ],
+        "/CoreStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/CoreStack/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/CoreStack/Service-principalMap": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceprincipalMap"
+          }
+        ],
+        "/CoreStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/CoreStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "CoreStack"
+    }
+  }
+}

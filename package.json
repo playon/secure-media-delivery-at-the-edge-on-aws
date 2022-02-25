@@ -1,0 +1,29 @@
+{
+  "name": "cdk-solution",
+  "version": "0.1.0",
+  "bin": {
+    "cdk-solution": "bin/cdk-solution.js"
+  },
+  "scripts": {
+    "cleanup": "tsc --build ./ --clean && rm -rf node_modules && rm -f package-lock.json",
+    "cleanup:tsc": "tsc --build ./ --clean",
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest --coverage",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "@types/jest": "^26.0.10",
+    "@types/node": "10.17.27",
+    "jest": "^26.4.2",
+    "ts-jest": "^26.2.0",
+    "aws-cdk": "2.14.0",
+    "ts-node": "^9.0.0",
+    "typescript": "~3.9.7"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.14.0",
+    "constructs": "^10.0.0",
+    "source-map-support": "^0.5.16"
+  }
+}

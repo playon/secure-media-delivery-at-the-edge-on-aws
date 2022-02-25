@@ -1,0 +1,8 @@
+{
+  "app": "npx ts-node bin/cdk-solution.ts",
+  "context": {
+    "solution_id": "SO0195",
+    "solution_name": "SecureMedia",
+    "solution_version": "%%VERSION%%"
+  }
+}

@@ -44,12 +44,12 @@ export class CoreStack extends Stack {
     })
 
     const dashboard = new CWDashboard(this, 'CoreDashboard')
+
     dashboard.buildCoreDashboard({
-      cfFunctionName: checkToken.functionName,
-      rotateSecretsWorkflowName: rotateSecretsWorkflow.workflowName
+        cfFunctionName: checkToken.functionName,
+        rotateSecretsWorkflowName: rotateSecretsWorkflow.workflowName
+      }
+      )
     }
-    )
 
-
-  }
 }

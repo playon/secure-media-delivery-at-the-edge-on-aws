@@ -1153,6 +1153,1049 @@
           "fqn": "aws-cdk-lib.Stack",
           "version": "2.14.0"
         }
+      },
+      "SessionRevocationStack": {
+        "id": "SessionRevocationStack",
+        "path": "SessionRevocationStack",
+        "children": {
+          "RuleSfnSessions": {
+            "id": "RuleSfnSessions",
+            "path": "SessionRevocationStack/RuleSfnSessions",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "SessionRevocationStack/RuleSfnSessions/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Events::Rule",
+                  "aws:cdk:cloudformation:props": {
+                    "description": "Trigger StepFunction to detect sessions to invalidate",
+                    "scheduleExpression": "rate(5 minutes)",
+                    "state": "ENABLED"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_events.CfnRule",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_events.Rule",
+              "version": "2.14.0"
+            }
+          },
+          "MyCfnRuleGroup": {
+            "id": "MyCfnRuleGroup",
+            "path": "SessionRevocationStack/MyCfnRuleGroup",
+            "attributes": {
+              "aws:cdk:cloudformation:type": "AWS::WAFv2::RuleGroup",
+              "aws:cdk:cloudformation:props": {
+                "capacity": 99,
+                "scope": "CLOUDFRONT",
+                "visibilityConfig": {
+                  "cloudWatchMetricsEnabled": false,
+                  "metricName": "metricName",
+                  "sampledRequestsEnabled": false
+                },
+                "description": "Revoked sessions",
+                "name": "RevokedSessions",
+                "rules": []
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_wafv2.CfnRuleGroup",
+              "version": "2.14.0"
+            }
+          },
+          "CompromisedSessions": {
+            "id": "CompromisedSessions",
+            "path": "SessionRevocationStack/CompromisedSessions",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "SessionRevocationStack/CompromisedSessions/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                  "aws:cdk:cloudformation:props": {
+                    "keySchema": [
+                      {
+                        "attributeName": "sessionid",
+                        "keyType": "HASH"
+                      }
+                    ],
+                    "attributeDefinitions": [
+                      {
+                        "attributeName": "sessionid",
+                        "attributeType": "S"
+                      }
+                    ],
+                    "billingMode": "PAY_PER_REQUEST",
+                    "streamSpecification": {
+                      "streamViewType": "NEW_AND_OLD_IMAGES"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                  "version": "2.14.0"
+                }
+              },
+              "ScalingRole": {
+                "id": "ScalingRole",
+                "path": "SessionRevocationStack/CompromisedSessions/ScalingRole",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.Resource",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+              "version": "2.14.0"
+            }
+          },
+          "ReadStream": {
+            "id": "ReadStream",
+            "path": "SessionRevocationStack/ReadStream",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "SessionRevocationStack/ReadStream/ServiceRole",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "SessionRevocationStack/ReadStream/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "SessionRevocationStack/ReadStream/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "SessionRevocationStack/ReadStream/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "wafv2:GetRuleGroup",
+                                    "wafv2:UpdateRuleGroup",
+                                    "wafv2:ListRuleGroups"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": "arn:aws:wafv2:us-east-1:867201269000:*"
+                                },
+                                {
+                                  "Action": [
+                                    "sqs:SendMessage",
+                                    "sqs:GetQueueAttributes",
+                                    "sqs:GetQueueUrl"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": {
+                                    "Fn::GetAtt": [
+                                      "deadLetterQueue3F848E28",
+                                      "Arn"
+                                    ]
+                                  }
+                                },
+                                {
+                                  "Action": "dynamodb:ListStreams",
+                                  "Effect": "Allow",
+                                  "Resource": "*"
+                                },
+                                {
+                                  "Action": [
+                                    "dynamodb:DescribeStream",
+                                    "dynamodb:GetRecords",
+                                    "dynamodb:GetShardIterator"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": {
+                                    "Fn::GetAtt": [
+                                      "CompromisedSessions980710B1",
+                                      "StreamArn"
+                                    ]
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "ReadStreamServiceRoleDefaultPolicy1E7F220C",
+                            "roles": [
+                              {
+                                "Ref": "ReadStreamServiceRole83896EAE"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.14.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "SessionRevocationStack/ReadStream/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "SessionRevocationStack/ReadStream/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "SessionRevocationStack/ReadStream/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.14.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "SessionRevocationStack/ReadStream/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": "cdk-hnb659fds-assets-867201269000-us-east-1",
+                      "s3Key": "941255c7be923fa41a9bcd8d580f1a8275676e9984c9fdb4039c0a9a3dbf670c.zip"
+                    },
+                    "role": {
+                      "Fn::GetAtt": [
+                        "ReadStreamServiceRole83896EAE",
+                        "Arn"
+                      ]
+                    },
+                    "environment": {
+                      "variables": {
+                        "RULE_GROUP_ID": {
+                          "Fn::GetAtt": [
+                            "MyCfnRuleGroup",
+                            "Id"
+                          ]
+                        },
+                        "RULE_GROUP_NAME": "RevokedSessions"
+                      }
+                    },
+                    "handler": "index.lambda_handler",
+                    "runtime": "python3.7"
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.14.0"
+                }
+              },
+              "DynamoDBEventSource:SessionRevocationStackCompromisedSessionsA9400321": {
+                "id": "DynamoDBEventSource:SessionRevocationStackCompromisedSessionsA9400321",
+                "path": "SessionRevocationStack/ReadStream/DynamoDBEventSource:SessionRevocationStackCompromisedSessionsA9400321",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "SessionRevocationStack/ReadStream/DynamoDBEventSource:SessionRevocationStackCompromisedSessionsA9400321/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::EventSourceMapping",
+                      "aws:cdk:cloudformation:props": {
+                        "functionName": {
+                          "Ref": "ReadStream7E2BE33B"
+                        },
+                        "batchSize": 5,
+                        "bisectBatchOnFunctionError": true,
+                        "destinationConfig": {
+                          "onFailure": {
+                            "destination": {
+                              "Fn::GetAtt": [
+                                "deadLetterQueue3F848E28",
+                                "Arn"
+                              ]
+                            }
+                          }
+                        },
+                        "eventSourceArn": {
+                          "Fn::GetAtt": [
+                            "CompromisedSessions980710B1",
+                            "StreamArn"
+                          ]
+                        },
+                        "maximumRetryAttempts": 10,
+                        "startingPosition": "TRIM_HORIZON"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnEventSourceMapping",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.EventSourceMapping",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
+              "version": "2.14.0"
+            }
+          },
+          "ReadStreamLogs": {
+            "id": "ReadStreamLogs",
+            "path": "SessionRevocationStack/ReadStreamLogs",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "SessionRevocationStack/ReadStreamLogs/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                  "aws:cdk:cloudformation:props": {
+                    "logGroupName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          "/aws/lambda/",
+                          {
+                            "Ref": "ReadStream7E2BE33B"
+                          }
+                        ]
+                      ]
+                    },
+                    "retentionInDays": 30
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+              "version": "2.14.0"
+            }
+          },
+          "deadLetterQueue": {
+            "id": "deadLetterQueue",
+            "path": "SessionRevocationStack/deadLetterQueue",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "SessionRevocationStack/deadLetterQueue/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::SQS::Queue",
+                  "aws:cdk:cloudformation:props": {}
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_sqs.CfnQueue",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_sqs.Queue",
+              "version": "2.14.0"
+            }
+          },
+          "GetSessions": {
+            "id": "GetSessions",
+            "path": "SessionRevocationStack/GetSessions",
+            "children": {
+              "AthenaTable": {
+                "id": "AthenaTable",
+                "path": "SessionRevocationStack/GetSessions/AthenaTable",
+                "children": {
+                  "AccessLogsBucket": {
+                    "id": "AccessLogsBucket",
+                    "path": "SessionRevocationStack/GetSessions/AthenaTable/AccessLogsBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "MyDatabase": {
+                    "id": "MyDatabase",
+                    "path": "SessionRevocationStack/GetSessions/AthenaTable/MyDatabase",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Glue::Database",
+                      "aws:cdk:cloudformation:props": {
+                        "catalogId": "867201269000",
+                        "databaseInput": {
+                          "description": "Glue database cloudfront_logs_database",
+                          "name": "cloudfront_logs_database"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_glue.CfnDatabase",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "CfAaccessLogs": {
+                    "id": "CfAaccessLogs",
+                    "path": "SessionRevocationStack/GetSessions/AthenaTable/CfAaccessLogs",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Glue::Table",
+                      "aws:cdk:cloudformation:props": {
+                        "catalogId": "867201269000",
+                        "databaseName": "cloudfront_logs_database",
+                        "tableInput": {
+                          "name": "cf_access_logs",
+                          "description": "CloudFront access logs",
+                          "tableType": "EXTERNAL_TABLE",
+                          "parameters": {
+                            "skip.header.line.count": "2"
+                          },
+                          "storageDescriptor": {
+                            "location": "s3://mybucket/",
+                            "inputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "outputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "compressed": false,
+                            "serdeInfo": {
+                              "serializationLibrary": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
+                              "parameters": {
+                                "field.delim": "\t"
+                              }
+                            },
+                            "columns": [
+                              {
+                                "name": "date",
+                                "type": "date"
+                              },
+                              {
+                                "name": "time",
+                                "type": "string"
+                              },
+                              {
+                                "name": "location",
+                                "type": "string"
+                              },
+                              {
+                                "name": "bytes",
+                                "type": "bigint"
+                              },
+                              {
+                                "name": "request_ip",
+                                "type": "string"
+                              },
+                              {
+                                "name": "method",
+                                "type": "string"
+                              },
+                              {
+                                "name": "host",
+                                "type": "string"
+                              },
+                              {
+                                "name": "uri",
+                                "type": "string"
+                              },
+                              {
+                                "name": "status",
+                                "type": "string"
+                              },
+                              {
+                                "name": "referer",
+                                "type": "string"
+                              },
+                              {
+                                "name": "user_agent",
+                                "type": "string"
+                              },
+                              {
+                                "name": "query_string",
+                                "type": "string"
+                              },
+                              {
+                                "name": "cookie",
+                                "type": "string"
+                              },
+                              {
+                                "name": "result_type",
+                                "type": "string"
+                              },
+                              {
+                                "name": "request_id",
+                                "type": "string"
+                              },
+                              {
+                                "name": "host_header",
+                                "type": "string"
+                              },
+                              {
+                                "name": "request_protocol",
+                                "type": "string"
+                              },
+                              {
+                                "name": "request_bytes",
+                                "type": "bigint"
+                              },
+                              {
+                                "name": "time_taken",
+                                "type": "float"
+                              },
+                              {
+                                "name": "xforwarded_for",
+                                "type": "string"
+                              },
+                              {
+                                "name": "ssl_protocol",
+                                "type": "string"
+                              },
+                              {
+                                "name": "ssl_cipher",
+                                "type": "string"
+                              },
+                              {
+                                "name": "response_result_type",
+                                "type": "string"
+                              },
+                              {
+                                "name": "http_version",
+                                "type": "string"
+                              },
+                              {
+                                "name": "fle_status",
+                                "type": "string"
+                              },
+                              {
+                                "name": "fle_encrypted_fields",
+                                "type": "int"
+                              },
+                              {
+                                "name": "c_port",
+                                "type": "int"
+                              },
+                              {
+                                "name": "time_to_first_byte",
+                                "type": "float"
+                              },
+                              {
+                                "name": "x_edge_detailed_result_type",
+                                "type": "string"
+                              },
+                              {
+                                "name": "sc_content_type",
+                                "type": "string"
+                              },
+                              {
+                                "name": "sc_content_len",
+                                "type": "string"
+                              },
+                              {
+                                "name": "sc_range_start",
+                                "type": "bigint"
+                              },
+                              {
+                                "name": "sc_range_end",
+                                "type": "bigint"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_glue.CfnTable",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "constructs.Construct",
+                  "version": "10.0.72"
+                }
+              },
+              "ResultsBucket": {
+                "id": "ResultsBucket",
+                "path": "SessionRevocationStack/GetSessions/ResultsBucket",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "SessionRevocationStack/GetSessions/ResultsBucket/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::S3::Bucket",
+                      "aws:cdk:cloudformation:props": {}
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.CfnBucket",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3.Bucket",
+                  "version": "2.14.0"
+                }
+              },
+              "Start Athena Query": {
+                "id": "Start Athena Query",
+                "path": "SessionRevocationStack/GetSessions/Start Athena Query",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.AthenaStartQueryExecution",
+                  "version": "2.14.0"
+                }
+              },
+              "Get Query Results": {
+                "id": "Get Query Results",
+                "path": "SessionRevocationStack/GetSessions/Get Query Results",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.AthenaGetQueryResults",
+                  "version": "2.14.0"
+                }
+              },
+              "Save to DynamoDB": {
+                "id": "Save to DynamoDB",
+                "path": "SessionRevocationStack/GetSessions/Save to DynamoDB",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.DynamoPutItem",
+                  "version": "2.14.0"
+                }
+              },
+              "Prepare Next Query Params": {
+                "id": "Prepare Next Query Params",
+                "path": "SessionRevocationStack/GetSessions/Prepare Next Query Params",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Pass",
+                  "version": "2.14.0"
+                }
+              },
+              "Has More Results?": {
+                "id": "Has More Results?",
+                "path": "SessionRevocationStack/GetSessions/Has More Results?",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Choice",
+                  "version": "2.14.0"
+                }
+              },
+              "Done": {
+                "id": "Done",
+                "path": "SessionRevocationStack/GetSessions/Done",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Succeed",
+                  "version": "2.14.0"
+                }
+              },
+              "Map State": {
+                "id": "Map State",
+                "path": "SessionRevocationStack/GetSessions/Map State",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Map",
+                  "version": "2.14.0"
+                }
+              },
+              "AthenaQuery": {
+                "id": "AthenaQuery",
+                "path": "SessionRevocationStack/GetSessions/AthenaQuery",
+                "children": {
+                  "Role": {
+                    "id": "Role",
+                    "path": "SessionRevocationStack/GetSessions/AthenaQuery/Role",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "SessionRevocationStack/GetSessions/AthenaQuery/Role/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "states.us-east-1.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.14.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "SessionRevocationStack/GetSessions/AthenaQuery/Role/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "SessionRevocationStack/GetSessions/AthenaQuery/Role/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "athena:getDataCatalog",
+                                        "athena:startQueryExecution",
+                                        "athena:getQueryExecution"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              "arn:",
+                                              {
+                                                "Ref": "AWS::Partition"
+                                              },
+                                              ":athena:us-east-1:867201269000:datacatalog/AwsDataCatalog"
+                                            ]
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              "arn:",
+                                              {
+                                                "Ref": "AWS::Partition"
+                                              },
+                                              ":athena:us-east-1:867201269000:workgroup/primary"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "Action": [
+                                        "s3:CreateBucket",
+                                        "s3:ListBucket",
+                                        "s3:GetBucketLocation",
+                                        "s3:GetObject"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    },
+                                    {
+                                      "Action": [
+                                        "s3:AbortMultipartUpload",
+                                        "s3:ListBucketMultipartUploads",
+                                        "s3:ListMultipartUploadParts",
+                                        "s3:PutObject"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::Join": [
+                                          "",
+                                          [
+                                            "arn:aws:s3:::",
+                                            {
+                                              "Ref": "GetSessionsResultsBucketC4AF805B"
+                                            },
+                                            "/results/*"
+                                          ]
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "Action": "lakeformation:GetDataAccess",
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    },
+                                    {
+                                      "Action": [
+                                        "glue:BatchCreatePartition",
+                                        "glue:BatchDeletePartition",
+                                        "glue:BatchDeleteTable",
+                                        "glue:BatchGetPartition",
+                                        "glue:CreateDatabase",
+                                        "glue:CreatePartition",
+                                        "glue:CreateTable",
+                                        "glue:DeleteDatabase",
+                                        "glue:DeletePartition",
+                                        "glue:DeleteTable",
+                                        "glue:GetDatabase",
+                                        "glue:GetDatabases",
+                                        "glue:GetPartition",
+                                        "glue:GetPartitions",
+                                        "glue:GetTable",
+                                        "glue:GetTables",
+                                        "glue:UpdateDatabase",
+                                        "glue:UpdatePartition",
+                                        "glue:UpdateTable"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              "arn:",
+                                              {
+                                                "Ref": "AWS::Partition"
+                                              },
+                                              ":glue:us-east-1:867201269000:catalog"
+                                            ]
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              "arn:",
+                                              {
+                                                "Ref": "AWS::Partition"
+                                              },
+                                              ":glue:us-east-1:867201269000:database/cloudfront_logs_database"
+                                            ]
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              "arn:",
+                                              {
+                                                "Ref": "AWS::Partition"
+                                              },
+                                              ":glue:us-east-1:867201269000:table/cloudfront_logs_database/*"
+                                            ]
+                                          ]
+                                        },
+                                        {
+                                          "Fn::Join": [
+                                            "",
+                                            [
+                                              "arn:",
+                                              {
+                                                "Ref": "AWS::Partition"
+                                              },
+                                              ":glue:us-east-1:867201269000:userDefinedFunction/cloudfront_logs_database/*"
+                                            ]
+                                          ]
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "Action": "athena:getQueryResults",
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    },
+                                    {
+                                      "Action": "s3:GetObject",
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    },
+                                    {
+                                      "Action": "dynamodb:PutItem",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::Join": [
+                                          "",
+                                          [
+                                            "arn:",
+                                            {
+                                              "Ref": "AWS::Partition"
+                                            },
+                                            ":dynamodb:us-east-1:867201269000:table/",
+                                            {
+                                              "Ref": "CompromisedSessions980710B1"
+                                            }
+                                          ]
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "GetSessionsAthenaQueryRoleDefaultPolicy9DC22209",
+                                "roles": [
+                                  {
+                                    "Ref": "GetSessionsAthenaQueryRole187348D5"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.14.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.14.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.14.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "SessionRevocationStack/GetSessions/AthenaQuery/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::StepFunctions::StateMachine",
+                      "aws:cdk:cloudformation:props": {
+                        "roleArn": {
+                          "Fn::GetAtt": [
+                            "GetSessionsAthenaQueryRole187348D5",
+                            "Arn"
+                          ]
+                        },
+                        "definitionString": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{\"StartAt\":\"Start Athena Query\",\"States\":{\"Start Athena Query\":{\"Next\":\"Get Query Results\",\"Type\":\"Task\",\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::athena:startQueryExecution.sync\",\"Parameters\":{\"QueryString\":\"SELECT uri FROM cf_access_logs limit 11\",\"QueryExecutionContext\":{\"Database\":\"cloudfront_logs_database\"},\"ResultConfiguration\":{\"OutputLocation\":\"s3://",
+                              {
+                                "Ref": "GetSessionsResultsBucketC4AF805B"
+                              },
+                              "/results/\"}}},\"Get Query Results\":{\"Next\":\"Map State\",\"Type\":\"Task\",\"ResultPath\":\"$.GetQueryResults\",\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::athena:getQueryResults\",\"Parameters\":{\"QueryExecutionId.$\":\"$.QueryExecution.QueryExecutionId\"}},\"Prepare Next Query Params\":{\"Type\":\"Pass\",\"ResultPath\":\"$.StartQueryParams\",\"Parameters\":{\"QueryExecutionId.$\":\"$.StartQueryParams.QueryExecutionId\",\"NextToken.$\":\"$.GetQueryResults.NextToken\"},\"Next\":\"Get Query Results\"},\"Has More Results?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.GetQueryResults.NextToken\",\"IsPresent\":true,\"Next\":\"Prepare Next Query Params\"}],\"Default\":\"Done\"},\"Map State\":{\"Type\":\"Map\",\"ResultPath\":null,\"Next\":\"Has More Results?\",\"InputPath\":\"$.GetQueryResults.ResultSet.Rows[1:]\",\"Iterator\":{\"StartAt\":\"Save to DynamoDB\",\"States\":{\"Save to DynamoDB\":{\"End\":true,\"Type\":\"Task\",\"InputPath\":\"$.Data[0].VarCharValue\",\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::dynamodb:putItem\",\"Parameters\":{\"Item\":{\"sessionid\":{\"S.$\":\"$\"}},\"TableName\":\"",
+                              {
+                                "Ref": "CompromisedSessions980710B1"
+                              },
+                              "\"}}}},\"MaxConcurrency\":1},\"Done\":{\"Type\":\"Succeed\"}},\"TimeoutSeconds\":3600}"
+                            ]
+                          ]
+                        },
+                        "stateMachineName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_DetectSessions"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_stepfunctions.CfnStateMachine",
+                      "version": "2.14.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.StateMachine",
+                  "version": "2.14.0"
+                }
+              },
+              "SessionInvalidateName": {
+                "id": "SessionInvalidateName",
+                "path": "SessionRevocationStack/GetSessions/SessionInvalidateName",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.72"
+            }
+          },
+          "TableName": {
+            "id": "TableName",
+            "path": "SessionRevocationStack/TableName",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.14.0"
+            }
+          },
+          "CDKMetadata": {
+            "id": "CDKMetadata",
+            "path": "SessionRevocationStack/CDKMetadata",
+            "children": {
+              "Default": {
+                "id": "Default",
+                "path": "SessionRevocationStack/CDKMetadata/Default",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.14.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.72"
+            }
+          }
+        },
+        "constructInfo": {
+          "fqn": "aws-cdk-lib.Stack",
+          "version": "2.14.0"
+        }
       }
     },
     "constructInfo": {

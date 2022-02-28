@@ -98,5 +98,5 @@ const getConfiguration = async (): Promise<IConfiguration> => {
 
   // Writing the configuration.
   fs.writeFileSync(filePath, data);
-  console.log(`\nThe configuration has been successfully written to ${filePath}.\nYou can now deploy the Prototype Engagement Pack by running :\n\nnpx cdk deploy`);
+  console.log(`\nThe configuration has been successfully written to ${filePath}.\nYou can now deploy the solution by running :\n\nnpx cdk deploy`);
 })();

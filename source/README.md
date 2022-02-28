@@ -1,7 +1,9 @@
 # Secure media stream delivery
 
 AWS Solutions Implementation for Secure Media Stream Delivery at
-the Edge, served by Amazon CloudFront CDN. Customers can deploy the solution to protect their video stream
+the Edge, served by Amazon CloudFront CDN.
+
+Customers can deploy the solution to protect their video stream
 from unauthorize access by adding a cookieless tokenization embedded in the URL path.
 
 Current version: **1.0.0**

@@ -5,12 +5,15 @@
     "cdk-solution": "bin/cdk-solution.js"
   },
   "scripts": {
-    "cleanup": "tsc --build ./ --clean && rm -rf node_modules && rm -f package-lock.json",
-    "cleanup:tsc": "tsc --build ./ --clean",
-    "build": "tsc",
-    "watch": "tsc -w",
-    "test": "jest --coverage",
-    "cdk": "cdk",
+    "postinstall": "npm run build",
+    "build": "npx tsc",
+    "watch": "npx tsc -w",
+    "test": "npx jest",
+    "clean": "rm -rf dist/",
+    "lint": "npx eslint .",
+    "audit": "npm audit && npx cdk synth | cfn_nag",
+    "bootstrap": "npx cdk bootstrap",
+    "deploy": "npx cdk deploy --all",
     "wizard": "node dist/bin/wizard/index.js"
   },
   "devDependencies": {

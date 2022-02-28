@@ -94,7 +94,7 @@ const getConfiguration = async (): Promise<IConfiguration> => {
   }
 
   // The path to the configuration file.
-  const filePath = path.resolve(__dirname, '..', '..', '..', 'prototype.context.json');
+  const filePath = path.resolve(__dirname, '..', '..', '..', 'solution.context.json');
 
   // Writing the configuration.
   fs.writeFileSync(filePath, data);

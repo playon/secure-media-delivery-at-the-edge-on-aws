@@ -6,7 +6,7 @@ package-lock.json
 node_modules
 !source/.typescript/lambda/**/*.js
 !source/lambda/**/*.js
-source/prototype.context.json
+source/solution.context.json
 # CDK asset staging directory
 .cdk.staging
 cdk.out

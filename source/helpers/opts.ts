@@ -14,7 +14,7 @@ let config = null;
 export const getOpts = async (): Promise<IConfiguration> => {
 
   try {
-    config = require('../prototype.context.json');
+    config = require('../solution.context.json');
   } catch (e) {
     console.error(`
       The 'prototype.context.json' configuration file could not be found.

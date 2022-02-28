@@ -19,7 +19,7 @@ Current version: **1.0.0**
 
 ## 🚀 Tutorial
 
-Before getting started, verify that your configuration matches the [list of requirements](#-requirements) for the Prototype Engagement Pack. Once done, simply open this project on your computer using your terminal.
+Before getting started, verify that your configuration matches the [list of requirements](#-requirements). Once done, simply open this project on your computer using your terminal.
 
 You first need to install the dependencies of the project to make it ready to use. To do so, simply run the below command.
 
@@ -34,7 +34,7 @@ You then run the built-in wizard which will prompt you with questions on the typ
 npm run wizard
 ```
 
-The wizard will then generate a configuration in the `prototype.context.json` file that is at the root of this repository. You will first need to ensure that the AWS CDK has been boostrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.
+The wizard will then generate a configuration in the `solution.context.json` file that is at the root of this repository. You will first need to ensure that the AWS CDK has been boostrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.
 
 ```bash
 npx cdk bootstrap
@@ -42,7 +42,7 @@ npx cdk bootstrap
 
 > You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the boostrap process must be done for each AWS region.
 
-Once the sandbox account has been bootstrapped, you can deploy the Prototype Engagement Pack using the following command.
+Once the account has been bootstrapped, you can deploy the solution using the following command.
 
 ```bash
 npx cdk deploy
@@ -50,7 +50,6 @@ npx cdk deploy
 
 > AWS CDK will create and deploy a CloudFormation template on the sandbox account which you can view in the [CloudFormation console](https://console.aws.amazon.com/cloudformation/home) in the selected region.
 
-Whenever the prototype comes to an end, you need to remove the Prototype Engagement Pack from the sandbox account and all the resources it has deployed on the account. To do so, you use the following command which will destroy the associated CloudFormation stack.
 
 ```bash
 npx cdk destroy
@@ -80,7 +79,7 @@ The Secure media stream delivery solution is a configurable and modular [AWS CDK
 
 ## 📘 Architecture
 
-Below is the architecture diagram describing the resources that the Prototype Engagement Pack can create depending on the selected options.
+Below is the architecture diagram.
 
 <div align="center">
   <img src="assets/diagrams/architecture.drawio.png" />

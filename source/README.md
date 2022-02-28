@@ -24,6 +24,7 @@ Before getting started, verify that your configuration matches the [list of requ
 You first need to install the dependencies of the project to make it ready to use. To do so, simply run the below command.
 
 ```bash
+cd source
 npm install
 ```
 

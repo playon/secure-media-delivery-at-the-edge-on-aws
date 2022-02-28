@@ -1,5 +1,8 @@
-# MY_TITLE
-MY_DESC
+# Secure media stream delivery
+
+AWS Solutions Implementation for Secure Media Stream Delivery at
+the Edge, served by Amazon CloudFront CDN. Customers can deploy the solution to protect their video stream
+from unauthorize access by adding a cookieless tokenization embedded in the URL path.
 
 The cdk-solution-init-pkg provides a reference for building solutions using the AWS Cloud Development Kit (CDK). This package contains basic build scripts, sample source code implementations, and other essentials for creating a solution from scratch.
 

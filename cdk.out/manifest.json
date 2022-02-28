@@ -191,6 +191,161 @@
         ]
       },
       "displayName": "CoreStack"
+    },
+    "SessionRevocationStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "SessionRevocationStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "SessionRevocationStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://867201269000/us-east-1",
+      "properties": {
+        "templateFile": "SessionRevocationStack.template.json",
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::867201269000:role/cdk-hnb659fds-deploy-role-867201269000-us-east-1",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::867201269000:role/cdk-hnb659fds-cfn-exec-role-867201269000-us-east-1",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-867201269000-us-east-1/6fc15b0daf94654912f6efac811adc1f9aed9cc28f6e012e7a90099368276bb4.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "SessionRevocationStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::867201269000:role/cdk-hnb659fds-lookup-role-867201269000-us-east-1",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "SessionRevocationStack.assets"
+      ],
+      "metadata": {
+        "/SessionRevocationStack/RuleSfnSessions/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RuleSfnSessionsB8456F76"
+          }
+        ],
+        "/SessionRevocationStack/MyCfnRuleGroup": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MyCfnRuleGroup"
+          }
+        ],
+        "/SessionRevocationStack/CompromisedSessions/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CompromisedSessions980710B1"
+          }
+        ],
+        "/SessionRevocationStack/ReadStream/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ReadStreamServiceRole83896EAE"
+          }
+        ],
+        "/SessionRevocationStack/ReadStream/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ReadStreamServiceRoleDefaultPolicy1E7F220C"
+          }
+        ],
+        "/SessionRevocationStack/ReadStream/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ReadStream7E2BE33B"
+          }
+        ],
+        "/SessionRevocationStack/ReadStream/DynamoDBEventSource:SessionRevocationStackCompromisedSessionsA9400321/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ReadStreamDynamoDBEventSourceSessionRevocationStackCompromisedSessionsA94003217C8BEEFC"
+          }
+        ],
+        "/SessionRevocationStack/ReadStreamLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ReadStreamLogsA45C6E27"
+          }
+        ],
+        "/SessionRevocationStack/deadLetterQueue/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "deadLetterQueue3F848E28"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/AthenaTable/MyDatabase": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsAthenaTableMyDatabaseC73A0691"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/AthenaTable/CfAaccessLogs": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsAthenaTableCfAaccessLogs00B0CDED"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/ResultsBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsResultsBucketC4AF805B"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/AthenaQuery/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsAthenaQueryRole187348D5"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/AthenaQuery/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsAthenaQueryRoleDefaultPolicy9DC22209"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/AthenaQuery/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsAthenaQuery7A8AF966"
+          }
+        ],
+        "/SessionRevocationStack/GetSessions/SessionInvalidateName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "GetSessionsSessionInvalidateNameC37CF549"
+          }
+        ],
+        "/SessionRevocationStack/TableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "TableName"
+          }
+        ],
+        "/SessionRevocationStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/SessionRevocationStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/SessionRevocationStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "SessionRevocationStack"
     }
   }
 }

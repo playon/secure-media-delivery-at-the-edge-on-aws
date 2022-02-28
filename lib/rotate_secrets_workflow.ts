@@ -54,7 +54,7 @@ export class RotateSecretsWorkflow extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    //enerate secret
+    //Generate secret
     const generateNewSecret = new lambda.Function(this, 'GenerateNewSecret',{
         functionName: Aws.STACK_NAME + '_GenerateNewSecret',
         runtime: lambda.Runtime.PYTHON_3_7,

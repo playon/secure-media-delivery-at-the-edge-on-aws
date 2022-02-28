@@ -1,0 +1,796 @@
+{
+  "Resources": {
+    "RuleSfnSessionsB8456F76": {
+      "Type": "AWS::Events::Rule",
+      "Properties": {
+        "Description": "Trigger StepFunction to detect sessions to invalidate",
+        "ScheduleExpression": "rate(5 minutes)",
+        "State": "ENABLED"
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/RuleSfnSessions/Resource"
+      }
+    },
+    "MyCfnRuleGroup": {
+      "Type": "AWS::WAFv2::RuleGroup",
+      "Properties": {
+        "Capacity": 99,
+        "Scope": "CLOUDFRONT",
+        "VisibilityConfig": {
+          "CloudWatchMetricsEnabled": false,
+          "MetricName": "metricName",
+          "SampledRequestsEnabled": false
+        },
+        "Description": "Revoked sessions",
+        "Name": "RevokedSessions",
+        "Rules": []
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/MyCfnRuleGroup"
+      }
+    },
+    "CompromisedSessions980710B1": {
+      "Type": "AWS::DynamoDB::Table",
+      "Properties": {
+        "KeySchema": [
+          {
+            "AttributeName": "sessionid",
+            "KeyType": "HASH"
+          }
+        ],
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "sessionid",
+            "AttributeType": "S"
+          }
+        ],
+        "BillingMode": "PAY_PER_REQUEST",
+        "StreamSpecification": {
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        }
+      },
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain",
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/CompromisedSessions/Resource"
+      }
+    },
+    "ReadStreamServiceRole83896EAE": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/ReadStream/ServiceRole/Resource"
+      }
+    },
+    "ReadStreamServiceRoleDefaultPolicy1E7F220C": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "wafv2:GetRuleGroup",
+                "wafv2:UpdateRuleGroup",
+                "wafv2:ListRuleGroups"
+              ],
+              "Effect": "Allow",
+              "Resource": "arn:aws:wafv2:us-east-1:867201269000:*"
+            },
+            {
+              "Action": [
+                "sqs:SendMessage",
+                "sqs:GetQueueAttributes",
+                "sqs:GetQueueUrl"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "deadLetterQueue3F848E28",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": "dynamodb:ListStreams",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "CompromisedSessions980710B1",
+                  "StreamArn"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "ReadStreamServiceRoleDefaultPolicy1E7F220C",
+        "Roles": [
+          {
+            "Ref": "ReadStreamServiceRole83896EAE"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/ReadStream/ServiceRole/DefaultPolicy/Resource"
+      }
+    },
+    "ReadStream7E2BE33B": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": "cdk-hnb659fds-assets-867201269000-us-east-1",
+          "S3Key": "941255c7be923fa41a9bcd8d580f1a8275676e9984c9fdb4039c0a9a3dbf670c.zip"
+        },
+        "Role": {
+          "Fn::GetAtt": [
+            "ReadStreamServiceRole83896EAE",
+            "Arn"
+          ]
+        },
+        "Environment": {
+          "Variables": {
+            "RULE_GROUP_ID": {
+              "Fn::GetAtt": [
+                "MyCfnRuleGroup",
+                "Id"
+              ]
+            },
+            "RULE_GROUP_NAME": "RevokedSessions"
+          }
+        },
+        "Handler": "index.lambda_handler",
+        "Runtime": "python3.7"
+      },
+      "DependsOn": [
+        "ReadStreamServiceRoleDefaultPolicy1E7F220C",
+        "ReadStreamServiceRole83896EAE"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/ReadStream/Resource",
+        "aws:asset:path": "asset.941255c7be923fa41a9bcd8d580f1a8275676e9984c9fdb4039c0a9a3dbf670c",
+        "aws:asset:is-bundled": false,
+        "aws:asset:property": "Code"
+      }
+    },
+    "ReadStreamDynamoDBEventSourceSessionRevocationStackCompromisedSessionsA94003217C8BEEFC": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Properties": {
+        "FunctionName": {
+          "Ref": "ReadStream7E2BE33B"
+        },
+        "BatchSize": 5,
+        "BisectBatchOnFunctionError": true,
+        "DestinationConfig": {
+          "OnFailure": {
+            "Destination": {
+              "Fn::GetAtt": [
+                "deadLetterQueue3F848E28",
+                "Arn"
+              ]
+            }
+          }
+        },
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "CompromisedSessions980710B1",
+            "StreamArn"
+          ]
+        },
+        "MaximumRetryAttempts": 10,
+        "StartingPosition": "TRIM_HORIZON"
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/ReadStream/DynamoDBEventSource:SessionRevocationStackCompromisedSessionsA9400321/Resource"
+      }
+    },
+    "ReadStreamLogsA45C6E27": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "",
+            [
+              "/aws/lambda/",
+              {
+                "Ref": "ReadStream7E2BE33B"
+              }
+            ]
+          ]
+        },
+        "RetentionInDays": 30
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete",
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/ReadStreamLogs/Resource"
+      }
+    },
+    "deadLetterQueue3F848E28": {
+      "Type": "AWS::SQS::Queue",
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete",
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/deadLetterQueue/Resource"
+      }
+    },
+    "GetSessionsAthenaTableMyDatabaseC73A0691": {
+      "Type": "AWS::Glue::Database",
+      "Properties": {
+        "CatalogId": "867201269000",
+        "DatabaseInput": {
+          "Description": "Glue database cloudfront_logs_database",
+          "Name": "cloudfront_logs_database"
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/GetSessions/AthenaTable/MyDatabase"
+      }
+    },
+    "GetSessionsAthenaTableCfAaccessLogs00B0CDED": {
+      "Type": "AWS::Glue::Table",
+      "Properties": {
+        "CatalogId": "867201269000",
+        "DatabaseName": "cloudfront_logs_database",
+        "TableInput": {
+          "Description": "CloudFront access logs",
+          "Name": "cf_access_logs",
+          "Parameters": {
+            "skip.header.line.count": "2"
+          },
+          "StorageDescriptor": {
+            "Columns": [
+              {
+                "Name": "date",
+                "Type": "date"
+              },
+              {
+                "Name": "time",
+                "Type": "string"
+              },
+              {
+                "Name": "location",
+                "Type": "string"
+              },
+              {
+                "Name": "bytes",
+                "Type": "bigint"
+              },
+              {
+                "Name": "request_ip",
+                "Type": "string"
+              },
+              {
+                "Name": "method",
+                "Type": "string"
+              },
+              {
+                "Name": "host",
+                "Type": "string"
+              },
+              {
+                "Name": "uri",
+                "Type": "string"
+              },
+              {
+                "Name": "status",
+                "Type": "string"
+              },
+              {
+                "Name": "referer",
+                "Type": "string"
+              },
+              {
+                "Name": "user_agent",
+                "Type": "string"
+              },
+              {
+                "Name": "query_string",
+                "Type": "string"
+              },
+              {
+                "Name": "cookie",
+                "Type": "string"
+              },
+              {
+                "Name": "result_type",
+                "Type": "string"
+              },
+              {
+                "Name": "request_id",
+                "Type": "string"
+              },
+              {
+                "Name": "host_header",
+                "Type": "string"
+              },
+              {
+                "Name": "request_protocol",
+                "Type": "string"
+              },
+              {
+                "Name": "request_bytes",
+                "Type": "bigint"
+              },
+              {
+                "Name": "time_taken",
+                "Type": "float"
+              },
+              {
+                "Name": "xforwarded_for",
+                "Type": "string"
+              },
+              {
+                "Name": "ssl_protocol",
+                "Type": "string"
+              },
+              {
+                "Name": "ssl_cipher",
+                "Type": "string"
+              },
+              {
+                "Name": "response_result_type",
+                "Type": "string"
+              },
+              {
+                "Name": "http_version",
+                "Type": "string"
+              },
+              {
+                "Name": "fle_status",
+                "Type": "string"
+              },
+              {
+                "Name": "fle_encrypted_fields",
+                "Type": "int"
+              },
+              {
+                "Name": "c_port",
+                "Type": "int"
+              },
+              {
+                "Name": "time_to_first_byte",
+                "Type": "float"
+              },
+              {
+                "Name": "x_edge_detailed_result_type",
+                "Type": "string"
+              },
+              {
+                "Name": "sc_content_type",
+                "Type": "string"
+              },
+              {
+                "Name": "sc_content_len",
+                "Type": "string"
+              },
+              {
+                "Name": "sc_range_start",
+                "Type": "bigint"
+              },
+              {
+                "Name": "sc_range_end",
+                "Type": "bigint"
+              }
+            ],
+            "Compressed": false,
+            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+            "Location": "s3://mybucket/",
+            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+            "SerdeInfo": {
+              "Parameters": {
+                "field.delim": "\t"
+              },
+              "SerializationLibrary": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
+            }
+          },
+          "TableType": "EXTERNAL_TABLE"
+        }
+      },
+      "DependsOn": [
+        "GetSessionsAthenaTableMyDatabaseC73A0691"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/GetSessions/AthenaTable/CfAaccessLogs"
+      }
+    },
+    "GetSessionsResultsBucketC4AF805B": {
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain",
+      "DeletionPolicy": "Retain",
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/GetSessions/ResultsBucket/Resource"
+      }
+    },
+    "GetSessionsAthenaQueryRole187348D5": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "states.us-east-1.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        }
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/GetSessions/AthenaQuery/Role/Resource"
+      }
+    },
+    "GetSessionsAthenaQueryRoleDefaultPolicy9DC22209": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "athena:getDataCatalog",
+                "athena:startQueryExecution",
+                "athena:getQueryExecution"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":athena:us-east-1:867201269000:datacatalog/AwsDataCatalog"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":athena:us-east-1:867201269000:workgroup/primary"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": [
+                "s3:CreateBucket",
+                "s3:ListBucket",
+                "s3:GetBucketLocation",
+                "s3:GetObject"
+              ],
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "s3:AbortMultipartUpload",
+                "s3:ListBucketMultipartUploads",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:aws:s3:::",
+                    {
+                      "Ref": "GetSessionsResultsBucketC4AF805B"
+                    },
+                    "/results/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": "lakeformation:GetDataAccess",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "glue:BatchCreatePartition",
+                "glue:BatchDeletePartition",
+                "glue:BatchDeleteTable",
+                "glue:BatchGetPartition",
+                "glue:CreateDatabase",
+                "glue:CreatePartition",
+                "glue:CreateTable",
+                "glue:DeleteDatabase",
+                "glue:DeletePartition",
+                "glue:DeleteTable",
+                "glue:GetDatabase",
+                "glue:GetDatabases",
+                "glue:GetPartition",
+                "glue:GetPartitions",
+                "glue:GetTable",
+                "glue:GetTables",
+                "glue:UpdateDatabase",
+                "glue:UpdatePartition",
+                "glue:UpdateTable"
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":glue:us-east-1:867201269000:catalog"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":glue:us-east-1:867201269000:database/cloudfront_logs_database"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":glue:us-east-1:867201269000:table/cloudfront_logs_database/*"
+                    ]
+                  ]
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      "arn:",
+                      {
+                        "Ref": "AWS::Partition"
+                      },
+                      ":glue:us-east-1:867201269000:userDefinedFunction/cloudfront_logs_database/*"
+                    ]
+                  ]
+                }
+              ]
+            },
+            {
+              "Action": "athena:getQueryResults",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": "s3:GetObject",
+              "Effect": "Allow",
+              "Resource": "*"
+            },
+            {
+              "Action": "dynamodb:PutItem",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition"
+                    },
+                    ":dynamodb:us-east-1:867201269000:table/",
+                    {
+                      "Ref": "CompromisedSessions980710B1"
+                    }
+                  ]
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "GetSessionsAthenaQueryRoleDefaultPolicy9DC22209",
+        "Roles": [
+          {
+            "Ref": "GetSessionsAthenaQueryRole187348D5"
+          }
+        ]
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/GetSessions/AthenaQuery/Role/DefaultPolicy/Resource"
+      }
+    },
+    "GetSessionsAthenaQuery7A8AF966": {
+      "Type": "AWS::StepFunctions::StateMachine",
+      "Properties": {
+        "RoleArn": {
+          "Fn::GetAtt": [
+            "GetSessionsAthenaQueryRole187348D5",
+            "Arn"
+          ]
+        },
+        "DefinitionString": {
+          "Fn::Join": [
+            "",
+            [
+              "{\"StartAt\":\"Start Athena Query\",\"States\":{\"Start Athena Query\":{\"Next\":\"Get Query Results\",\"Type\":\"Task\",\"Resource\":\"arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":states:::athena:startQueryExecution.sync\",\"Parameters\":{\"QueryString\":\"SELECT uri FROM cf_access_logs limit 11\",\"QueryExecutionContext\":{\"Database\":\"cloudfront_logs_database\"},\"ResultConfiguration\":{\"OutputLocation\":\"s3://",
+              {
+                "Ref": "GetSessionsResultsBucketC4AF805B"
+              },
+              "/results/\"}}},\"Get Query Results\":{\"Next\":\"Map State\",\"Type\":\"Task\",\"ResultPath\":\"$.GetQueryResults\",\"Resource\":\"arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":states:::athena:getQueryResults\",\"Parameters\":{\"QueryExecutionId.$\":\"$.QueryExecution.QueryExecutionId\"}},\"Prepare Next Query Params\":{\"Type\":\"Pass\",\"ResultPath\":\"$.StartQueryParams\",\"Parameters\":{\"QueryExecutionId.$\":\"$.StartQueryParams.QueryExecutionId\",\"NextToken.$\":\"$.GetQueryResults.NextToken\"},\"Next\":\"Get Query Results\"},\"Has More Results?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.GetQueryResults.NextToken\",\"IsPresent\":true,\"Next\":\"Prepare Next Query Params\"}],\"Default\":\"Done\"},\"Map State\":{\"Type\":\"Map\",\"ResultPath\":null,\"Next\":\"Has More Results?\",\"InputPath\":\"$.GetQueryResults.ResultSet.Rows[1:]\",\"Iterator\":{\"StartAt\":\"Save to DynamoDB\",\"States\":{\"Save to DynamoDB\":{\"End\":true,\"Type\":\"Task\",\"InputPath\":\"$.Data[0].VarCharValue\",\"Resource\":\"arn:",
+              {
+                "Ref": "AWS::Partition"
+              },
+              ":states:::dynamodb:putItem\",\"Parameters\":{\"Item\":{\"sessionid\":{\"S.$\":\"$\"}},\"TableName\":\"",
+              {
+                "Ref": "CompromisedSessions980710B1"
+              },
+              "\"}}}},\"MaxConcurrency\":1},\"Done\":{\"Type\":\"Succeed\"}},\"TimeoutSeconds\":3600}"
+            ]
+          ]
+        },
+        "StateMachineName": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "_DetectSessions"
+            ]
+          ]
+        }
+      },
+      "DependsOn": [
+        "GetSessionsAthenaQueryRoleDefaultPolicy9DC22209",
+        "GetSessionsAthenaQueryRole187348D5"
+      ],
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/GetSessions/AthenaQuery/Resource"
+      }
+    },
+    "CDKMetadata": {
+      "Type": "AWS::CDK::Metadata",
+      "Properties": {
+        "Analytics": "v2:deflate64:H4sIAAAAAAAA/2VSXU8DIRD8Lb5vUavxvV82Jhpr63vDcdsrvTs4D2htCP/dBa5q9Glnd2DYmTBmt/fs5oqfzEiU9aiRBfMby0UNNNp6PKKyhvm1axBmOxVrgBPfHcdsaJe9dh2UZ8VbXdLtd17kswkEaHhblJz5R6eElVpF6hsvov5Gu17gC+86qapI/58GkLylNfSwRqwr3Uhxjm1GAczdlhuDtPAkFuqZnzpRo51yg5BhvJAR7aYrMvesq2yCmAsmsQ+i3hy69GICAarGIfPUz7nlRRT9MWosdrvBmNlabmoSmNg9Kk6J9pYk+vPiE4VL1jOzxDxfo3GNNTBPOa6cfbLY/tFkfkX2YLbXUiBsnBCIJVBCQPqWohJ7qdJGv/sQgMRTmJBiIbIagn51tnMpkcuRAEqXyA7m+kgf4/aB/sbBSDnqnbKyRbbO9Qs57lDhNwIAAA=="
+      },
+      "Metadata": {
+        "aws:cdk:path": "SessionRevocationStack/CDKMetadata/Default"
+      }
+    }
+  },
+  "Outputs": {
+    "GetSessionsSessionInvalidateNameC37CF549": {
+      "Description": "State machine used to detect sessions to invalidate",
+      "Value": {
+        "Fn::GetAtt": [
+          "GetSessionsAthenaQuery7A8AF966",
+          "Name"
+        ]
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "StateMachineName"
+            ]
+          ]
+        }
+      }
+    },
+    "TableName": {
+      "Description": "DynamoDB table name used to keep sessions to be invalidated",
+      "Value": {
+        "Ref": "CompromisedSessions980710B1"
+      },
+      "Export": {
+        "Name": {
+          "Fn::Join": [
+            "",
+            [
+              {
+                "Ref": "AWS::StackName"
+              },
+              "TableName"
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "Parameters": {
+    "BootstrapVersion": {
+      "Type": "AWS::SSM::Parameter::Value<String>",
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+    }
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5"
+                  ],
+                  {
+                    "Ref": "BootstrapVersion"
+                  }
+                ]
+              }
+            ]
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+        }
+      ]
+    }
+  }
+}

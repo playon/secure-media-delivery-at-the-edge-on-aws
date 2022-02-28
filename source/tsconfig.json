@@ -2,6 +2,7 @@
   "compilerOptions": {
     "alwaysStrict": true,
     "charset": "utf8",
+    "outDir": "dist/",
     "declaration": true,
     "experimentalDecorators": true,
     "inlineSourceMap": true,

@@ -1,4 +1,4 @@
-//DO NOT CHANGE THESE 4 LINES
+//DO NOT CHANGE THIS LINE
 var secrets = { "secret1_key_to_replace": "secret1_value_to_replace", "secret2_key_to_replace": "secret2_value_to_replace"};
 // END
 
@@ -19,7 +19,7 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
     if ( !uri ) {
         throw new Error('No uri supplied');
     }
-    // check segments 
+    // check segments
     var segments = token.split('.');
     if (segments.length !== 3) {
         throw new Error('Not enough or too many segments in JWT token');
@@ -62,7 +62,7 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
         }
 
 
-        //check if request URL is not in the exclusion list and omit remaining validations if so  
+        //check if request URL is not in the exclusion list and omit remaining validations if so
         for (var i=0; i<payload.exc.length; i++){
             if (uri.startsWith(payload.exc[i])) {
                 return payload;
@@ -94,14 +94,14 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
 
 function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, request_headers, request_querystrings, request_ip) {
     var indirect_attr = '';
-    
+
     //recreating signing input based on JWT payload claims and request attributes
     if (payload_jwt['ip']){
         if (request_ip){
             indirect_attr += (request_ip + ':');
         } else {
             throw new Error('intsig reference error: Request IP is missing');
-        }        
+        }
     }
 
     if (payload_jwt['co']){
@@ -109,8 +109,8 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
             indirect_attr += (request_headers['cloudfront-viewer-country'].value + ':');
         } else {
             throw new Error('intsig reference error: cloudfront-viewer-country header is missing');
-        }        
-    } 
+        }
+    }
 
     if (payload_jwt['cty']){
         if (request_headers['cloudfront-viewer-city']){
@@ -118,7 +118,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         } else {
             throw new Error('intsig reference error: cloudfront-viewer-city header is missing');
         }
-    } 
+    }
 
     if (payload_jwt['ssn']){
         if (sessionId){
@@ -127,7 +127,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
             throw new Error('intsig reference error: Session id is missing');
         }
 
-    } 
+    }
 
     if(payload_jwt['headers']) payload_jwt.headers.forEach( attribute => {
         if (request_headers[attribute]){
@@ -141,7 +141,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         }
      });
     indirect_attr = indirect_attr.slice(0,-1);
-    
+
     if (indirect_attr && !_verify_signature(indirect_attr, intsig_key, method, type, payload_jwt['intsig'])) {
         throw new Error('Internal signature verification failed');
     } else {
@@ -186,7 +186,7 @@ function handler(event) {
     var pathArray = uri.split('/');
 
     // Inputs grooming and setting internal variables
-    var auth_sequence = pathArray[1]; 
+    var auth_sequence = pathArray[1];
     var auth_sequence_array = auth_sequence.split('.');
     if(auth_sequence_array.length == 4) sessionId=auth_sequence_array.shift();
     var jwtToken = auth_sequence_array.join('.');
@@ -202,7 +202,7 @@ function handler(event) {
         return response401;
     }
 
-    try{ 
+    try{
         jwt_verify(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
     }
     catch(e) {

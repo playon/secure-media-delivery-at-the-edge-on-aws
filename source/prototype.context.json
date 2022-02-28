@@ -1,0 +1,11 @@
+{
+  "core": {
+    "rotate_secrets_frequency": "1"
+  },
+  "sessionInvalidation": {
+    "trigger_workflow_frequency": "2"
+  },
+  "api": {
+    "language": "python"
+  }
+}

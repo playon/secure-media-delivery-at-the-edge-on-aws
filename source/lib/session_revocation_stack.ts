@@ -13,10 +13,10 @@
 
 import {
   Stack,
-  StackProps,
   RemovalPolicy,
   Duration,
   CfnOutput,
+  Environment,
   Aws,
   aws_events as events,
   aws_wafv2 as wafv2,
@@ -34,8 +34,8 @@ import { GetSessionsWorkflow } from './get_sessions_workflow';
 
 export class SessionRevocationStack extends Stack {
 
-  constructor(scope: Construct, id: string, props?: StackProps) {
-    super(scope, id, props);
+  constructor(scope: Construct, id: string, env: Environment) {
+    super(scope, id, { env });
 
 
     // Trigger Sfn to check for anomalous sessions every 5 minutes

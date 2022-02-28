@@ -20,12 +20,13 @@ import {
 
 
 import { Construct } from 'constructs';
+import { IConfiguration } from '../helpers/validators/configuration';
 import { CWDashboard } from './dashboard';
 import { RotateSecretsWorkflow } from './rotate_secrets_workflow';
 import { Secrets } from './secrets';
 
 export class CoreStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, configuration: IConfiguration, props?: StackProps) {
     super(scope, id, props);
 
     // Create the Cloudfront Function used to check the JWT token
@@ -34,6 +35,7 @@ export class CoreStack extends Stack {
       functionName: Aws.STACK_NAME + '_checkJWTToken',
       comment: 'CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery'
     })
+    console.log(configuration)
 
     const secrets = new Secrets(this, 'Secrets')
 

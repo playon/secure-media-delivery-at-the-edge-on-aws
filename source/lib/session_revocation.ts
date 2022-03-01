@@ -16,7 +16,6 @@ import {
   RemovalPolicy,
   Duration,
   CfnOutput,
-  Environment,
   Aws,
   aws_events as events,
   aws_wafv2 as wafv2,
@@ -32,10 +31,10 @@ import {
 import { Construct } from 'constructs';
 import { GetSessionsWorkflow } from './get_sessions_workflow';
 
-export class SessionRevocationStack extends Stack {
+export class SessionRevocation extends Construct {
 
-  constructor(scope: Construct, id: string, env: Environment) {
-    super(scope, id, { env });
+  constructor(scope: Construct, id: string) {
+    super(scope, id);
 
 
     // Trigger Sfn to check for anomalous sessions every 5 minutes

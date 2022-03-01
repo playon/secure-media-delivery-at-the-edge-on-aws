@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { IConfiguration } from '../../helpers/validators/configuration';
-import { SessionInvalidationModule } from './lib/session-invalidation-module';
+import { SessionRevocationModule } from './lib/session-revocation-module';
 import { PromptComponent } from './lib/prompt-component';
 import { onCancel } from './lib/handlers';
 import { CoreModule } from './lib/core-module';
@@ -22,7 +22,7 @@ const componentQuestion = {
   instructions: false,
   hint: '- Space to select. Return to submit. \'a\' to toggle all.',
   choices: [
-    { title: 'Session invalidation', 'value': 'session-invalidation' },
+    { title: 'Session revocation', 'value': 'session-revocation' },
     { title: 'Rest APIs', 'value': 'api' },
   ]
 };
@@ -42,7 +42,7 @@ const componentQuestion = {
  */
 const moduleMap: { [key: string]: PromptComponent } = {
   'core': new CoreModule(),
-  'session-invalidation': new SessionInvalidationModule(),
+  'session-revocation': new SessionRevocationModule(),
   'api': new ApiModule(),
 };
 

@@ -17,7 +17,7 @@ export const getOpts = async (): Promise<IConfiguration> => {
     config = require('../solution.context.json');
   } catch (e) {
     console.error(`
-      The 'prototype.context.json' configuration file could not be found.
+      The 'solution.context.json' configuration file could not be found.
       Please run 'npm run wizard' to generate a configuration before deploying.
     `);
     process.exit(1);

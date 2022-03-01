@@ -4,7 +4,7 @@ import * as Joi from 'joi';
  * A description of the Session Invalidation configuration
  * in Typescript.
  */
-export interface ISessionInvalidation {
+export interface ISessionRevocation {
 
   /**
    * The limit (in dollars) at which a notification is
@@ -17,6 +17,6 @@ export interface ISessionInvalidation {
 /**
  * The `Joi` schema for validating the session invalidation configuration.
  */
-export const sessionInvalidationSchema = Joi.object().keys({
+export const sessionRevocationSchema = Joi.object().keys({
   trigger_workflow_frequency: Joi.number().min(1).required()
 });

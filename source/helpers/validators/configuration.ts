@@ -3,7 +3,7 @@ import { apiSchema, IApi } from './api';
 import { coreSchema, ICore } from './core';
 
 
-import { sessionInvalidationSchema, ISessionInvalidation } from './session-invalidation';
+import { sessionRevocationSchema, ISessionRevocation } from './session-revocation';
 
 /**
  * Describes a configuration associated with the
@@ -12,7 +12,7 @@ import { sessionInvalidationSchema, ISessionInvalidation } from './session-inval
  export interface IConfiguration {
 
   core?: ICore;
-  sessionInvalidation?: ISessionInvalidation;
+  sessionRevocation?: ISessionRevocation;
   api?: IApi;
 
 }
@@ -22,7 +22,7 @@ import { sessionInvalidationSchema, ISessionInvalidation } from './session-inval
  */
 export const schema = Joi.object().keys({
   core: coreSchema,
-  sessionInvalidation: sessionInvalidationSchema.optional(),
+  sessionRevocation: sessionRevocationSchema.optional(),
   api: apiSchema.optional()
 
 }).unknown().required();

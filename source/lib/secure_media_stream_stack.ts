@@ -24,10 +24,15 @@ import { IConfiguration } from '../helpers/validators/configuration';
 import { CWDashboard } from './dashboard';
 import { RotateSecretsWorkflow } from './rotate_secrets_workflow';
 import { Secrets } from './secrets';
+import { SessionRevocation } from './session_revocation';
 
-export class CoreStack extends Stack {
+export class SecureMediaStreamingStack extends Stack {
   constructor(scope: Construct, id: string, configuration: IConfiguration, props?: StackProps) {
     super(scope, id, props);
+
+    if(configuration.sessionRevocation){
+      new SessionRevocation(this, 'SessionRevocationStack');
+    }
 
     // Create the Cloudfront Function used to check the JWT token
     const checkToken = new cloudfront.Function(this, 'Function', {

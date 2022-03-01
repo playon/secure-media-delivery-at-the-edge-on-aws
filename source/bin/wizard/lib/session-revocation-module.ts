@@ -4,13 +4,13 @@ import * as prompts from 'prompts';
 import { PromptComponent } from './prompt-component';
 import { onCancel } from './handlers';
 import { IConfiguration } from '../../../helpers/validators/configuration';
-import { ISessionInvalidation } from '../../../helpers/validators/session-invalidation';
+import { ISessionRevocation } from '../../../helpers/validators/session-revocation';
 
 /**
  * A question prompting the user for the session invalidation
  * to allocate to a prototype.
  */
-const sessionInvalidateQuestions = [{
+const sessionRevocationQuestions = [{
   type: 'text',
   name: 'trigger_workflow_frequency',
   message: 'At what frequency (in minutes) do you want to trigger the workflow to detect session to invalidate?',
@@ -18,7 +18,7 @@ const sessionInvalidateQuestions = [{
     'The value must be a number superior or equal to 1' : true
 }];
 
-export class SessionInvalidationModule implements PromptComponent {
+export class SessionRevocationModule implements PromptComponent {
 
   /**
    * Implements the logic to prompt questions to the user
@@ -26,7 +26,7 @@ export class SessionInvalidationModule implements PromptComponent {
    * @param configuration an object in which the configuration must be stored.
    */
   async prompt(configuration: IConfiguration): Promise<IConfiguration> {
-    configuration.sessionInvalidation = <ISessionInvalidation> await prompts.prompt(sessionInvalidateQuestions, { onCancel });
+    configuration.sessionRevocation = <ISessionRevocation> await prompts.prompt(sessionRevocationQuestions, { onCancel });
     return (configuration);
   }
 }

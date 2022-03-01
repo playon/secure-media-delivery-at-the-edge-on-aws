@@ -15,6 +15,7 @@ import {
   Duration,
   CfnOutput,
   Aws,
+  RemovalPolicy,
   aws_stepfunctions as sfn,
   aws_stepfunctions_tasks as tasks,
   aws_s3 as s3,
@@ -54,7 +55,9 @@ export class GetSessionsWorkflow extends Construct {
           athenaTableName: props.athenaTableName
     })
 
-    const resultsBucketName = new s3.Bucket(this, "ResultsBucket")
+    const resultsBucketName = new s3.Bucket(this, "ResultsBucket", {
+      removalPolicy : RemovalPolicy.DESTROY,
+    })
 
     const startQueryExecutionJob = new tasks.AthenaStartQueryExecution(this, "Start Athena Query", {
             queryString: "SELECT uri FROM " + props.athenaTableName + " limit 11",

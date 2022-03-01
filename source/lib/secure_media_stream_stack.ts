@@ -31,7 +31,7 @@ export class SecureMediaStreamingStack extends Stack {
     super(scope, id, props);
 
     if(configuration.sessionRevocation){
-      new SessionRevocation(this, 'SessionRevocationStack');
+      new SessionRevocation(this, 'SessionRevocationStack', configuration);
     }
 
     // Create the Cloudfront Function used to check the JWT token
@@ -46,9 +46,9 @@ export class SecureMediaStreamingStack extends Stack {
 
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
       secrets: secrets,
-      checkTokenFunction: checkToken
-
-    })
+      checkTokenFunction: checkToken,
+      configuration: configuration
+    } )
 
     const dashboard = new CWDashboard(this, 'CoreDashboard')
 

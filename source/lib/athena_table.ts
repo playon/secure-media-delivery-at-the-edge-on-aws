@@ -106,9 +106,5 @@ export class AthenaTable extends Construct {
 
     cloudfrontAthenaTable.node.addDependency(myDatabase)
 
-
-
-
-
   }
 }

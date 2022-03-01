@@ -22,10 +22,13 @@ import {
   aws_iam as iam,
   aws_stepfunctions as sfn,
   aws_stepfunctions_tasks as tasks,
+  aws_events as events,
+  aws_events_targets as targets,
 
 } from 'aws-cdk-lib';
 
 import { Construct } from 'constructs';
+import { IConfiguration } from '../helpers/validators/configuration';
 import { Secrets } from './secrets';
 
 
@@ -37,12 +40,14 @@ import { Secrets } from './secrets';
   /**
    * Secret object
    */
-   secrets : Secrets;
+  secrets : Secrets;
 
   /**
    * CloudFront function
    */
-   checkTokenFunction : cloudfront.IFunction
+  checkTokenFunction : cloudfront.IFunction;
+
+  configuration: IConfiguration;
 
 }
 
@@ -151,6 +156,18 @@ export class RotateSecretsWorkflow extends Construct {
                 level: sfn.LogLevel.ALL
                 }
            })
+
+        const triggerFrequency = props.configuration.core?.rotate_secrets_frequency || 0;
+        if (triggerFrequency > 0){
+            // Trigger Sfn to rotate the secrets every X minutes
+            const rule = new events.Rule(this, 'RuleRotateSecrets',{
+              schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
+              description: 'Trigger StepFunction to rotate secrets',
+              enabled: true
+            });
+
+            rule.addTarget(new targets.SfnStateMachine(workflow));
+        }
 
         this.workflowName = workflow.stateMachineName
 

@@ -14,10 +14,8 @@
 import {
   Stack,
   RemovalPolicy,
-  Duration,
   CfnOutput,
   Aws,
-  aws_events as events,
   aws_wafv2 as wafv2,
   aws_dynamodb as ddb,
   aws_lambda as lambda,
@@ -29,21 +27,13 @@ import {
 
 
 import { Construct } from 'constructs';
+import { IConfiguration } from '../helpers/validators/configuration';
 import { GetSessionsWorkflow } from './get_sessions_workflow';
 
 export class SessionRevocation extends Construct {
 
-  constructor(scope: Construct, id: string) {
+  constructor(scope: Construct, id: string, configuration: IConfiguration) {
     super(scope, id);
-
-
-    // Trigger Sfn to check for anomalous sessions every 5 minutes
-    //TODO use parameter for the duration
-    new events.Rule(this, 'RuleSfnSessions', {
-        schedule: events.Schedule.rate(Duration.minutes(5)),
-        description: 'Trigger StepFunction to detect sessions to invalidate',
-        enabled: true
-    })
 
 
     //TODO rule name as parameter
@@ -107,10 +97,10 @@ export class SessionRevocation extends Construct {
     }))
 
     //TODO use input parameter for the following values
-    const cloudFrontAccessLogsBucketName = "mybucket";
-    const athenaDatabaseName = "cloudfront_logs_database"
-    const athenaTableName = 'cf_access_logs'
+    const cloudFrontAccessLogsBucketName = configuration.sessionRevocation?.s3_logs_bucket_name || "undefined";
 
+    const athenaDatabaseName = "secure_media_athena_database"
+    const athenaTableName = 'secure_media_athena_table'
 
 
     new GetSessionsWorkflow(this, 'GetSessions',{
@@ -118,7 +108,8 @@ export class SessionRevocation extends Construct {
       athenaDatabaseName: athenaDatabaseName,
       athenaTableName: athenaTableName,
       logsBucketName: cloudFrontAccessLogsBucketName,
-      dynamodbTable: ddbTable
+      dynamodbTable: ddbTable,
+      configuration: configuration
 
     })
 

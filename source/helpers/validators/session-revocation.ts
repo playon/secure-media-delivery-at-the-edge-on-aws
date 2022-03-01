@@ -12,11 +12,13 @@ export interface ISessionRevocation {
    * to the limit value.
    */
    trigger_workflow_frequency: number;
+   s3_logs_bucket_name: string;
 }
 
 /**
  * The `Joi` schema for validating the session invalidation configuration.
  */
 export const sessionRevocationSchema = Joi.object().keys({
-  trigger_workflow_frequency: Joi.number().min(1).required()
+  trigger_workflow_frequency: Joi.number().min(0).required(),
+  s3_logs_bucket_name: Joi.string().required(),
 });

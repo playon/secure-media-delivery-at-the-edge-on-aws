@@ -18,5 +18,5 @@ export interface ICore {
  * The `Joi` schema for validating the core configuration.
  */
 export const coreSchema = Joi.object().keys({
-  rotate_secrets_frequency: Joi.number().min(1).required()
+  rotate_secrets_frequency: Joi.number().min(0).required()
 });

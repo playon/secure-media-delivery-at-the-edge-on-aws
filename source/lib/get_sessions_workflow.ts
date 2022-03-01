@@ -14,15 +14,18 @@
 import {
   Duration,
   CfnOutput,
+  Aws,
   aws_stepfunctions as sfn,
   aws_stepfunctions_tasks as tasks,
   aws_s3 as s3,
   aws_dynamodb as ddb,
-  Aws
+  aws_events as events,
+  aws_events_targets as targets,
 
 } from 'aws-cdk-lib';
 
 import { Construct } from 'constructs';
+import { IConfiguration } from '../helpers/validators/configuration';
 import { AthenaTable } from './athena_table';
 
 
@@ -33,7 +36,8 @@ export interface IConfigProps {
   athenaDatabaseName: string,
   athenaTableName:string,
   logsBucketName: string,
-  dynamodbTable: ddb.ITable
+  dynamodbTable: ddb.ITable,
+  configuration: IConfiguration
 
 }
 
@@ -109,6 +113,19 @@ export class GetSessionsWorkflow extends Construct {
             definition: startQueryExecutionJob.next(getQueryResultsJob).next(map).next(hasMoreResults),
             timeout: Duration.minutes(60)
     })
+
+    const triggerFrequency = props.configuration.sessionRevocation?.trigger_workflow_frequency || 0;
+    if (triggerFrequency > 0){
+        // Trigger Sfn to rotate the secrets every X minutes
+        const rule = new events.Rule(this, 'RuleInvalidateSessions',{
+          schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
+          description: 'Trigger StepFunction to detect sessions to invalidate',
+          enabled: true
+        });
+
+        rule.addTarget(new targets.SfnStateMachine(workflow));
+    }
+
 
     new CfnOutput(this, "SessionInvalidateName",{
       value: workflow.stateMachineName,

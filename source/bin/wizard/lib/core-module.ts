@@ -13,9 +13,9 @@ import { ICore } from '../../../helpers/validators/core';
 const coreQuestions = [{
   type: 'text',
   name: 'rotate_secrets_frequency',
-  message: 'At what frequency (in hours) do you want to rotate the secrets?',
-  validate: (value: string) => Joi.number().min(1).required().validate(value).error ?
-    'The budget must be a number superior or equal to 1' : true
+  message: 'At what frequency (in hours) do you want to rotate the secrets?\n (in minutes between 1 and 1440, type 0 to disable it)',
+  validate: (value: string) => Joi.number().min(0).required().validate(value).error ?
+    'The value must be a number superior or equal to 0' : true
 }];
 
 export class CoreModule implements PromptComponent {

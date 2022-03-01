@@ -12,7 +12,7 @@ const app = new cdk.App();
 //    region: process.env.CDK_DEFAULT_REGION
 //  };
 
-
+const stackName = app.node.tryGetContext('stackName') || 'SecureMediaStreamingStack'
 (async () => {
     // The stack configuration.
     const config = await getOpts();

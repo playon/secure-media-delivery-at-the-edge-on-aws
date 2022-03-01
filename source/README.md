@@ -48,6 +48,12 @@ Once the account has been bootstrapped, you can deploy the solution using the fo
 npx cdk deploy
 ```
 
+The default name of the stack is `SecureMediaStreamingStack`.
+To change the name of the stack use the following:
+```bash
+npx cdk deploy --context stackName=myNewStackName
+```
+
 > AWS CDK will create and deploy a CloudFormation template on the sandbox account which you can view in the [CloudFormation console](https://console.aws.amazon.com/cloudformation/home) in the selected region.
 
 

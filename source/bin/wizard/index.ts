@@ -18,7 +18,7 @@ const componentQuestion = {
   type: 'multiselect',
   name: 'value',
   message: 'Which optional component(s) would you like to deploy ?',
-  min: 1,
+  min: 0,
   instructions: false,
   hint: '- Space to select. Return to submit. \'a\' to toggle all.',
   choices: [

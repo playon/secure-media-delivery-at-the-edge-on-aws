@@ -35,9 +35,7 @@ export class SecureMediaStreamingStack extends Stack {
       new SessionRevocation(this, 'SessionRevocationStack', configuration);
     }
 
-    if(configuration.api){
-      new Api(this, 'Api', configuration)
-    }
+
 
 
 
@@ -49,6 +47,10 @@ export class SecureMediaStreamingStack extends Stack {
     })
 
     const secrets = new Secrets(this, 'Secrets')
+
+    if(configuration.api){
+      new Api(this, 'Api', configuration, secrets)
+    }
 
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
       secrets: secrets,

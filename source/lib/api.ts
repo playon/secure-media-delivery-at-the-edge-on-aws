@@ -44,10 +44,8 @@ export class Api extends Construct {
 */
     // The path to the transformer lambda function.
     const transformerPath = path.resolve('lambda', 'generate_token', 'nodejs');
-    console.log("PATH="+transformerPath)
     // The description associated with the tranformer lambda function.
     const description = JSON.parse(fs.readFileSync(path.resolve(transformerPath, 'package.json')).toString());
-    console.log("DESCRIPTION="+description)
 
     const generateToken = new node.NodejsFunction(this, 'GenerateToken', {
       entry: path.resolve(transformerPath, 'index.js'),

@@ -16,6 +16,7 @@ import {
   CfnOutput,
   Duration,
   RemovalPolicy,
+  Stack,
   aws_lambda as lambda,
   aws_cloudfront as cloudfront,
   aws_logs as logs,
@@ -24,8 +25,12 @@ import {
   aws_stepfunctions_tasks as tasks,
   aws_events as events,
   aws_events_targets as targets,
+  //aws_lambda_nodejs as node
 
 } from 'aws-cdk-lib';
+
+//import * as fs from 'fs';
+//import * as path from 'path';
 
 import { Construct } from 'constructs';
 import { IConfiguration } from '../helpers/validators/configuration';
@@ -59,19 +64,37 @@ export class RotateSecretsWorkflow extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    //Generate secret
+    //jsonpath layer
+    const jsonPathLayer = new lambda.LayerVersion(this, 'JsonPathLayer', {
+      compatibleRuntimes: [
+        lambda.Runtime.PYTHON_3_7
+      ],
+      code: lambda.Code.fromAsset('lambda/layers/jsonpath'),
+      description: 'Layer with jsonpath lib',
+    });
+
+    const accountId = Stack.of(this).account
+
     const generateNewSecret = new lambda.Function(this, 'GenerateNewSecret',{
         functionName: Aws.STACK_NAME + '_GenerateNewSecret',
         runtime: lambda.Runtime.PYTHON_3_7,
         code: lambda.Code.fromAsset('lambda/generate_new_secret'),
-        handler: 'index.lambda_handler',
+        handler: 'index.handler',
             environment: {
             'TEMPORARY_KEY_NAME': props.secrets.temporarySecret.secretName,
             'PRIMARY_KEY_NAME': props.secrets.primarySecret.secretName,
-            'CFF_NAME' : props.checkTokenFunction.functionName
+            'CFF_NAME' : props.checkTokenFunction.functionName,
+            'ACCOUNT_ID' : accountId
         },
-      })
+        layers: [jsonPathLayer],
+      });
 
+      generateNewSecret.addToRolePolicy(new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [ "cloudfront:List*"],
+        resources: ["*"]
+        //
+      }));
       // Set Lambda Logs Retention and Removal Policy
     new logs.LogGroup(this,'GenerateNewSecretLogs', {
           logGroupName: "/aws/lambda/" + generateNewSecret.functionName,
@@ -99,6 +122,7 @@ export class RotateSecretsWorkflow extends Construct {
           retention: logs.RetentionDays.ONE_MONTH
     })
 
+
     props.secrets.temporarySecret.grantWrite(generateNewSecret)
     props.secrets.primarySecret.grantRead(generateNewSecret)
 
@@ -112,7 +136,7 @@ export class RotateSecretsWorkflow extends Construct {
 
     generateNewSecret.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: ["cloudfront:DescribeFunction"],
+      actions: ["cloudfront:DescribeFunction", "cloudfront:UpdateFunction", "cloudfront:PublishFunction"],
       resources: [props.checkTokenFunction.functionArn]
     }))
 
@@ -127,6 +151,7 @@ export class RotateSecretsWorkflow extends Construct {
           lambdaFunction: swapSecrets
     })
 
+    //TODO to delete this job
     const updateCffJob = new tasks.CallAwsService(this, "Update CloudFront Function",{
             service: "cloudfront",
             action: "updateFunction",

@@ -10,14 +10,14 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions
  *  and limitations under the License.
  */
-import * as fs from 'fs';
-import * as path from 'path';
+//import * as fs from 'fs';
+//import * as path from 'path';
 
 import {
   Aws,
   aws_lambda as lambda,
-  aws_logs as logs,
-  aws_lambda_nodejs as node
+  //aws_logs as logs,
+  //aws_lambda_nodejs as node
 
 
 } from 'aws-cdk-lib';
@@ -33,7 +33,7 @@ export class Api extends Construct {
   constructor(scope: Construct, id: string, configuration: IConfiguration, secrets: Secrets) {
     super(scope, id);
     console.log(configuration.api)
-/*
+
     var runtime: lambda.Runtime;
 
     if(configuration.api?.language=='nodejs'){
@@ -41,30 +41,29 @@ export class Api extends Construct {
     }else{
       runtime = lambda.Runtime.PYTHON_3_7
     }
-*/
-    // The path to the transformer lambda function.
-    const transformerPath = path.resolve('lambda', 'generate_token', 'nodejs');
-    // The description associated with the tranformer lambda function.
-    const description = JSON.parse(fs.readFileSync(path.resolve(transformerPath, 'package.json')).toString());
 
-    const generateToken = new node.NodejsFunction(this, 'GenerateToken', {
-      entry: path.resolve(transformerPath, 'index.js'),
-      description: 'Generate JWT token',
-      runtime: lambda.Runtime.NODEJS_14_X,
-      handler: 'handler',
-      logRetention: logs.RetentionDays.ONE_MONTH,
-      depsLockFilePath: path.resolve(transformerPath, 'package-lock.json'),
-      bundling: {
-        nodeModules: Object.keys(description.dependencies),
-        //loader: { '.html': 'text' },
-        externalModules: ['aws-sdk', 'cloudfront-token']
-      },
-      environment: {
-        STACK_NAME: Aws.STACK_NAME,
-      }
+    const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
+      compatibleRuntimes: [
+        runtime
+      ],
+      code: lambda.Code.fromAsset('lambda/layers/cloudfronttoken_'+configuration.api?.language),
+      description: 'Layer used by generate new secret lambda',
     });
 
+
+    const generateToken = new lambda.Function(this, 'GenerateToken',{
+      functionName: Aws.STACK_NAME + '_GenerateToken',
+      runtime: runtime,
+      code: lambda.Code.fromAsset('lambda/generate_token/nodejs'),
+      handler: 'index.handler',
+          environment: {
+            STACK_NAME: Aws.STACK_NAME,
+      },
+      layers: [cloudfrontTokenLayer],
+    })
+
     secrets.primarySecret.grantRead(generateToken)
+    secrets.secondarySecret.grantRead(generateToken)
 
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi');
 

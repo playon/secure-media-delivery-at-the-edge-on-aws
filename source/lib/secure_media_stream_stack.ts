@@ -35,10 +35,6 @@ export class SecureMediaStreamingStack extends Stack {
       new SessionRevocation(this, 'SessionRevocationStack', configuration);
     }
 
-
-
-
-
     // Create the Cloudfront Function used to check the JWT token
     const checkToken = new cloudfront.Function(this, 'Function', {
       code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/generate_new_secret/index.js" }),

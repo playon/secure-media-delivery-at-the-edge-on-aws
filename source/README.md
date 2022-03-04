@@ -42,7 +42,35 @@ npx cdk bootstrap
 
 > You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the boostrap process must be done for each AWS region.
 
-Once the account has been bootstrapped, you can deploy the solution using the following command.
+Install dependencies
+
+Nodejs
+
+```bash
+npm install
+
+npm install --prefix lambda/layers/cloudfronttoken_nodejs/nodejs
+```
+Python
+
+Activate your virtualenv.
+
+```bash
+source .venv/bin/activate
+```
+
+If you are a Windows platform, you would activate the virtualenv like this:
+
+```bash
+% .venv\Scripts\activate.bat
+```
+
+```bash
+pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
+
+```
+
+Once the account has been bootstrapped and dependencies installed, you can deploy the solution using the following command.
 
 ```bash
 npx cdk deploy
@@ -50,6 +78,7 @@ npx cdk deploy
 
 The default name of the stack is `SecureMediaStreamingStack`.
 To change the name of the stack use the following:
+
 ```bash
 npx cdk deploy --context stackName=myNewStackName
 ```

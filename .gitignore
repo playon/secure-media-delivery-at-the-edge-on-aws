@@ -5,6 +5,7 @@ node_modules
 !source/.typescript/lambda/**/*.js
 !source/lambda/**/*.js
 source/solution.context.json
+source/lambda/layers/jsonpath/python/*
 # CDK asset staging directory
 .cdk.staging
 cdk.out

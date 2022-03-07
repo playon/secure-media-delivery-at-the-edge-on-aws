@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+	<meta name="description" content="">
+	<meta name="author" content="">
+	<link rel="icon" href="https://d2g15edr113hw7.cloudfront.net/console/assets/img/favicon.ico">
+	<title>AWS Video</title>
+	<link href="./lib/bootstrap.min.css" rel="stylesheet">
+	<link href="./lib/app.css" rel="stylesheet">
+	<link href="https://vjs.zencdn.net/7.5.5/video-js.css" rel="stylesheet" />
+	<script src="./lib/jquery-3.2.1.min.js"></script>
+
+</head>
+
+
+
+<body> 
+	<!-- Navbar -->
+	<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+		<img class="header-logo mx-2" src="./lib/smile.png" alt="logo">
+		<a class="navbar-brand">AWS Video</a>
+	</nav>
+
+	<!-- Content -->
+	<main role="main" class="container container-fluid">
+
+		<section class="text-center pb-4">
+			<p class="lead">
+                <form id="auth">
+                    <label for="user">User:</label><br>
+                    <input type="text" id="user" name="user"><br>
+                    <label for="pass">Password:</label><br>
+                    <input type="text" id="pass" name="pass"><br><br>
+                    <input type="submit" value="Submit">
+                </form>
+
+			</p>
+	
+		</section>
+
+		
+		<section id="video_sec" style="visibility: hidden" class="mb-4">
+			<video
+						id="videoPlayer"
+						class="video-js"
+						controls
+						width="720"
+						height="480"
+						data-setup="{}"
+						muted="muted"
+					  >
+						
+
+			</video>
+
+			<script src="https://vjs.zencdn.net/7.5.5/video.js"></script>
+			<div id="stream" class="text-center text-danger p-2"></div>
+		</section>
+	
+		<section class="mb-4">
+			<div id="prompt" style="visibility: hidden;" class="text-center text-danger p-2"> This is content for authenticated users only. Please log in.</div>
+		</section>
+
+		<section class="text-center">
+				<div class="card">
+					<div class="card-header">Playback URL</div>
+					<div class="card-body" id="URL">
+                      
+					</div>
+				</div>			
+			
+		</section>
+
+	</main>
+
+	<!-- Footer -->
+	<footer class="footer">
+		<span>AWS @ 2021</span>
+	</footer>
+
+	<!-- Bootstrap core -->
+	
+	<script src="./lib/popper.min.js"></script>
+	<!-- Video core -->
+
+	<!-- App -->
+	<script src="./lib/exports.js"></script>
+
+	<script>
+		'us strict'
+		var player = videojs('videoPlayer');
+		var manifest_url;
+		const manifest_store = exports.manifest_store;
+		const stream_id = exports.stream_id;
+        var manifest;
+        
+        $( "#auth" ).submit(function( event ) {
+        event.preventDefault();
+        var form = $('#auth').serializeArray();
+        var user = form[0].value;
+        var pass = form[1].value;
+        loadHLS(user,pass);
+        });
+	
+		function loadHLS(user='', pass='') {
+
+			$.ajax({
+				type: 'POST',
+				url: `${location.protocol}\/\/${location.hostname}/${manifest_store}?id=${stream_id}`,
+				headers: {
+    				"Authorization": "Basic " + btoa(user + ":" + pass)
+  				},		
+				success: function(data, status, xhr) {
+                    $("#URL").text(data);
+					manifest_url= data;
+					document.getElementById("video_sec").style.visibility = "visible";
+					document.getElementById("prompt").style.visibility = "hidden";
+					player.src({type: 'application/x-mpegURL', src: manifest_url});
+					player.play();
+				},
+				error: function(data, status, xhr) {
+                    player.reset();
+                    $("#URL").text('');
+                    document.getElementById("prompt").style.visibility = "visible";
+                    document.getElementById("video_sec").style.visibility = "hidden";
+				}
+			});
+
+			
+
+		}
+
+
+</script>
+
+</body></html>

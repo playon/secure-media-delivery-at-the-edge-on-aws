@@ -37,7 +37,7 @@ export class SecureMediaStreamingStack extends Stack {
 
     // Create the Cloudfront Function used to check the JWT token
     const checkToken = new cloudfront.Function(this, 'Function', {
-      code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/generate_new_secret/index.js" }),
+      code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/update_cloudfront_function/index.js" }),
       functionName: Aws.STACK_NAME + '_checkJWTToken',
       comment: 'CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery'
     })

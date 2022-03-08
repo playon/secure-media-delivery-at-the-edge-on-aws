@@ -22,122 +22,125 @@ import {
   aws_dynamodb as ddb,
   aws_events as events,
   aws_events_targets as targets,
+} from "aws-cdk-lib";
 
-} from 'aws-cdk-lib';
-
-import { Construct } from 'constructs';
-import { IConfiguration } from '../helpers/validators/configuration';
-import { AthenaTable } from './athena_table';
-
-
+import { Construct } from "constructs";
+import { IConfiguration } from "../helpers/validators/configuration";
+import { AthenaTable } from "./athena_table";
 
 export interface IConfigProps {
-
-  accountId:string,
-  athenaDatabaseName: string,
-  athenaTableName:string,
-  logsBucketName: string,
-  dynamodbTable: ddb.ITable,
-  configuration: IConfiguration
-
+  accountId: string;
+  athenaDatabaseName: string;
+  athenaTableName: string;
+  logsBucketName: string;
+  dynamodbTable: ddb.ITable;
+  configuration: IConfiguration;
 }
 
 export class GetSessionsWorkflow extends Construct {
-
-
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    new AthenaTable(this, 'AthenaTable',{
-          logsBucketName: props.logsBucketName,
-          accountId: props.accountId,
-          athenaDatabaseName: props.athenaDatabaseName,
-          athenaTableName: props.athenaTableName
-    })
+    new AthenaTable(this, "AthenaTable", {
+      logsBucketName: props.logsBucketName,
+      accountId: props.accountId,
+      athenaDatabaseName: props.athenaDatabaseName,
+      athenaTableName: props.athenaTableName,
+    });
 
     const resultsBucketName = new s3.Bucket(this, "ResultsBucket", {
-      removalPolicy : RemovalPolicy.DESTROY,
-    })
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
-    const startQueryExecutionJob = new tasks.AthenaStartQueryExecution(this, "Start Athena Query", {
-            queryString: "SELECT uri FROM " + props.athenaTableName + " limit 11",
-            integrationPattern: sfn.IntegrationPattern.RUN_JOB,
-            queryExecutionContext: {
-                databaseName: props.athenaDatabaseName
-            },
-            resultConfiguration: {
-                outputLocation: {
-                    bucketName: resultsBucketName.bucketName,
-                    objectKey: "results"
-                }
-            }
-        })
+    const startQueryExecutionJob = new tasks.AthenaStartQueryExecution(
+      this,
+      "Start Athena Query",
+      {
+        queryString: "SELECT uri FROM " + props.athenaTableName + " limit 11",
+        integrationPattern: sfn.IntegrationPattern.RUN_JOB,
+        queryExecutionContext: {
+          databaseName: props.athenaDatabaseName,
+        },
+        resultConfiguration: {
+          outputLocation: {
+            bucketName: resultsBucketName.bucketName,
+            objectKey: "results",
+          },
+        },
+      }
+    );
 
-    const getQueryResultsJob = new tasks.AthenaGetQueryResults(this, "Get Query Results",{
-        queryExecutionId: sfn.JsonPath.stringAt("$.QueryExecution.QueryExecutionId"),
+    const getQueryResultsJob = new tasks.AthenaGetQueryResults(
+      this,
+      "Get Query Results",
+      {
+        queryExecutionId: sfn.JsonPath.stringAt(
+          "$.QueryExecution.QueryExecutionId"
+        ),
         resultPath: sfn.JsonPath.stringAt("$.GetQueryResults"),
-    })
+      }
+    );
 
-    const sendToDdb = new tasks.DynamoPutItem(this, "Save to DynamoDB",{
-            item: {
-                "sessionid": tasks.DynamoAttributeValue.fromString(
-                    sfn.JsonPath.stringAt("$")),
-            },
-            table: props.dynamodbTable,
-            inputPath: sfn.JsonPath.stringAt("$.Data[0].VarCharValue")
-      })
-
-
-    const prepareNextParams = new sfn.Pass(this, "Prepare Next Query Params",{
-      parameters: {
-          "QueryExecutionId.$": "$.StartQueryParams.QueryExecutionId",
-          "NextToken.$": "$.GetQueryResults.NextToken"
+    const sendToDdb = new tasks.DynamoPutItem(this, "Save to DynamoDB", {
+      item: {
+        sessionid: tasks.DynamoAttributeValue.fromString(
+          sfn.JsonPath.stringAt("$")
+        ),
       },
-      resultPath: sfn.JsonPath.stringAt("$.StartQueryParams")
-    })
+      table: props.dynamodbTable,
+      inputPath: sfn.JsonPath.stringAt("$.Data[0].VarCharValue"),
+    });
 
-    const hasMoreResults = new sfn.Choice(this, "Has More Results?").when(
-      sfn.Condition.isPresent("$.GetQueryResults.NextToken"),
-      prepareNextParams.next(getQueryResultsJob)
-    ).otherwise(new sfn.Succeed(this, "Done"))
+    const prepareNextParams = new sfn.Pass(this, "Prepare Next Query Params", {
+      parameters: {
+        "QueryExecutionId.$": "$.StartQueryParams.QueryExecutionId",
+        "NextToken.$": "$.GetQueryResults.NextToken",
+      },
+      resultPath: sfn.JsonPath.stringAt("$.StartQueryParams"),
+    });
+
+    const hasMoreResults = new sfn.Choice(this, "Has More Results?")
+      .when(
+        sfn.Condition.isPresent("$.GetQueryResults.NextToken"),
+        prepareNextParams.next(getQueryResultsJob)
+      )
+      .otherwise(new sfn.Succeed(this, "Done"));
 
     //Save_to_dynamodb
-    const map = new sfn.Map(this, "Map State",{
-        maxConcurrency: 1,
-        inputPath: sfn.JsonPath.stringAt("$.GetQueryResults.ResultSet.Rows[1:]"),
-        resultPath: sfn.JsonPath.DISCARD
-    })
-    map.iterator(sendToDdb)
-
+    const map = new sfn.Map(this, "Map State", {
+      maxConcurrency: 1,
+      inputPath: sfn.JsonPath.stringAt("$.GetQueryResults.ResultSet.Rows[1:]"),
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+    map.iterator(sendToDdb);
 
     // Step function to orchestrate Athena query and retrieving the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {
-          stateMachineName: Aws.STACK_NAME + "_DetectSessions",
-            definition: startQueryExecutionJob.next(getQueryResultsJob).next(map).next(hasMoreResults),
-            timeout: Duration.minutes(60)
-    })
+      stateMachineName: Aws.STACK_NAME + "_DetectSessions",
+      definition: startQueryExecutionJob
+        .next(getQueryResultsJob)
+        .next(map)
+        .next(hasMoreResults),
+      timeout: Duration.minutes(60),
+    });
 
-    const triggerFrequency = props.configuration.sessionRevocation?.trigger_workflow_frequency || 0;
-    if (triggerFrequency > 0){
-        // Trigger Sfn to rotate the secrets every X minutes
-        const rule = new events.Rule(this, 'RuleInvalidateSessions',{
-          schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
-          description: 'Trigger StepFunction to detect sessions to invalidate',
-          enabled: true
-        });
+    const triggerFrequency =
+      props.configuration.sessionRevocation?.trigger_workflow_frequency || 0;
+    if (triggerFrequency > 0) {
+      // Trigger Sfn to rotate the secrets every X minutes
+      const rule = new events.Rule(this, "RuleInvalidateSessions", {
+        schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
+        description: "Trigger StepFunction to detect sessions to invalidate",
+        enabled: true,
+      });
 
-        rule.addTarget(new targets.SfnStateMachine(workflow));
+      rule.addTarget(new targets.SfnStateMachine(workflow));
     }
 
-
-    new CfnOutput(this, "SessionInvalidateName",{
+    new CfnOutput(this, "SessionInvalidateName", {
       value: workflow.stateMachineName,
-      exportName: Aws.STACK_NAME + 'StateMachineName',
-      description: 'State machine used to detect sessions to invalidate'
-    })
-
-
-
-
+      exportName: Aws.STACK_NAME + "StateMachineName",
+      description: "State machine used to detect sessions to invalidate",
+    });
   }
 }

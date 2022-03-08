@@ -13,7 +13,7 @@ cf_client = boto3.client('cloudfront')
 temporary_key_name = os.environ['TEMPORARY_KEY_NAME']
 primary_key_name = os.environ['PRIMARY_KEY_NAME']
 cff_name = os.environ['CFF_NAME']
-account_id = os.environ['CFF_NAME']
+account_id = os.environ['ACCOUNT_ID']
 
 
 def handler(event, context):
@@ -33,16 +33,25 @@ def handler(event, context):
         jsonpath_expression = parse(jsonpath_query)
         distribution_list = []
         for match in jsonpath_expression.find(response_cf):
-            distribution_list.append(match.value)
+            found_id=match.value
+            timestamp = ""
+            jsonpath_expression_ts = parse("$.DistributionList.Items[?(@.Id=='{}')].LastModifiedTime".format(found_id))
+            for match_ts in jsonpath_expression_ts.find(response_cf):
+                timestamp = f"{match_ts.value.isoformat()[:-9]}Z"
+
+
+            distribution_list.append({"id": found_id, "timestamp": str(timestamp)})
+            print(distribution_list)
+
         if not 'NextMarker' in  response_cf['DistributionList']:
             break
         else:
             marker = response_cf['DistributionList']['NextMarker']
 
+    #print(distribution_list)
 
 
-
-
+    """
 
     new_primary_secret_value = uuid.uuid4().hex
 
@@ -117,8 +126,8 @@ def handler(event, context):
     )
 
     print(etag)
-
+    """
+    print(distribution_list)
     return {
-        'distributions': distribution_list,
-        'date': json.dumps(now.isoformat())
+        'distributions': distribution_list
     }

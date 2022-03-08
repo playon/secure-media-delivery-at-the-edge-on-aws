@@ -26,182 +26,204 @@ import {
   aws_events as events,
   aws_events_targets as targets,
   //aws_lambda_nodejs as node
-
-} from 'aws-cdk-lib';
+} from "aws-cdk-lib";
 
 //import * as fs from 'fs';
 //import * as path from 'path';
 
-import { Construct } from 'constructs';
-import { IConfiguration } from '../helpers/validators/configuration';
-import { Secrets } from './secrets';
-
+import { Construct } from "constructs";
+import { IConfiguration } from "../helpers/validators/configuration";
+import { Secrets } from "./secrets";
 
 /**
  * The properties expected by the config construct.
  */
- export interface IConfigProps {
-
+export interface IConfigProps {
   /**
    * Secret object
    */
-  secrets : Secrets;
+  secrets: Secrets;
 
   /**
    * CloudFront function
    */
-  checkTokenFunction : cloudfront.IFunction;
+  checkTokenFunction: cloudfront.IFunction;
 
   configuration: IConfiguration;
-
 }
 
 export class RotateSecretsWorkflow extends Construct {
-
-
   public readonly workflowName: string;
 
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
     //jsonpath layer
-    const jsonPathLayer = new lambda.LayerVersion(this, 'JsonPathLayer', {
-      compatibleRuntimes: [
-        lambda.Runtime.PYTHON_3_7
-      ],
-      code: lambda.Code.fromAsset('lambda/layers/jsonpath'),
-      description: 'Layer with jsonpath lib',
+    const jsonPathLayer = new lambda.LayerVersion(this, "JsonPathLayer", {
+      compatibleRuntimes: [lambda.Runtime.PYTHON_3_7],
+      code: lambda.Code.fromAsset("lambda/layers/jsonpath"),
+      description: "Layer with jsonpath lib",
     });
 
-    const accountId = Stack.of(this).account
+    const accountId = Stack.of(this).account;
 
-    const generateNewSecret = new lambda.Function(this, 'GenerateNewSecret',{
-        functionName: Aws.STACK_NAME + '_GenerateNewSecret',
-        runtime: lambda.Runtime.PYTHON_3_7,
-        code: lambda.Code.fromAsset('lambda/generate_new_secret'),
-        handler: 'index.handler',
-            environment: {
-            'TEMPORARY_KEY_NAME': props.secrets.temporarySecret.secretName,
-            'PRIMARY_KEY_NAME': props.secrets.primarySecret.secretName,
-            'CFF_NAME' : props.checkTokenFunction.functionName,
-            'ACCOUNT_ID' : accountId
-        },
-        layers: [jsonPathLayer],
-      });
+    const generateNewSecret = new lambda.Function(this, "GenerateNewSecret", {
+      functionName: Aws.STACK_NAME + "_GenerateNewSecret",
+      runtime: lambda.Runtime.PYTHON_3_7,
+      code: lambda.Code.fromAsset("lambda/generate_new_secret"),
+      handler: "index.handler",
+      environment: {
+        TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
+        PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
+        CFF_NAME: props.checkTokenFunction.functionName,
+        ACCOUNT_ID: accountId,
+      },
+      layers: [jsonPathLayer],
+    });
 
-      generateNewSecret.addToRolePolicy(new iam.PolicyStatement({
+    generateNewSecret.addToRolePolicy(
+      new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: [ "cloudfront:List*"],
-        resources: ["*"]
+        actions: ["cloudfront:List*"],
+        resources: ["*"],
         //
-      }));
-      // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this,'GenerateNewSecretLogs', {
-          logGroupName: "/aws/lambda/" + generateNewSecret.functionName,
-          removalPolicy: RemovalPolicy.DESTROY,
-          retention: logs.RetentionDays.ONE_MONTH
       })
+    );
+    // Set Lambda Logs Retention and Removal Policy
+    new logs.LogGroup(this, "GenerateNewSecretLogs", {
+      logGroupName: "/aws/lambda/" + generateNewSecret.functionName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
 
     //Generate token
-    const swapSecrets = new lambda.Function(this, 'SwapSecrets',{
-          functionName: Aws.STACK_NAME + '_SwapSecrets',
-          runtime: lambda.Runtime.PYTHON_3_7,
-          code: lambda.Code.fromAsset('lambda/swap_secrets'),
-          handler: 'index.lambda_handler',
-              environment: {
-              'TEMPORARY_KEY_NAME': props.secrets.temporarySecret.secretName,
-              'PRIMARY_KEY_NAME': props.secrets.primarySecret.secretName,
-              'SECONDARY_KEY_NAME': props.secrets.secondarySecret.secretName,
-          },
-      })
+    const swapSecrets = new lambda.Function(this, "SwapSecrets", {
+      functionName: Aws.STACK_NAME + "_SwapSecrets",
+      runtime: lambda.Runtime.PYTHON_3_7,
+      code: lambda.Code.fromAsset("lambda/swap_secrets"),
+      handler: "index.lambda_handler",
+      environment: {
+        TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
+        PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
+        SECONDARY_KEY_NAME: props.secrets.secondarySecret.secretName,
+      },
+    });
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this,'KeyRotationLogs',{
-          logGroupName: "/aws/lambda/" + swapSecrets.functionName,
-          removalPolicy: RemovalPolicy.DESTROY,
-          retention: logs.RetentionDays.ONE_MONTH
-    })
+    new logs.LogGroup(this, "KeyRotationLogs", {
+      logGroupName: "/aws/lambda/" + swapSecrets.functionName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
 
+    props.secrets.temporarySecret.grantWrite(generateNewSecret);
+    props.secrets.primarySecret.grantRead(generateNewSecret);
 
-    props.secrets.temporarySecret.grantWrite(generateNewSecret)
-    props.secrets.primarySecret.grantRead(generateNewSecret)
+    props.secrets.temporarySecret.grantRead(swapSecrets);
+    props.secrets.temporarySecret.grantWrite(swapSecrets);
+    props.secrets.primarySecret.grantWrite(swapSecrets);
+    props.secrets.primarySecret.grantRead(swapSecrets);
+    props.secrets.secondarySecret.grantWrite(swapSecrets);
+    props.secrets.secondarySecret.grantRead(swapSecrets);
 
+    generateNewSecret.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "cloudfront:DescribeFunction",
+          "cloudfront:UpdateFunction",
+          "cloudfront:PublishFunction",
+        ],
+        resources: [props.checkTokenFunction.functionArn],
+      })
+    );
 
-    props.secrets.temporarySecret.grantRead(swapSecrets)
-    props.secrets.temporarySecret.grantWrite(swapSecrets)
-    props.secrets.primarySecret.grantWrite(swapSecrets)
-    props.secrets.primarySecret.grantRead(swapSecrets)
-    props.secrets.secondarySecret.grantWrite(swapSecrets)
-    props.secrets.secondarySecret.grantRead(swapSecrets)
+    const generateNewSecretJob = new tasks.LambdaInvoke(
+      this,
+      "Generate new secret & get Last Timestamp for each CF Distribution",
+      {
+        lambdaFunction: generateNewSecret,
+        outputPath: "$",
+        resultSelector: {
+          "Output.$": "$.Payload",
+        },
+      }
+    );
 
-    generateNewSecret.addToRolePolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ["cloudfront:DescribeFunction", "cloudfront:UpdateFunction", "cloudfront:PublishFunction"],
-      resources: [props.checkTokenFunction.functionArn]
-    }))
+    const swapSecretsJob = new tasks.LambdaInvoke(this, "Swap secrets", {
+      lambdaFunction: swapSecrets,
+    });
 
-    const generateNewSecretJob = new tasks.LambdaInvoke(this, "Generate new secret",{
-            lambdaFunction: generateNewSecret,
-            outputPath: "$",
-            resultSelector: {
-                    "Output.$": "$.Payload"
-            }
-          })
-    const swapSecretsJob = new tasks.LambdaInvoke(this, "Swap secrets",{
-          lambdaFunction: swapSecrets
-    })
-
-    //TODO to delete this job
-    const updateCffJob = new tasks.CallAwsService(this, "Update CloudFront Function",{
+    const getLastTimestamp = new tasks.CallAwsService(this, "Get Last Timestamp",{
             service: "cloudfront",
-            action: "updateFunction",
+            action: "getDistribution",
+            resultPath :"$.Output",
+            resultSelector: {
+              "Result.$": "$.Distribution.LastModifiedTime"
+              },
             parameters: {
-                "Name": props.checkTokenFunction.functionName,
-                "IfMatch.$": "$.Output.etag",
-                "FunctionConfig": {
-                    "Comment": "my comment",
-                    "Runtime": "cloudfront-js-1.0"
-                },
-                "FunctionCode.$": "$.Output.cff_content"
+                "Id.$": "$.id"
             },
-            iamResources: ['*'],
-            resultPath: "$.transcription",
+            iamResources: ['*']
+
         })
 
-        const log_group = new logs.LogGroup(this, "RotateSecretSFLogGroup")
+/*    const pass = new sfn.Pass(this, "Check Last Timestamp", {
+      result: sfn.Result.fromObject({ hello: "world" }),
+      resultPath: "$.subObject",
+    });
+*/
+    //Save_to_dynamodb
+    /*const wait = new sfn.Wait(this, 'Wait 1 minute', {
+      time: sfn.WaitTime.duration(Duration.minutes(1)),
+    });*/
 
+    const map = new sfn.Map(this, "Map State", {
+      maxConcurrency: 1,
+      inputPath: sfn.JsonPath.stringAt("$.Output.distributions"),
+      resultPath: sfn.JsonPath.DISCARD,
+    });
 
-        // Step function to orchestrate generating a new secret
-        const workflow = new sfn.StateMachine(this, "RotateSecret",{
-            stateMachineName: Aws.STACK_NAME + "_RotateSecret",
-            definition: generateNewSecretJob.next(updateCffJob).next(swapSecretsJob),
-            timeout: Duration.minutes(60),
-            logs: {
-                destination: log_group,
-                level: sfn.LogLevel.ALL
-                }
-           })
+    /*const updatePropagated = new sfn.Choice(this, "Update propagated?").when(
+      sfn.Condition.isPresent("$.GetQueryResults.NextToken"),
+      wait.next(map)
+    ).otherwise(new sfn.Succeed(this, "Done"))
+  */
 
-        const triggerFrequency = props.configuration.core?.rotate_secrets_frequency || 0;
-        if (triggerFrequency > 0){
-            // Trigger Sfn to rotate the secrets every X minutes
-            const rule = new events.Rule(this, 'RuleRotateSecrets',{
-              schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
-              description: 'Trigger StepFunction to rotate secrets',
-              enabled: true
-            });
+    map.iterator(getLastTimestamp.next(new sfn.Pass(this, "Pass")));
 
-            rule.addTarget(new targets.SfnStateMachine(workflow));
-        }
+    const log_group = new logs.LogGroup(this, "RotateSecretSFLogGroup");
 
-        this.workflowName = workflow.stateMachineName
+    // Step function to orchestrate generating a new secret
+    const workflow = new sfn.StateMachine(this, "RotateSecret", {
+      stateMachineName: Aws.STACK_NAME + "_RotateSecret",
+      definition: generateNewSecretJob.next(map).next(swapSecretsJob),
+      timeout: Duration.minutes(60),
+      logs: {
+        destination: log_group,
+        level: sfn.LogLevel.ALL,
+      },
+    });
 
-        new CfnOutput(this, "SFRotateSecrets",{
-            value: workflow.stateMachineName,
-            exportName: Aws.STACK_NAME + 'SFRotateSecrets',
-            description: 'The name of the Step Function to rotate secrets'
-        })
+    const triggerFrequency =
+      props.configuration.core?.rotate_secrets_frequency || 0;
+    if (triggerFrequency > 0) {
+      // Trigger Sfn to rotate the secrets every X minutes
+      const rule = new events.Rule(this, "RuleRotateSecrets", {
+        schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
+        description: "Trigger StepFunction to rotate secrets",
+        enabled: true,
+      });
 
+      rule.addTarget(new targets.SfnStateMachine(workflow));
+    }
 
+    this.workflowName = workflow.stateMachineName;
+
+    new CfnOutput(this, "SFRotateSecrets", {
+      value: workflow.stateMachineName,
+      exportName: Aws.STACK_NAME + "SFRotateSecrets",
+      description: "The name of the Step Function to rotate secrets",
+    });
   }
 }

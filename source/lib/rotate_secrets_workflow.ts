@@ -140,7 +140,7 @@ export class RotateSecretsWorkflow extends Construct {
 
     const generateNewSecretJob = new tasks.LambdaInvoke(
       this,
-      "Generate new secret & get Last Timestamp for each CF Distribution",
+      "Generate new secret",
       {
         lambdaFunction: generateNewSecret,
         outputPath: "$",
@@ -174,9 +174,9 @@ export class RotateSecretsWorkflow extends Construct {
     });
 */
     //Save_to_dynamodb
-    /*const wait = new sfn.Wait(this, 'Wait 1 minute', {
+    const wait = new sfn.Wait(this, 'Wait 1 minute', {
       time: sfn.WaitTime.duration(Duration.minutes(1)),
-    });*/
+    });
 
     const map = new sfn.Map(this, "Map State", {
       maxConcurrency: 1,
@@ -184,13 +184,12 @@ export class RotateSecretsWorkflow extends Construct {
       resultPath: sfn.JsonPath.DISCARD,
     });
 
-    /*const updatePropagated = new sfn.Choice(this, "Update propagated?").when(
-      sfn.Condition.isPresent("$.GetQueryResults.NextToken"),
-      wait.next(map)
-    ).otherwise(new sfn.Succeed(this, "Done"))
-  */
+    const updatePropagated = new sfn.Choice(this, "Update propagated?")
+    .when(sfn.Condition.stringEqualsJsonPath("$.timestamp", "$.Output.Result"), wait.next(getLastTimestamp))
+    .otherwise(new sfn.Succeed(this, "Done waiting"))
 
-    map.iterator(getLastTimestamp.next(new sfn.Pass(this, "Pass")));
+
+    map.iterator(getLastTimestamp.next(updatePropagated));
 
     const log_group = new logs.LogGroup(this, "RotateSecretSFLogGroup");
 

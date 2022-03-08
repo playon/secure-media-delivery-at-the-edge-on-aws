@@ -1,9 +1,13 @@
 const aws = require('aws-sdk');
 const cfToken = require("aws-secure-media-delivery");
+
 const docClient = new aws.DynamoDB.DocumentClient();
 const stackName = process.env.STACK_NAME;
+const tableName = process.env.TABLE_NAME;
+
 const user = process.env.USERNAME;
 const pass = process.env.PASSWORD;
+
 const smClient = new aws.SecretsManager();
 
 cfToken.SecretsConfigure({secrets_manager_client: smClient, secrets_prefix: stackName});
@@ -20,7 +24,6 @@ const response401 = {
 }
 
 exports.handler = async (event, context) => {
-    var table = `${stackName}_videoassets`;
     var id;
     var token_attributes = {};
     var headers = event.headers;
@@ -32,9 +35,9 @@ exports.handler = async (event, context) => {
     } else {
         viewer_ip = event.requestContext.http.sourceIp;
     }
-    
+
     var auth_header = '';
-  
+
     //simple authentication logic using authorization header
     var authorized = Buffer.from(user+':'+pass).toString('base64');
     if(headers['authorization']) auth_header = headers['authorization'].split(' ')[1];
@@ -43,17 +46,17 @@ exports.handler = async (event, context) => {
         console.log('Authentication failed');
         //return error when authentication failed
         return response401;
-    }    
-    
-    
+    }
+
+
     if(event['queryStringParameters'] && event.queryStringParameters['id']){
         id = event.queryStringParameters['id'];
     } else {
         return response400;
     }
-    
+
     var params = {
-        TableName: table,
+        TableName: tableName,
         Key:{"id": id}
     };
 
@@ -61,9 +64,9 @@ exports.handler = async (event, context) => {
     var endpoint_hostname = video_metadata.Item['endpoint_hostname'];
     var video_url = video_metadata.Item['url_path'];
     var token_policy = video_metadata.Item.token_policy;
-    
+
     if(token_policy['ip']) token_attributes['ip'] = viewer_ip;
-    
+
     if(token_policy['co']){
         if(headers['cloudfront-viewer-country']){
             token_attributes['co'] = headers['cloudfront-viewer-country'];
@@ -71,7 +74,7 @@ exports.handler = async (event, context) => {
             return response400;
         }
     }
-    
+
     if(token_policy['cty']){
         if(headers['cloudfront-viewer-city']){
             token_attributes['cty'] = headers['cloudfront-viewer-city'];
@@ -79,23 +82,23 @@ exports.handler = async (event, context) => {
             return response400;
         }
     }
-    
+
     if(token_policy['session_auto_generate']){
         token_attributes['ssn'] = `generate_${token_policy['session_auto_generate']}`;
     }
-    
+
     if(token_policy['nbf']){
         token_attributes['nbf'] = parseInt(token_policy['nbf']);
     }
-    
+
     if(token_policy['exp']){
         var reg_digits=/^[\d]+$/;
         var reg_delay = /^\+([\d]+)(h|m)$/;
         var delay;
-        
+
         delay = token_policy['exp'].match(reg_delay);
         if(delay){
-            token_attributes['exp'] = parseInt(Date.now()/1000) + (delay[1] * (delay[2]=='h'?3600:60)); 
+            token_attributes['exp'] = parseInt(Date.now()/1000) + (delay[1] * (delay[2]=='h'?3600:60));
         } else if(token_policy['exp'].match(reg_digits)){
             token_attributes['exp'] = parseInt(token_policy['exp']);
         }
@@ -108,32 +111,32 @@ exports.handler = async (event, context) => {
     } else {
         return response400;
     }
-    
+
     if(token_policy['exc'] && token_policy['exc'].length > 0) token_attributes['exc'] = token_policy['exc'];
 
     if(token_policy['headers'] && token_policy['headers'].length > 0){
         token_attributes['headers'] = [];
         token_policy['headers'].forEach((h) => {
             var header_value = headers[h.toLowerCase()]?headers[h.toLowerCase()]:'';
-           token_attributes['headers'].push({'key': h.toLowerCase(), 'value': header_value}); 
+           token_attributes['headers'].push({'key': h.toLowerCase(), 'value': header_value});
         });
     }
-    
+
     if(token_policy['qs'] && token_policy['qs'].length > 0){
         token_attributes['qs'] = [];
         token_policy['qs'].forEach((q) => {
             var qs_param_value = querystrings[q.toLowerCase()]?querystrings[q.toLowerCase()]:'';
-           token_attributes['qs'].push({'key': q.toLowerCase(), 'value': qs_param_value}); 
+           token_attributes['qs'].push({'key': q.toLowerCase(), 'value': qs_param_value});
         });
-    }        
+    }
 
     console.log(token_attributes);
     var playback_url = await tokenGenerator.generateToken(token_attributes, 'primary', `https://${video_metadata.Item['endpoint_hostname']}${video_metadata.Item['url_path']}`);
-    
+
     var response = {
     "statusCode": 200,
     "body": playback_url
     };
-    
+
     return response;
 };

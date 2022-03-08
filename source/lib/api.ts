@@ -15,10 +15,13 @@
 
 import {
   Aws,
+  CfnOutput,
   aws_lambda as lambda,
-  //aws_logs as logs,
-  //aws_lambda_nodejs as node
-
+  aws_dynamodb as ddb,
+  aws_cloudfront as cloudfront,
+  aws_s3 as s3,
+  aws_cloudfront_origins as origins,
+  aws_s3_deployment as s3deploy
 
 } from 'aws-cdk-lib';
 
@@ -51,6 +54,15 @@ export class Api extends Construct {
     });
 
 
+    //TO ADD CONDITION FROM THE WIZARD
+    const demoTable = new ddb.Table(this, "Demo",{
+      tableName : Aws.STACK_NAME + "_videoassets",
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      partitionKey: {name: "id", type: ddb.AttributeType.STRING}
+    })
+
+
+
     const generateToken = new lambda.Function(this, 'GenerateToken',{
       functionName: Aws.STACK_NAME + '_GenerateToken',
       runtime: runtime,
@@ -58,9 +70,16 @@ export class Api extends Construct {
       handler: 'index.handler',
           environment: {
             STACK_NAME: Aws.STACK_NAME,
+            TABLE_NAME: demoTable.tableName,
+            USERNAME: "aaaaa",
+            PASSWORD: "bbbbb"
       },
       layers: [cloudfrontTokenLayer],
     })
+
+    demoTable.grantReadData(generateToken);
+
+
 
     secrets.primarySecret.grantRead(generateToken)
     secrets.secondarySecret.grantRead(generateToken)
@@ -73,5 +92,33 @@ export class Api extends Construct {
       integration: new HttpLambdaIntegration('GenerateTokenIntegration', generateToken)
     });
 
+
+
+    // Creates a distribution from an S3 bucket.
+    const hostingBucket = new s3.Bucket(this, 'HostingBucket');
+
+    new s3deploy.BucketDeployment(this, 'DeployWebsite', {
+      sources: [s3deploy.Source.asset('resources/demo_website')],
+      destinationBucket: hostingBucket,
+    });
+
+    const distribution = new cloudfront.Distribution(this, 'Distribution', {
+      comment : Aws.STACK_NAME + " - Secure Media Delivery",
+      defaultBehavior: { origin: new origins.S3Origin(hostingBucket) },
+
+    });
+
+
+    new CfnOutput(this, "DistributionDomainName",{
+      value: distribution.domainName,
+      exportName: Aws.STACK_NAME + 'DomainName',
+      description: 'Domain name'
+    })
+
+    new CfnOutput(this, "HostingBucketName",{
+      value: hostingBucket.bucketName,
+      exportName: Aws.STACK_NAME + 'HostingBucket',
+      description: 'Hosting bucket name'
+    })
   }
 }

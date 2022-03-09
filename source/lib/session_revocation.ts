@@ -54,7 +54,8 @@ export class SessionRevocation extends Construct {
     const ddbTable = new ddb.Table(this, "CompromisedSessions",{
             billingMode: ddb.BillingMode.PAY_PER_REQUEST,
             partitionKey: {name: "sessionid", type: ddb.AttributeType.STRING},
-            stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES
+            stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
+            removalPolicy: RemovalPolicy.DESTROY
     })
 
     //Revoke an active session

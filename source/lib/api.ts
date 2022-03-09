@@ -16,6 +16,8 @@
 import {
   Aws,
   CfnOutput,
+  Stack,
+  RemovalPolicy,
   aws_lambda as lambda,
   aws_dynamodb as ddb,
   aws_cloudfront as cloudfront,
@@ -30,6 +32,7 @@ import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-al
 import { Construct } from 'constructs';
 import { IConfiguration } from '../helpers/validators/configuration';
 import { Secrets } from './secrets';
+import { LoadAssetsTable } from './load_assets_table';
 
 export class Api extends Construct {
 
@@ -55,13 +58,16 @@ export class Api extends Construct {
 
 
     //TO ADD CONDITION FROM THE WIZARD
-    const demoTable = new ddb.Table(this, "Demo",{
+    const demoAssetsTable = new ddb.Table(this, "Demo",{
       tableName : Aws.STACK_NAME + "_videoassets",
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-      partitionKey: {name: "id", type: ddb.AttributeType.STRING}
+      partitionKey: {name: "id", type: ddb.AttributeType.STRING},
+      removalPolicy: RemovalPolicy.DESTROY
     })
 
-
+    new LoadAssetsTable(this, "AssetsTable", {
+      table: demoAssetsTable
+    })
 
     const generateToken = new lambda.Function(this, 'GenerateToken',{
       functionName: Aws.STACK_NAME + '_GenerateToken',
@@ -70,14 +76,14 @@ export class Api extends Construct {
       handler: 'index.handler',
           environment: {
             STACK_NAME: Aws.STACK_NAME,
-            TABLE_NAME: demoTable.tableName,
+            TABLE_NAME: demoAssetsTable.tableName,
             USERNAME: "aaaaa",
             PASSWORD: "bbbbb"
       },
       layers: [cloudfrontTokenLayer],
     })
 
-    demoTable.grantReadData(generateToken);
+    demoAssetsTable.grantReadData(generateToken);
 
 
 
@@ -88,12 +94,12 @@ export class Api extends Construct {
 
     httpApi.addRoutes({
       path: '/tokengenerate',
-      methods: [ apigwv2.HttpMethod.GET ],
+      methods: [ apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST ],
       integration: new HttpLambdaIntegration('GenerateTokenIntegration', generateToken)
     });
 
 
-
+    const region = Stack.of(this).region;
     // Creates a distribution from an S3 bucket.
     const hostingBucket = new s3.Bucket(this, 'HostingBucket');
 
@@ -102,17 +108,48 @@ export class Api extends Construct {
       destinationBucket: hostingBucket,
     });
 
-    const distribution = new cloudfront.Distribution(this, 'Distribution', {
-      comment : Aws.STACK_NAME + " - Secure Media Delivery",
-      defaultBehavior: { origin: new origins.S3Origin(hostingBucket) },
-
+    const myOriginRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
+      originRequestPolicyName: Aws.STACK_NAME + '_CMS',
+      comment: 'A default policy',
+      //cookieBehavior: cloudfront.OriginRequestCookieBehavior.none(),
+      headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList('CloudFront-Viewer-Address', 'CloudFront-Viewer-Country', 'CloudFront-Viewer-City', 'Referer', 'User-Agent'),
+      queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
     });
 
+    const distribution = new cloudfront.Distribution(this, 'Distribution', {
+      comment : Aws.STACK_NAME + " - Secure Media Delivery",
+      defaultRootObject: "index_hls.html",
+      defaultBehavior: {
+        origin: new origins.S3Origin(hostingBucket),
+        cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
+        allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+      },
+      additionalBehaviors: {
+        '/tokengenerate': {
+
+          origin: new origins.HttpOrigin(`${httpApi.apiId}.execute-api.${region}.amazonaws.com`, {
+          }),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: myOriginRequestPolicy,
+          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        },
+      },
+    });
 
     new CfnOutput(this, "DistributionDomainName",{
       value: distribution.domainName,
       exportName: Aws.STACK_NAME + 'DomainName',
       description: 'Domain name'
+    })
+
+
+
+    new CfnOutput(this, "ApiEndpoint",{
+      value: `${httpApi.apiId}.execute-api.${region}.amazonaws.com`,
+      exportName: Aws.STACK_NAME + 'ApiEndpoint',
+      description: 'Endpoint'
     })
 
     new CfnOutput(this, "HostingBucketName",{

@@ -24,6 +24,7 @@ const response401 = {
 }
 
 exports.handler = async (event, context) => {
+    console.log("Event received:"+event)
     var id;
     var token_attributes = {};
     var headers = event.headers;
@@ -61,6 +62,8 @@ exports.handler = async (event, context) => {
     };
 
     var video_metadata = await docClient.get(params).promise();
+    console.log("From DynamoDB:"+video_metadata);
+
     var endpoint_hostname = video_metadata.Item['endpoint_hostname'];
     var video_url = video_metadata.Item['url_path'];
     var token_policy = video_metadata.Item.token_policy;

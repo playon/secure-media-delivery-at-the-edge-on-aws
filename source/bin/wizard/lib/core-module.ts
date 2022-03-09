@@ -12,6 +12,12 @@ import { ICore } from '../../../helpers/validators/core';
  */
 const coreQuestions = [{
   type: 'text',
+  name: 'stack_name',
+  message: 'Stack name',
+  validate: (value: string) => Joi.string().required().validate(value).error ?
+    'The name of the stack is mandatory' : true
+},{
+  type: 'text',
   name: 'rotate_secrets_frequency',
   message: 'At what frequency do you want to rotate the secrets?\n (in minutes between 1 and 1440, type 0 to disable it)',
   validate: (value: string) => Joi.number().min(0).required().validate(value).error ?

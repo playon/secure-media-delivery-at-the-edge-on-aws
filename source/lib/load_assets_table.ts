@@ -16,14 +16,17 @@ import {
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
-
 import { Construct } from "constructs";
+import * as fs from "fs";
+import { IConfiguration } from "../helpers/validators/configuration";
 
 export interface IConfigProps {
     table : ITable;
+    configuration: IConfiguration;
  }
 
 export class LoadAssetsTable extends Construct {
+
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
@@ -33,7 +36,16 @@ export class LoadAssetsTable extends Construct {
         action: "putItem",
         parameters: {
           TableName: props.table.tableName,
-          Item: this.generateItem(),
+          Item: this.generateItem(props.configuration),
+        },
+        physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
+      },
+      onUpdate: {
+        service: "DynamoDB",
+        action: "putItem",
+        parameters: {
+          TableName: props.table.tableName,
+          Item: this.generateItem(props.configuration),
         },
         physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
       },
@@ -45,73 +57,23 @@ export class LoadAssetsTable extends Construct {
 
   }
 
-  private generateItem = () => {
-    return {
-        "id":{
-           "S":"1"
-        },
-        "url_path":{
-           "S":"/v1/out/videoasset/manifest/index.m3u8"
-        },
-        "endpoint_hostname":{
-           "S":"d12345678.cloudfront.net"
-        },
-        "token_policy":{
-           "M":{
-              "headers":{
-                 "L":[
-                    {
-                       "S":"user-agent"
-                    },
-                    {
-                       "S":"referer"
-                    }
-                 ]
-              },
-              "exc":{
-                 "L":[
-                    {
-                       "S":"/ads/"
-                    }
-                 ]
-              },
-              "nbf":{
-                 "S":"1645000000"
-              },
-              "session_auto_generate":{
-                 "N":"12"
-              },
-              "cty_fallback":{
-                 "BOOL":true
-              },
-              "paths":{
-                 "L":[
-                    {
-                       "S":"/v1/out/videoasset/manifest/"
-                    },
-                    {
-                       "S":"/v1/out/videoasset/segments/"
-                    }
-                 ]
-              },
-              "ip":{
-                 "BOOL":true
-              },
-              "cty":{
-                 "BOOL":false
-              },
-              "co_fallback":{
-                 "BOOL":true
-              },
-              "co":{
-                 "BOOL":true
-              },
-              "exp":{
-                 "S":"+60m"
-              }
-           }
-        }
-     }
+  private generateItem = (configuration: IConfiguration) => {
+
+    if(configuration.api)
+      console.log("api");
+
+    //TODO to get this from the wizard
+    const hostName = configuration.demo?.hostname!;
+    const urlPath = configuration.demo?.url_path!;
+    const ttl = configuration.demo?.ttl!;
+
+    var fileContent = fs.readFileSync('resources/mock/assets.json').toString()
+    fileContent = fileContent.replace('HOST_NAME', hostName)
+    fileContent = fileContent.replace('URL_PATH', urlPath)
+    fileContent = fileContent.replace('TTL', ttl)
+
+    const item = JSON.parse(fileContent);
+    return item;
 
     };
 

@@ -11,6 +11,7 @@ export interface ICore {
    * to be sent when the actual budget is superior
    * to the limit value.
    */
+   stack_name: string;
    rotate_secrets_frequency: number;
 }
 
@@ -18,5 +19,6 @@ export interface ICore {
  * The `Joi` schema for validating the core configuration.
  */
 export const coreSchema = Joi.object().keys({
+  stack_name:Joi.string().required(),
   rotate_secrets_frequency: Joi.number().min(0).required()
 });

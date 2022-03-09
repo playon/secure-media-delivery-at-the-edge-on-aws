@@ -49,7 +49,7 @@ Nodejs
 ```bash
 npm install
 
-npm install --prefix lambda/layers/cloudfronttoken_nodejs/nodejs
+npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
 ```
 Python
 

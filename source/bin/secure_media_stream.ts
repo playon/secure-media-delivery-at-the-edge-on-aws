@@ -12,12 +12,10 @@ const app = new cdk.App();
 //    region: process.env.CDK_DEFAULT_REGION
 //  };
 
-const stackName = app.node.tryGetContext('stackName') || 'SecureMediaStreamingStack';
-
 (async () => {
     // The stack configuration.
     const config = await getOpts();
 
-    new SecureMediaStreamingStack(app, stackName, config);
+    new SecureMediaStreamingStack(app, config.core?.stack_name!, config);
     //new SessionRevocationStack(app, 'SessionRevocationStack', cdkEnv);
 })();

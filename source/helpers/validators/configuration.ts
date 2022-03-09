@@ -1,6 +1,7 @@
 import * as Joi from 'joi';
 import { apiSchema, IApi } from './api';
 import { coreSchema, ICore } from './core';
+import { IDemo } from './demo';
 
 
 import { sessionRevocationSchema, ISessionRevocation } from './session-revocation';
@@ -14,6 +15,7 @@ import { sessionRevocationSchema, ISessionRevocation } from './session-revocatio
   core?: ICore;
   sessionRevocation?: ISessionRevocation;
   api?: IApi;
+  demo?: IDemo;
 
 }
 

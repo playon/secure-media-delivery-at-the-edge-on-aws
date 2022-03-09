@@ -1,0 +1,66 @@
+{
+    "id": {
+     "S": "1"
+    },
+    "url_path": {
+     "S": "URL_PATH"
+    },
+    "endpoint_hostname": {
+     "S": "HOST_NAME"
+    },
+    "token_policy": {
+     "M": {
+      "headers": {
+       "L": [
+        {
+         "S": "user-agent"
+        },
+        {
+         "S": "referer"
+        }
+       ]
+      },
+      "exc": {
+       "L": [
+        {
+         "S": "/ads/"
+        }
+       ]
+      },
+      "nbf": {
+       "S": "1645000000"
+      },
+      "session_auto_generate": {
+       "N": "12"
+      },
+      "cty_fallback": {
+       "BOOL": true
+      },
+      "paths": {
+       "L": [
+        {
+         "S": "/v1/out/videoasset/manifest/"
+        },
+        {
+         "S": "/v1/out/videoasset/segments/"
+        }
+       ]
+      },
+      "ip": {
+       "BOOL": true
+      },
+      "cty": {
+       "BOOL": false
+      },
+      "co_fallback": {
+       "BOOL": true
+      },
+      "co": {
+       "BOOL": true
+      },
+      "exp": {
+       "S": "TTL"
+      }
+     }
+    }
+   }

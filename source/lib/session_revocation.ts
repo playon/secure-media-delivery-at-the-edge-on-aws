@@ -65,7 +65,8 @@ export class SessionRevocation extends Construct {
         handler: 'index.lambda_handler',
             environment: {
                 'RULE_GROUP_ID' : cfnRuleGroup.attrId,
-                'RULE_GROUP_NAME': ruleGroupName
+                'RULE_GROUP_NAME'
+                : ruleGroupName
         },
       }
     )

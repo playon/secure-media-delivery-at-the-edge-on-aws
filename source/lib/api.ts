@@ -19,11 +19,12 @@ import {
   Stack,
   RemovalPolicy,
   aws_lambda as lambda,
+  aws_s3_deployment as s3deploy,
   aws_dynamodb as ddb,
   aws_cloudfront as cloudfront,
   aws_s3 as s3,
   aws_cloudfront_origins as origins,
-  aws_s3_deployment as s3deploy
+
 
 } from 'aws-cdk-lib';
 
@@ -52,13 +53,13 @@ export class Api extends Construct {
       compatibleRuntimes: [
         runtime
       ],
-      code: lambda.Code.fromAsset('lambda/layers/cloudfronttoken_'+configuration.api?.language),
+      code: lambda.Code.fromAsset('lambda/layers/aws_secure_media_delivery_'+configuration.api?.language),
       description: 'Layer used by generate new secret lambda',
     });
 
+    const hostingBucket = new s3.Bucket(this, 'HostingBucket');
 
-    //TO ADD CONDITION FROM THE WIZARD
-    const demoAssetsTable = new ddb.Table(this, "Demo",{
+    const demoAssetsTable = new ddb.Table(this, "DemoTable",{
       tableName : Aws.STACK_NAME + "_videoassets",
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       partitionKey: {name: "id", type: ddb.AttributeType.STRING},
@@ -66,8 +67,16 @@ export class Api extends Construct {
     })
 
     new LoadAssetsTable(this, "AssetsTable", {
-      table: demoAssetsTable
-    })
+      table: demoAssetsTable,
+      configuration: configuration
+    });
+
+    const folder = configuration.demo ? "demo_website" : "empty_demo_website";
+
+    new s3deploy.BucketDeployment(this, 'DeployWebsite', {
+      sources: [s3deploy.Source.asset('resources/' + folder)],
+      destinationBucket: hostingBucket,
+    });
 
     const generateToken = new lambda.Function(this, 'GenerateToken',{
       functionName: Aws.STACK_NAME + '_GenerateToken',
@@ -77,11 +86,13 @@ export class Api extends Construct {
           environment: {
             STACK_NAME: Aws.STACK_NAME,
             TABLE_NAME: demoAssetsTable.tableName,
-            USERNAME: "aaaaa",
-            PASSWORD: "bbbbb"
+            USERNAME: configuration.demo?.username!,
+            PASSWORD: configuration.demo?.password!
       },
       layers: [cloudfrontTokenLayer],
     })
+
+
 
     demoAssetsTable.grantReadData(generateToken);
 
@@ -101,12 +112,8 @@ export class Api extends Construct {
 
     const region = Stack.of(this).region;
     // Creates a distribution from an S3 bucket.
-    const hostingBucket = new s3.Bucket(this, 'HostingBucket');
 
-    new s3deploy.BucketDeployment(this, 'DeployWebsite', {
-      sources: [s3deploy.Source.asset('resources/demo_website')],
-      destinationBucket: hostingBucket,
-    });
+
 
     const myOriginRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
       originRequestPolicyName: Aws.STACK_NAME + '_CMS',

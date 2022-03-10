@@ -58,7 +58,7 @@ export class CWDashboard extends Construct {
       view: cloudwatch.LogQueryVisualizationType.PIE,
       title: "Verify JWT token",
       width: 9,
-      height: 8,
+      height: 6,
       queryLines: [
           "fields @timestamp, @message",
           "filter @message like /X_JWT_CHECK/",
@@ -87,7 +87,7 @@ export class CWDashboard extends Construct {
 
     const computeUsageWidget = new cloudwatch.GraphWidget({
       title: "Check JWT Token - Compute Utilization (Avg)",
-      height: 12,
+      height: 6,
       width: 24,
       setPeriodToTimeRange: true,
       left: [
@@ -99,7 +99,7 @@ export class CWDashboard extends Construct {
       title: "Rotate Secrets",
       view: cloudwatch.GraphWidgetView.PIE,
       width: 9,
-      height: 8,
+      height: 6,
       setPeriodToTimeRange: true,
       left: [
           this.sumSfnMetricFails(props.rotateSecretsWorkflowArn),
@@ -109,7 +109,7 @@ export class CWDashboard extends Construct {
 
     const invocationsWidget = new cloudwatch.GraphWidget({
       title: "Check JWT Token - Invocations (Sum)",
-      height: 12,
+      height: 6,
       width: 24,
       stacked: true,
       setPeriodToTimeRange: true,
@@ -120,7 +120,7 @@ export class CWDashboard extends Construct {
 
     const invocationsNbWidget = new cloudwatch.SingleValueWidget({
       title: "Tokens checked",
-      height: 8,
+      height: 6,
       width: 6,
       setPeriodToTimeRange: true,
       metrics: [
@@ -148,10 +148,20 @@ export class CWDashboard extends Construct {
       dimensionsMap: { "FunctionName": props.lambdaFunctionName }
     })
 
-    const invocationsNbWidget = new cloudwatch.GraphWidget({
+    const invocationsNbWidget = new cloudwatch.SingleValueWidget({
+      title: "Nb of tokens generated",
+      height: 6,
+      width: 6,
+      setPeriodToTimeRange: true,
+      metrics: [
+        tokensGeneratedMetric
+      ]
+    })
+
+    const invocationsWidget = new cloudwatch.GraphWidget({
       title: "Tokens generated",
-      height: 12,
-      width: 24,
+      height: 6,
+      width: 18,
       region: props.region,
       setPeriodToTimeRange: true,
       left: [
@@ -159,7 +169,7 @@ export class CWDashboard extends Construct {
       ]
     })
 
-    this.dashboard.addWidgets(invocationsNbWidget)
+    this.dashboard.addWidgets(invocationsNbWidget, invocationsWidget)
 
 
   }

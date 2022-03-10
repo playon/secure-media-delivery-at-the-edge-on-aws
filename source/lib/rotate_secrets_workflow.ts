@@ -53,7 +53,8 @@ export interface IConfigProps {
 }
 
 export class RotateSecretsWorkflow extends Construct {
-  public readonly workflowName: string;
+
+  public readonly workflowArn: string;
 
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
@@ -281,7 +282,7 @@ export class RotateSecretsWorkflow extends Construct {
       rule.addTarget(new targets.SfnStateMachine(workflow));
     }
 
-    this.workflowName = workflow.stateMachineName;
+    this.workflowArn = workflow.stateMachineArn;
 
     new CfnOutput(this, "SFRotateSecrets", {
       value: workflow.stateMachineName,

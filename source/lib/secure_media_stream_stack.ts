@@ -58,7 +58,7 @@ export class SecureMediaStreamingStack extends Stack {
 
     dashboard.buildCoreDashboard({
         cfFunctionName: checkToken.functionName,
-        rotateSecretsWorkflowName: rotateSecretsWorkflow.workflowName
+        rotateSecretsWorkflowArn: rotateSecretsWorkflow.workflowArn
       }
       )
     }

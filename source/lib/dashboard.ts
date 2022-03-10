@@ -25,7 +25,7 @@ import { Construct } from 'constructs';
  export interface IConfigProps {
 
    cfFunctionName : string;
-   rotateSecretsWorkflowName : string;
+   rotateSecretsWorkflowArn : string;
 
 
 }
@@ -34,14 +34,17 @@ export class CWDashboard extends Construct {
 
 
   public readonly dashboard: Dashboard;
-
+  private readonly EXECUTION_SUCCEEDED = "ExecutionsSucceeded";
+  private readonly EXECUTION_SUCCEEDED_LABEL = "Success";
+  private readonly EXECUTION_FAILED = "ExecutionsFailed";
+  private readonly EXECUTION_FAILED_LABEL = "Failure";
 
 
   constructor(scope: Construct, id: string) {
     super(scope, id);
 
     this.dashboard = new cloudwatch.Dashboard(this, "MonitoringDashboard", {
-      dashboardName: "SecureMediaStreamCoreModule",
+      dashboardName: "Secure-Media-Stream-Delivery",
     });
   }
 
@@ -87,24 +90,6 @@ export class CWDashboard extends Construct {
       statistic: "sum"
     })
 
-    const rotateSecretsMetricFails = new cloudwatch.Metric({
-      namespace: "AWS/States",
-      metricName: "ExecutionsFailed",
-      period: Duration.minutes(5),
-      dimensionsMap: { "StateMachineArn": props.rotateSecretsWorkflowName},
-      label: "Failure",
-      statistic: "sum"
-    })
-
-    const rotateSecretsMetricSucceeded = new cloudwatch.Metric({
-      namespace: "AWS/States",
-      metricName: "ExecutionsSucceeded",
-      period: Duration.minutes(5),
-      dimensionsMap: { "StateMachineArn": props.rotateSecretsWorkflowName},
-      label: "Success",
-      statistic: "sum"
-    })
-
     const computeUsageWidget = new cloudwatch.GraphWidget({
       title: "Check JWT Token Function - Compute Utilization (Avg)",
       height: 12,
@@ -117,13 +102,13 @@ export class CWDashboard extends Construct {
 
     const rotateSecretsWidget = new cloudwatch.GraphWidget({
       title: "Rotate Secrets",
-      //view: cloudwatch.LogQueryVisualizationType.PIE,
+      view: cloudwatch.GraphWidgetView.PIE,
       width: 9,
       height: 8,
       setPeriodToTimeRange: true,
       left: [
-          rotateSecretsMetricFails,
-          rotateSecretsMetricSucceeded
+          this.sumSfnMetricFails(props.rotateSecretsWorkflowArn),
+          this.sumSfnMetricSucceeded(props.rotateSecretsWorkflowArn),
       ]
     })
 
@@ -157,7 +142,26 @@ export class CWDashboard extends Construct {
     )
 
 
+  }
 
+  sumSfnMetricSucceeded(resourceArn: string) {
+    return this.sumSfnMetric(resourceArn, this.EXECUTION_SUCCEEDED, this.EXECUTION_SUCCEEDED_LABEL)
+  }
+
+  sumSfnMetricFails(resourceArn: string) {
+    return this.sumSfnMetric(resourceArn, this.EXECUTION_FAILED, this.EXECUTION_FAILED_LABEL)
+  }
+
+  sumSfnMetric(resourceArn: string, metricName: string, label: string) {
+
+    return new cloudwatch.Metric({
+      namespace: "AWS/States",
+      metricName: metricName,
+      period: Duration.minutes(5),
+      dimensionsMap: { "StateMachineArn": resourceArn},
+      label: label,
+      statistic: "sum"
+    })
 
   }
 

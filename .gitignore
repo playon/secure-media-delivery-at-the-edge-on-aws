@@ -11,7 +11,7 @@ source/lambda/layers/jsonpath/python/*
 cdk.out
 dist
 !**/cdk-solution-helper/index.js
-
+package-lock.json
 deployment/global-s3-assets
 deployment/regional-s3-assets
 open-source/

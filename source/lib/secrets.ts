@@ -14,7 +14,7 @@
 import {
   Aws,
   CfnOutput,
-  aws_secretsmanager as secretsmanager,
+  aws_secretsmanager as secretsmanager
 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 
@@ -55,8 +55,22 @@ export class Secrets extends Construct {
         generateStringKey: "UUID"
       }
     })
+/*
+    new custom_resources.AwsCustomResource(this, "rotateSecretsOnCreation", {
+      onCreate: {
+        service: "Lambda",
+        action: "invoke",
+        parameters: {
+          FunctionName: "LIVE_GenerateNewSecret"
+        },
+        physicalResourceId: custom_resources.PhysicalResourceId.of("rotateSecretCustomResource"),
+      },
+      policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
+        resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE
+      }),
+    });
 
-
+*/
     this.primarySecret = primarySecret;
     this.secondarySecret = secondarySecret;
     this.temporarySecret = temporarySecret;

@@ -2,7 +2,7 @@
   "name": "cdk-solution",
   "version": "0.1.0",
   "bin": {
-    "cdk-solution": "bin/cdk-solution.js"
+    "cdk-solution": "bin/secure_media_stream.js"
   },
   "scripts": {
     "postinstall": "npm run build",
@@ -22,7 +22,6 @@
     "@types/node": "10.17.27",
     "@types/prompts": "^2.0.14",
     "aws-cdk": "2.14.0",
-    "esbuild": "^0.14.23",
     "jest": "^26.4.2",
     "ts-jest": "^26.2.0",
     "ts-node": "^9.0.0",

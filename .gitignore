@@ -12,6 +12,7 @@ cdk.out
 dist
 !**/cdk-solution-helper/index.js
 package-lock.json
+.venv
 deployment/global-s3-assets
 deployment/regional-s3-assets
 open-source/

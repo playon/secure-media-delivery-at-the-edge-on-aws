@@ -56,6 +56,7 @@ def handler(event, context):
     )
 
     temporary_secret_as_json = response_secret['SecretString']
+    temporary_secret_key_name = list(json.loads(temporary_secret_as_json).keys())[0]
     temporary_secret_key_value = list(json.loads(temporary_secret_as_json).values())[0]
 
 
@@ -82,7 +83,7 @@ def handler(event, context):
 
         #replacing the texts
         if line.startswith('var secrets = '):
-            new_line = "var secrets = { \"secret1_key\" : \""+temporary_secret_key_value +"\", \"secret1_value\": " + json.dumps(temporary_secret_key_value) + ",  \"secret2_key\": \""+primary_secret_key_name +"\", \"secret2_value\": "+ json.dumps(primary_secret_key_value) +" }"
+            new_line = "var secrets = { \""+temporary_secret_key_name +"\" : \""+temporary_secret_key_value +"\", \""+primary_secret_key_name +"\": " + json.dumps(primary_secret_key_value) + " }"
         else:
             new_line = line
 

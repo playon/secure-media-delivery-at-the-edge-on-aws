@@ -147,7 +147,7 @@ export class Api extends Construct {
     });
 
     new CfnOutput(this, "DistributionDomainName",{
-      value: distribution.domainName,
+      value: 'https://' + distribution.domainName,
       exportName: Aws.STACK_NAME + 'DomainName',
       description: 'Domain name'
     })

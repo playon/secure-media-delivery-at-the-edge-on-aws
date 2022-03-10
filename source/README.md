@@ -25,7 +25,7 @@ You first need to install the dependencies of the project to make it ready to us
 
 ```bash
 cd source
-npm install
+./install_dependencies.sh
 ```
 
 You then run the built-in wizard which will prompt you with questions on the type of configuration you would like to apply to the sandobox environment ([More information on CDK bootstrapping](https://docs.aws.amazon.com/cdk/latest/guide/cli.html#cli-bootstrap)).
@@ -42,45 +42,10 @@ npx cdk bootstrap
 
 > You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the boostrap process must be done for each AWS region.
 
-Install dependencies
-
-Nodejs
-
-```bash
-npm install
-
-npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
-```
-Python
-
-Activate your virtualenv.
-
-```bash
-source .venv/bin/activate
-```
-
-If you are a Windows platform, you would activate the virtualenv like this:
-
-```bash
-% .venv\Scripts\activate.bat
-```
-
-```bash
-pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
-
-```
-
 Once the account has been bootstrapped and dependencies installed, you can deploy the solution using the following command.
 
 ```bash
 npx cdk deploy
-```
-
-The default name of the stack is `SecureMediaStreamingStack`.
-To change the name of the stack use the following:
-
-```bash
-npx cdk deploy --context stackName=myNewStackName
 ```
 
 > AWS CDK will create and deploy a CloudFormation template on the sandbox account which you can view in the [CloudFormation console](https://console.aws.amazon.com/cloudformation/home) in the selected region.

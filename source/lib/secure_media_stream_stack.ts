@@ -44,10 +44,6 @@ export class SecureMediaStreamingStack extends Stack {
 
     const secrets = new Secrets(this, 'Secrets')
 
-    if(configuration.api){
-      new Api(this, 'Api', configuration, secrets)
-    }
-
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
       secrets: secrets,
       checkTokenFunction: checkToken,
@@ -55,12 +51,17 @@ export class SecureMediaStreamingStack extends Stack {
     } )
 
     const dashboard = new CWDashboard(this, 'CoreDashboard')
-
     dashboard.buildCoreDashboard({
-        cfFunctionName: checkToken.functionName,
-        rotateSecretsWorkflowArn: rotateSecretsWorkflow.workflowArn
-      }
-      )
+      cfFunctionName: checkToken.functionName,
+      rotateSecretsWorkflowArn: rotateSecretsWorkflow.workflowArn
+    }
+    )
+
+    if(configuration.api){
+      new Api(this, 'Api', configuration, secrets, dashboard)
+    }
+
+
     }
 
 }

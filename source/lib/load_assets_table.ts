@@ -59,9 +59,6 @@ export class LoadAssetsTable extends Construct {
 
   private generateItem = (configuration: IConfiguration) => {
 
-    if(configuration.api)
-      console.log("api");
-
     //TODO to get this from the wizard
     const hostName = configuration.demo?.hostname!;
     const urlPath = configuration.demo?.url_path!;

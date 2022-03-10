@@ -34,10 +34,11 @@ import { Construct } from 'constructs';
 import { IConfiguration } from '../helpers/validators/configuration';
 import { Secrets } from './secrets';
 import { LoadAssetsTable } from './load_assets_table';
+import { CWDashboard } from './dashboard';
 
 export class Api extends Construct {
 
-  constructor(scope: Construct, id: string, configuration: IConfiguration, secrets: Secrets) {
+  constructor(scope: Construct, id: string, configuration: IConfiguration, secrets: Secrets, dashboard: CWDashboard) {
     super(scope, id);
     console.log(configuration.api)
 
@@ -151,7 +152,10 @@ export class Api extends Construct {
       description: 'Domain name'
     })
 
-
+    dashboard.buildApiDashboard({
+        lambdaFunctionName: generateToken.functionName,
+        region: region
+    })
 
     new CfnOutput(this, "ApiEndpoint",{
       value: `${httpApi.apiId}.execute-api.${region}.amazonaws.com`,

@@ -22,11 +22,14 @@ import { Construct } from 'constructs';
 /**
  * The properties expected by the config construct.
  */
- export interface IConfigProps {
-
+export interface ICoreConfigProps {
    cfFunctionName : string;
    rotateSecretsWorkflowArn : string;
+}
 
+export interface IApiConfigProps {
+  lambdaFunctionName : string;
+  region: string;
 
 }
 
@@ -48,7 +51,7 @@ export class CWDashboard extends Construct {
     });
   }
 
-  buildCoreDashboard(props: IConfigProps){
+  buildCoreDashboard(props: ICoreConfigProps){
 
     const checkTokenWidget = new cloudwatch.LogQueryWidget({
       logGroupNames: ["/aws/cloudfront/function/"+props.cfFunctionName],
@@ -64,7 +67,7 @@ export class CWDashboard extends Construct {
       ]
     })
 
-    const computeUsageMetric = new cloudwatch.Metric({
+    const cffComputeUsageMetric = new cloudwatch.Metric({
       namespace: "AWS/CloudFront",
       metricName: "FunctionComputeUtilization",
       period: Duration.minutes(5),
@@ -73,30 +76,22 @@ export class CWDashboard extends Construct {
       statistic: "avg"
     })
 
-    const nbTokensCheckedMetric = new cloudwatch.Metric({
+    const cffInvocationsMetric = new cloudwatch.Metric({
       namespace: "AWS/CloudFront",
       metricName: "FunctionInvocations",
       period: Duration.minutes(5),
       dimensionsMap: { "FunctionName": props.cfFunctionName, "Region": "Global" },
-      statistic: "sum"
-    })
-
-    const invocationsMetric = new cloudwatch.Metric({
-      namespace: "AWS/CloudFront",
-      metricName: "FunctionInvocations",
-      period: Duration.minutes(5),
-      dimensionsMap: { "FunctionName": props.cfFunctionName, "Region": "Global" },
-      label: "Compute usage",
+      label: "Invocations",
       statistic: "sum"
     })
 
     const computeUsageWidget = new cloudwatch.GraphWidget({
-      title: "Check JWT Token Function - Compute Utilization (Avg)",
+      title: "Check JWT Token - Compute Utilization (Avg)",
       height: 12,
       width: 24,
       setPeriodToTimeRange: true,
       left: [
-          computeUsageMetric
+          cffComputeUsageMetric
       ]
     })
 
@@ -113,13 +108,13 @@ export class CWDashboard extends Construct {
     })
 
     const invocationsWidget = new cloudwatch.GraphWidget({
-      title: "Check JWT Token Function - Invocations (Sum)",
+      title: "Check JWT Token - Invocations (Sum)",
       height: 12,
       width: 24,
       stacked: true,
       setPeriodToTimeRange: true,
       left: [
-          invocationsMetric
+          cffInvocationsMetric
       ]
     })
 
@@ -129,7 +124,7 @@ export class CWDashboard extends Construct {
       width: 6,
       setPeriodToTimeRange: true,
       metrics: [
-          nbTokensCheckedMetric
+        cffInvocationsMetric
       ]
     })
 
@@ -140,6 +135,31 @@ export class CWDashboard extends Construct {
       computeUsageWidget,
       invocationsWidget
     )
+
+
+  }
+
+  buildApiDashboard(props: IApiConfigProps){
+
+    const tokensGeneratedMetric = new cloudwatch.Metric({
+      namespace: "AWS/Lambda",
+      metricName: "Invocations",
+      period: Duration.minutes(5),
+      dimensionsMap: { "FunctionName": props.lambdaFunctionName }
+    })
+
+    const invocationsNbWidget = new cloudwatch.GraphWidget({
+      title: "Tokens generated",
+      height: 12,
+      width: 24,
+      region: props.region,
+      setPeriodToTimeRange: true,
+      left: [
+        tokensGeneratedMetric
+      ]
+    })
+
+    this.dashboard.addWidgets(invocationsNbWidget)
 
 
   }

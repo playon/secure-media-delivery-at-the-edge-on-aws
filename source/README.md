@@ -50,7 +50,6 @@ npx cdk deploy
 
 > AWS CDK will create and deploy a CloudFormation template on the sandbox account which you can view in the [CloudFormation console](https://console.aws.amazon.com/cloudformation/home) in the selected region.
 
-
 ```bash
 npx cdk destroy
 ```

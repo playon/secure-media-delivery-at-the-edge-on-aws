@@ -15,4 +15,4 @@ source .venv/bin/activate
 echo "Install Python dependencies for AWS Lambda"
 pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
 
-
+deactivate

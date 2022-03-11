@@ -8,8 +8,9 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1077.0",
-    "aws-secure-media-delivery": "file../../../../resources/sdk/node/v1/",
+    "aws-secure-media-deliveryssss": "file../../../resources/sdk/node/v1/",
     "base64url": "^3.0.1",
+    "debug": "^4.3.3",
     "jsonwebtoken": "^8.5.1"
   },
   "author": "",

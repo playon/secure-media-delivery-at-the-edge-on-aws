@@ -49,7 +49,6 @@ export class Api extends Construct {
     }else{
       runtime = lambda.Runtime.PYTHON_3_7
     }
-
     const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
       compatibleRuntimes: [
         runtime

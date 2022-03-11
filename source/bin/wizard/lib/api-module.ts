@@ -52,14 +52,14 @@ const demoQuestions = [
   {
     type: 'text',
     name: 'hostname',
-    message: 'Hostname to deliver video assets',
+    message: 'Existing hostname used for asset delivery',
     validate: (value: string) => Joi.string().required().validate(value).error ?
       'Hostname is mandatory' : true
   },
   {
     type: 'text',
     name: 'url_path',
-    message: 'Path for one video asset',
+    message: 'Path for an existing playable asset',
     validate: (value: string) => Joi.string().required().validate(value).error ?
       'Url path is mandatory' : true
   },

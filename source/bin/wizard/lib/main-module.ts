@@ -32,7 +32,7 @@ export class MainModule implements PromptComponent {
    * @param configuration an object in which the configuration must be stored.
    */
   async prompt(configuration: IConfiguration): Promise<IConfiguration> {
-    console.log("\n--------------------- MAIN STACK -------------------\n")
+    console.log("\n--------------------- Base configuration -------------------\n")
     configuration.main = <IMain> await prompts.prompt(coreQuestions, { onCancel });
     return (configuration);
   }

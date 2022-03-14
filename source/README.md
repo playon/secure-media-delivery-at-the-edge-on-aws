@@ -34,13 +34,13 @@ You then run the built-in wizard which will prompt you with questions on the typ
 npm run wizard
 ```
 
-The wizard will then generate a configuration in the `solution.context.json` file that is at the root of this repository. You will first need to ensure that the AWS CDK has been boostrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.
+The wizard will then generate a configuration in the `solution.context.json` file that is at the root of this repository. You will first need to ensure that the AWS CDK has been bootsrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.
 
 ```bash
 npx cdk bootstrap
 ```
 
-> You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the boostrap process must be done for each AWS region.
+> You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the bootstrap process must be done for each AWS region.
 
 Once the account has been bootstrapped and dependencies installed, you can deploy the solution using the following command.
 

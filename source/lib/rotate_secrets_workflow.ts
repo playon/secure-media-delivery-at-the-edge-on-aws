@@ -25,30 +25,24 @@ import {
   aws_stepfunctions_tasks as tasks,
   aws_events as events,
   aws_events_targets as targets,
-  //aws_lambda_nodejs as node
+
 } from "aws-cdk-lib";
+import { JsonPath } from "aws-cdk-lib/aws-stepfunctions";
 
 //import * as fs from 'fs';
 //import * as path from 'path';
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
+import { InitSecrets } from "./init_secrets";
 import { Secrets } from "./secrets";
 
 /**
  * The properties expected by the config construct.
  */
 export interface IConfigProps {
-  /**
-   * Secret object
-   */
   secrets: Secrets;
-
-  /**
-   * CloudFront function
-   */
   checkTokenFunction: cloudfront.IFunction;
-
   configuration: IConfiguration;
 }
 
@@ -68,19 +62,36 @@ export class RotateSecretsWorkflow extends Construct {
 
     const accountId = Stack.of(this).account;
 
-    const generateNewSecret = new lambda.Function(this, "GenerateNewSecret", {
-      functionName: Aws.STACK_NAME + "_GenerateNewSecret",
+    const generateSecretUpdateCff = new lambda.Function(this, "GenerateSecretUpdateCff", {
+      functionName: Aws.STACK_NAME + "_GenerateSecretUpdateCff",
       runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/generate_new_secret"),
+      code: lambda.Code.fromAsset("lambda/generate_secret_update_cff"),
+      timeout: Duration.seconds(300),
       handler: "index.handler",
       environment: {
         TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
+        PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
+        SECONDARY_KEY_NAME: props.secrets.secondarySecret.secretName,
+        CFF_NAME: props.checkTokenFunction.functionName,
+
       }
     });
 
+    generateSecretUpdateCff.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "cloudfront:DescribeFunction",
+          "cloudfront:UpdateFunction",
+          "cloudfront:PublishFunction",
+        ],
+        resources: [props.checkTokenFunction.functionArn],
+      })
+    );
+
     // Set Lambda Logs Retention and Removal Policy
     new logs.LogGroup(this, "GenerateNewSecretLogs", {
-      logGroupName: "/aws/lambda/" + generateNewSecret.functionName,
+      logGroupName: "/aws/lambda/" + generateSecretUpdateCff.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
@@ -105,22 +116,19 @@ export class RotateSecretsWorkflow extends Construct {
     );
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "GetLastModifiedTimeLogs", {
+    new logs.LogGroup(this, "LastModifiedTimeLogs", {
       logGroupName: "/aws/lambda/" + getLastModifiedTime.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-
-    const updateCloudFrontFunction = new lambda.Function(this, "UpdateCloudFrontFunction", {
-      functionName: Aws.STACK_NAME + "_UpdateCloudFrontFunction",
+    const getDistributionsForCff = new lambda.Function(this, "getDistributionsList", {
+      functionName: Aws.STACK_NAME + "_GetDistributionsForCff",
       runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/update_cloudfront_function"),
+      code: lambda.Code.fromAsset("lambda/get_distributions_for_cff"),
       handler: "index.handler",
       timeout: Duration.seconds(300),
       environment: {
-        TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
-        PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
         CFF_NAME: props.checkTokenFunction.functionName,
         ACCOUNT_ID: accountId,
       },
@@ -128,20 +136,7 @@ export class RotateSecretsWorkflow extends Construct {
     });
 
 
-    updateCloudFrontFunction.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: [
-          "cloudfront:DescribeFunction",
-          "cloudfront:UpdateFunction",
-          "cloudfront:PublishFunction",
-        ],
-        resources: [props.checkTokenFunction.functionArn],
-      })
-    );
-
-
-    updateCloudFrontFunction.addToRolePolicy(
+    getDistributionsForCff.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["cloudfront:List*"],
@@ -151,10 +146,16 @@ export class RotateSecretsWorkflow extends Construct {
     );
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "updateCloudFrontFunctionLogs", {
-      logGroupName: "/aws/lambda/" + updateCloudFrontFunction.functionName,
+    new logs.LogGroup(this, "updateCFFLogs", {
+      logGroupName: "/aws/lambda/" + getDistributionsForCff.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
+    });
+
+
+    new InitSecrets(this, "Init", {
+      functionArn: generateSecretUpdateCff.functionArn,
+      functionName: generateSecretUpdateCff.functionName
     });
 
     //Generate token
@@ -177,12 +178,16 @@ export class RotateSecretsWorkflow extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    props.secrets.temporarySecret.grantRead(updateCloudFrontFunction);
-    props.secrets.primarySecret.grantRead(updateCloudFrontFunction);
+    //permissions for Secrets Manager
+    //
+    //generateSecretUpdateCff
+    props.secrets.temporarySecret.grantWrite(generateSecretUpdateCff);
+    props.secrets.primarySecret.grantWrite(generateSecretUpdateCff);
+    props.secrets.secondarySecret.grantWrite(generateSecretUpdateCff);
+    props.secrets.primarySecret.grantRead(generateSecretUpdateCff);
 
 
-    props.secrets.temporarySecret.grantWrite(generateNewSecret);
-
+    //swapSecrets
     props.secrets.temporarySecret.grantRead(swapSecrets);
     props.secrets.temporarySecret.grantWrite(swapSecrets);
 
@@ -195,9 +200,9 @@ export class RotateSecretsWorkflow extends Construct {
 
     const generateNewSecretJob = new tasks.LambdaInvoke(
       this,
-      "Generate new secret",
+      "Get distributions for CloudFront Function",
       {
-        lambdaFunction: generateNewSecret,
+        lambdaFunction: getDistributionsForCff,
         outputPath: "$",
         resultSelector: {
           "Output.$": "$.Payload",
@@ -207,10 +212,10 @@ export class RotateSecretsWorkflow extends Construct {
 
     const updateCloudFrontFunctionJob = new tasks.LambdaInvoke(
       this,
-      "Update CloudFront Function",
+      "Generate secrets & update CloudFront Function",
       {
-        lambdaFunction: updateCloudFrontFunction,
-        outputPath: "$",
+        lambdaFunction: generateSecretUpdateCff,
+        resultPath: JsonPath.DISCARD,
         resultSelector: {
           "Output.$": "$.Payload",
         },
@@ -252,28 +257,24 @@ export class RotateSecretsWorkflow extends Construct {
     .otherwise(new sfn.Succeed(this, "Propagation OK"))
 
 
-
-
     map.iterator(getLastModifiedTimeJob.next(updatePropagated));
-
-    const log_group = new logs.LogGroup(this, "RotateSecretSFLogGroup");
-
     // Step function to orchestrate generating a new secret
-    const workflow = new sfn.StateMachine(this, "RotateSecret", {
+
+    const workflow = new sfn.StateMachine(this, "Rotate", {
       stateMachineName: Aws.STACK_NAME + "_RotateSecret",
       definition: generateNewSecretJob.next(updateCloudFrontFunctionJob).next(map).next(swapSecretsJob),
       timeout: Duration.minutes(60),
-      logs: {
-        destination: log_group,
-        level: sfn.LogLevel.ALL,
-      },
+      //logs: {
+      //  destination: new logs.LogGroup(this, "SFLogGroup"),
+      //  level: sfn.LogLevel.ALL,
+      //},
     });
 
     const triggerFrequency =
       props.configuration.core?.rotate_secrets_frequency || 0;
     if (triggerFrequency > 0) {
       // Trigger Sfn to rotate the secrets every X minutes
-      const rule = new events.Rule(this, "RuleRotateSecrets", {
+      const rule = new events.Rule(this, "Rule1", {
         schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
         description: "Trigger StepFunction to rotate secrets",
         enabled: true,

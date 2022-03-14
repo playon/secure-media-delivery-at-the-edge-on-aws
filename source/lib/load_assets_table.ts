@@ -30,25 +30,19 @@ export class LoadAssetsTable extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
+    const loadItem = {
+      service: "DynamoDB",
+      action: "putItem",
+      parameters: {
+        TableName: props.table.tableName,
+        Item: this.generateItem(props.configuration),
+      },
+      physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
+    }
+
     new custom_resources.AwsCustomResource(this, "initDBResource", {
-      onCreate: {
-        service: "DynamoDB",
-        action: "putItem",
-        parameters: {
-          TableName: props.table.tableName,
-          Item: this.generateItem(props.configuration),
-        },
-        physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
-      },
-      onUpdate: {
-        service: "DynamoDB",
-        action: "putItem",
-        parameters: {
-          TableName: props.table.tableName,
-          Item: this.generateItem(props.configuration),
-        },
-        physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
-      },
+      onCreate: loadItem,
+      onUpdate: loadItem,
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [props.table.tableArn],
       }),
@@ -69,8 +63,7 @@ export class LoadAssetsTable extends Construct {
     fileContent = fileContent.replace('URL_PATH', urlPath)
     fileContent = fileContent.replace('TTL', ttl)
 
-    const item = JSON.parse(fileContent);
-    return item;
+    return JSON.parse(fileContent);
 
     };
 

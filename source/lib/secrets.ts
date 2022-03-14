@@ -25,78 +25,39 @@ export class Secrets extends Construct {
   public readonly secondarySecret: secretsmanager.ISecret;
   public readonly temporarySecret: secretsmanager.ISecret;
 
-  padTo2Digits(num: number) {
-    return num.toString().padStart(2, '0');
-  }
-
-  formatDate(date: Date) {
-    return (
-      [
-        date.getFullYear().toString().substring(1, 3),
-        this.padTo2Digits(date.getMonth() + 1),
-        this.padTo2Digits(date.getDate()),
-      ].join('')
-    );
-  }
-
-  new_secret_key(){
-
-    const formatterDate = this.formatDate(new Date());
-    const random_key_suffix = Math.random().toString(36).substring(2, 12)
-    return formatterDate + '_' + random_key_suffix;
-
-  }
-
   constructor(scope: Construct, id: string) {
     super(scope, id);
-
-
-    const primarySecretKey = this.new_secret_key();
 
     const primarySecret = new secretsmanager.Secret(this, "Primary", {
       secretName: Aws.STACK_NAME + "_PrimarySecret",
       description: "Primary secret for Secure Media Stream Delivery",
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ primarySecretKey: "" }),
-        generateStringKey: primarySecretKey
+        secretStringTemplate: JSON.stringify({ "MY_PRIMARY_KEY": "" }),
+        generateStringKey: "MY_PRIMARY_KEY"
       }
     })
 
-    const secondarySecretKey = this.new_secret_key();
     const secondarySecret = new secretsmanager.Secret(this, "Secondary", {
       secretName: Aws.STACK_NAME + "_SecondarySecret",
       description: "Secondary secret for Secure Media Stream Delivery",
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ secondarySecretKey: "" }),
-        generateStringKey: secondarySecretKey
+        secretStringTemplate: JSON.stringify({ "MY_SECONDARY_KEY": "" }),
+        generateStringKey: "MY_SECONDARY_KEY"
       }
     })
 
-    const temporarySecretKey = this.new_secret_key();
     const temporarySecret = new secretsmanager.Secret(this, "Temporary", {
       secretName: Aws.STACK_NAME + "_TemporarySecret",
       description: "Temporary secret for Secure Media Stream Delivery",
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ temporarySecretKey: "" }),
-        generateStringKey: temporarySecretKey
+        secretStringTemplate: JSON.stringify({ "MY_TEMPORARY_KEY": "" }),
+        generateStringKey: "MY_TEMPORARY_KEY"
       }
     })
-/*
-    new custom_resources.AwsCustomResource(this, "rotateSecretsOnCreation", {
-      onCreate: {
-        service: "Lambda",
-        action: "invoke",
-        parameters: {
-          FunctionName: "LIVE_GenerateNewSecret"
-        },
-        physicalResourceId: custom_resources.PhysicalResourceId.of("rotateSecretCustomResource"),
-      },
-      policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE
-      }),
-    });
 
-*/
+
+
+
     this.primarySecret = primarySecret;
     this.secondarySecret = secondarySecret;
     this.temporarySecret = temporarySecret;

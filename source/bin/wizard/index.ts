@@ -17,13 +17,13 @@ import { ApiModule } from './lib/api-module';
 const componentQuestion = {
   type: 'multiselect',
   name: 'value',
-  message: 'Which optional component(s) would you like to deploy ?',
+  message: 'Which optional module would you like to deploy ?',
   min: 0,
   instructions: false,
   hint: '- Space to select. Return to submit. \'a\' to toggle all.',
   choices: [
-    { title: 'Session revocation', 'value': 'session-revocation' },
-    { title: 'Rest APIs', 'value': 'api' },
+    { title: '[SESSION REVOCATION]', 'value': 'session-revocation' },
+    { title: '[API]', 'value': 'api' },
   ]
 };
 
@@ -34,7 +34,7 @@ const componentQuestion = {
  const confirmConfigurationQuestion = {
   type: 'confirm',
   name: 'value',
-  message: 'This is the generated configuration based on your choices. Would you like to use it ?'
+  message: 'Please check your choices before saving the current configuration. Would you like to use it ?'
 };
 
 /**
@@ -81,9 +81,6 @@ const getConfiguration = async (): Promise<IConfiguration> => {
 
   // The pretty-printed version of the configuration.
   const data = JSON.stringify(configuration, null, 2);
-
-  // Displaying the content of the configuration file.
-  console.log(data);
 
   // Prompting the user to confirm.
   const confirmation = await prompts.prompt(confirmConfigurationQuestion);

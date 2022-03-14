@@ -13,13 +13,13 @@ import { ICore } from '../../../helpers/validators/core';
 const coreQuestions = [{
   type: 'text',
   name: 'stack_name',
-  message: 'Stack name',
+  message: '[MAIN] --> Stack name',
   validate: (value: string) => Joi.string().required().validate(value).error ?
     'The name of the stack is mandatory' : true
 },{
   type: 'text',
   name: 'rotate_secrets_frequency',
-  message: 'At what frequency do you want to rotate the secrets?\n (in minutes between 1 and 1440, type 0 to disable it)',
+  message: '[MAIN] --> At what frequency do you want to rotate the secrets?\n (in minutes between 1 and 1440, type 0 to disable it)',
   validate: (value: string) => Joi.number().min(0).required().validate(value).error ?
     'The value must be a number superior or equal to 0' : true
 }];
@@ -32,6 +32,7 @@ export class CoreModule implements PromptComponent {
    * @param configuration an object in which the configuration must be stored.
    */
   async prompt(configuration: IConfiguration): Promise<IConfiguration> {
+    console.log("\n--------------------- MAIN STACK -------------------\n")
     configuration.core = <ICore> await prompts.prompt(coreQuestions, { onCancel });
     return (configuration);
   }

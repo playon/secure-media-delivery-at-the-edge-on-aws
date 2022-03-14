@@ -1,5 +1,5 @@
 {
-  "name": "nodejs",
+  "name": "API endpoint layer",
   "version": "1.0.0",
   "description": "",
   "main": "aws-secure-media-delivery.js",

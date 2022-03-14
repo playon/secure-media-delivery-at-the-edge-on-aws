@@ -54,9 +54,9 @@ export class LoadAssetsTable extends Construct {
   private generateItem = (configuration: IConfiguration) => {
 
     //TODO to get this from the wizard
-    const hostName = configuration.demo?.hostname!;
-    const urlPath = configuration.demo?.url_path!;
-    const ttl = configuration.demo?.ttl!;
+    const hostName = configuration.hosting?.hostname!;
+    const urlPath = configuration.hosting?.url_path!;
+    const ttl = configuration.hosting?.ttl!;
 
     var fileContent = fs.readFileSync('resources/mock/assets.json').toString()
     fileContent = fileContent.replace('HOST_NAME', hostName)

@@ -4,7 +4,7 @@ import * as prompts from 'prompts';
 import { PromptComponent } from './prompt-component';
 import { onCancel } from './handlers';
 import { IConfiguration } from '../../../helpers/validators/configuration';
-import { ICore } from '../../../helpers/validators/core';
+import { IMain } from '../../../helpers/validators/main';
 
 /**
  * A question prompting the user for the session invalidation
@@ -24,7 +24,7 @@ const coreQuestions = [{
     'The value must be a number superior or equal to 0' : true
 }];
 
-export class CoreModule implements PromptComponent {
+export class MainModule implements PromptComponent {
 
   /**
    * Implements the logic to prompt questions to the user
@@ -33,7 +33,7 @@ export class CoreModule implements PromptComponent {
    */
   async prompt(configuration: IConfiguration): Promise<IConfiguration> {
     console.log("\n--------------------- MAIN STACK -------------------\n")
-    configuration.core = <ICore> await prompts.prompt(coreQuestions, { onCancel });
+    configuration.main = <IMain> await prompts.prompt(coreQuestions, { onCancel });
     return (configuration);
   }
 }

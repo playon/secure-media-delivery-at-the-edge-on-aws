@@ -33,7 +33,7 @@ export class SessionRevocationModule implements PromptComponent {
    * @param configuration an object in which the configuration must be stored.
    */
   async prompt(configuration: IConfiguration): Promise<IConfiguration> {
-    console.log("\n--------------------- SESSION REVOCATION MODULE -------------------\n")
+    console.log("\n--------------------- SESSION REVOCATION Module -------------------\n")
     configuration.sessionRevocation = <ISessionRevocation> await prompts.prompt(sessionRevocationQuestions, { onCancel });
     return (configuration);
   }

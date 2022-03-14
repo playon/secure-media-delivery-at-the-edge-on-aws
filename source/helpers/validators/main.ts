@@ -4,7 +4,7 @@ import * as Joi from 'joi';
  * A description of the Core configuration
  * in Typescript.
  */
-export interface ICore {
+export interface IMain {
 
   /**
    * The limit (in dollars) at which a notification is

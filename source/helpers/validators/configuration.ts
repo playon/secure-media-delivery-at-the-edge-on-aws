@@ -1,7 +1,8 @@
 import * as Joi from 'joi';
 import { apiSchema, IApi } from './api';
-import { coreSchema, ICore } from './core';
-import { IDemo } from './demo';
+import { coreSchema, IMain } from './main';
+import { demoSchema, IDemo } from './demo';
+import { hostingSchema, IHosting } from './hosting';
 
 
 import { sessionRevocationSchema, ISessionRevocation } from './session-revocation';
@@ -12,19 +13,22 @@ import { sessionRevocationSchema, ISessionRevocation } from './session-revocatio
  */
  export interface IConfiguration {
 
-  core?: ICore;
+  main?: IMain;
   sessionRevocation?: ISessionRevocation;
   api?: IApi;
+  hosting?: IHosting;
   demo?: IDemo;
-
 }
 
 /**
  * The `Joi` schema for validating the configuration.
  */
 export const schema = Joi.object().keys({
-  core: coreSchema,
+  main: coreSchema,
   sessionRevocation: sessionRevocationSchema.optional(),
-  api: apiSchema.optional()
+  api: apiSchema.optional(),
+  hosting: hostingSchema.optional(),
+  demo: demoSchema.optional(),
+
 
 }).unknown().required();

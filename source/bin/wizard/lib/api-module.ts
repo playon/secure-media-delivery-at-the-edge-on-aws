@@ -5,6 +5,7 @@ import { onCancel } from './handlers';
 import { IConfiguration } from '../../../helpers/validators/configuration';
 import { IApi } from '../../../helpers/validators/api';
 import { IDemo } from '../../../helpers/validators/demo';
+import { IHosting } from '../../../helpers/validators/hosting';
 
 /**
  * A question prompting the user for the session invalidation
@@ -22,46 +23,70 @@ const apiQuestions = [
     { title: 'Python', value: 'python'  },
   ],
   initial: 1
-},
-{
+}
+];
+
+const selectAssetHosting = [{
   type: 'toggle',
-  name: 'demo',
-  message: '[API] --> Do you want to deploy a demo website?',
+  name: 'hosting',
+  message: '[API] --> Do you want to configure your existing hosting used for asset delivery?',
   initial: true,
   active: 'yes',
   inactive: 'no'
-}];
+}]
 
-const apiDemoQuestions = [
+const hostQuestions = [
+  {
+    type: 'text',
+    name: 'hostname',
+    message: '[API] --> Hostname used for asset delivery',
+    validate: (value: string) => Joi.string().required().validate(value).error ?
+    'Hostname is mandatory' : true
+  },
+  {
+    type: 'text',
+    name: 'url_path',
+    message: '[API] --> URL path for existing playable asset',
+    validate: (value: string) => Joi.string().required().validate(value).error ?
+    'URL path for existing playable asset is mandatory' : true
+  },
+  {
+    type: 'text',
+    name: 'ttl',
+    message: '[API] --> TTL for the token',
+    validate: (value: string) => Joi.number().required().validate(value).error ?
+    'TTL for the token is mandatory' : true
+  }
+]
+
+const selectDemoWebsite = [{
+  type: 'toggle',
+  name: 'demo',
+  message: '[API][Demo website] --> Do you want to deploy a demo website?',
+  initial: true,
+  active: 'yes',
+  inactive: 'no'
+}]
+
+
+
+const demoQuestions = [
+
   {
     type: 'text',
     name: 'username',
-    message: '[API] --> Username used to authenticate',
+    message: '[API][Demo website] --> Username used to authenticate demo viewer',
     validate: (value: string) => Joi.string().required().validate(value).error ?
       'Username is mandatory' : true
   },
   {
     type: 'text',
     name: 'password',
-    message: '[API] --> Password used to authenticate',
+    message: '[API][Demo website] --> Password used to authenticate demo viewer',
     validate: (value: string) => Joi.string().required().validate(value).error ?
       'Password is mandatory' : true
   },
-  {
-    type: 'text',
-    name: 'hostname',
-    message: '[API] --> Existing hostname used for asset delivery (optional)'
-  },
-  {
-    type: 'text',
-    name: 'url_path',
-    message: '[API] --> URL path for existing for an existing playable asset (optional)'
-  },
-  {
-    type: 'text',
-    name: 'ttl',
-    message: '[API] --> TTL for the token (optional)',
-  }];
+];
 
 
 export class ApiModule implements PromptComponent {
@@ -72,11 +97,23 @@ export class ApiModule implements PromptComponent {
    * @param configuration an object in which the configuration must be stored.
    */
   async prompt(configuration: IConfiguration): Promise<IConfiguration> {
-    console.log("\n--------------------- API MODULE -------------------\n")
+    console.log("\n--------------------- API Module -------------------\n")
     configuration.api = <IApi> await prompts.prompt(apiQuestions, { onCancel });
-    if(configuration.api.demo){
-      configuration.demo = <IDemo> await prompts.prompt(apiDemoQuestions, { onCancel });
+
+    if(configuration.hosting){
+      configuration.api = <IApi> await prompts.prompt(hostQuestions, { onCancel });
     }
+
+    const configureHosting =  await prompts.prompt(selectAssetHosting, { onCancel });
+    if(configureHosting.hosting){
+      configuration.hosting = <IHosting> await prompts.prompt(hostQuestions, { onCancel });
+    }
+
+    const configureDemo =  await prompts.prompt(selectDemoWebsite, { onCancel });
+    if(configureDemo.demo){
+      configuration.demo = <IDemo> await prompts.prompt(demoQuestions, { onCancel });
+    }
+
     return (configuration);
   }
 }

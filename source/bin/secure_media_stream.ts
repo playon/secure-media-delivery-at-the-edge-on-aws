@@ -16,6 +16,6 @@ const app = new cdk.App();
     // The stack configuration.
     const config = await getOpts();
 
-    new SecureMediaStreamingStack(app, config.core?.stack_name!, config);
+    new SecureMediaStreamingStack(app, config.main?.stack_name!, config);
     //new SessionRevocationStack(app, 'SessionRevocationStack', cdkEnv);
 })();

@@ -7,7 +7,7 @@ import { IConfiguration } from '../../helpers/validators/configuration';
 import { SessionRevocationModule } from './lib/session-revocation-module';
 import { PromptComponent } from './lib/prompt-component';
 import { onCancel } from './lib/handlers';
-import { CoreModule } from './lib/core-module';
+import { MainModule } from './lib/main-module';
 import { ApiModule } from './lib/api-module';
 
 /**
@@ -41,7 +41,7 @@ const componentQuestion = {
  * A map between component identifiers and their instance.
  */
 const moduleMap: { [key: string]: PromptComponent } = {
-  'core': new CoreModule(),
+  'main': new MainModule(),
   'session-revocation': new SessionRevocationModule(),
   'api': new ApiModule(),
 };
@@ -54,10 +54,10 @@ const moduleMap: { [key: string]: PromptComponent } = {
 const getConfiguration = async (): Promise<IConfiguration> => {
   const configuration: IConfiguration = {};
 
-  const coreComponent = new Array('core');
+  const mainComponent = new Array('main');
 
   const components: Array<string>     = (await prompts.prompt(componentQuestion, { onCancel })).value;
-  const allComponents = coreComponent.concat(components);
+  const allComponents = mainComponent.concat(components);
 
   // Iterating over the component prompts.
   for (const item of allComponents) {
@@ -82,6 +82,7 @@ const getConfiguration = async (): Promise<IConfiguration> => {
   // The pretty-printed version of the configuration.
   const data = JSON.stringify(configuration, null, 2);
 
+  console.log("\n--------------------- Summary -------------------\n")
   // Prompting the user to confirm.
   const confirmation = await prompts.prompt(confirmConfigurationQuestion);
 

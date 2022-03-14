@@ -13,13 +13,13 @@ import { IMain } from '../../../helpers/validators/main';
 const coreQuestions = [{
   type: 'text',
   name: 'stack_name',
-  message: '[MAIN] --> Stack name',
+  message: '[Base configuration] --> Stack name',
   validate: (value: string) => Joi.string().required().validate(value).error ?
     'The name of the stack is mandatory' : true
 },{
   type: 'text',
   name: 'rotate_secrets_frequency',
-  message: '[MAIN] --> At what frequency do you want to rotate the secrets?\n (in minutes between 1 and 1440, type 0 to disable it)',
+  message: '[Base configuration] --> At what frequency do you want to rotate the secrets?\n (in minutes between 1 and 1440, type 0 to disable it)',
   validate: (value: string) => Joi.number().min(0).required().validate(value).error ?
     'The value must be a number superior or equal to 0' : true
 }];

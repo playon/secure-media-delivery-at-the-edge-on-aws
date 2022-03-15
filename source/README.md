@@ -45,7 +45,13 @@ npx cdk bootstrap
 Once the account has been bootstrapped and dependencies installed, you can deploy the solution using the following command.
 
 ```bash
-npx cdk deploy
+npx cdk deploy --all
+```
+
+List stacks
+
+```bash
+npx cdk ls
 ```
 
 > AWS CDK will create and deploy a CloudFormation template on the sandbox account which you can view in the [CloudFormation console](https://console.aws.amazon.com/cloudformation/home) in the selected region.

@@ -171,6 +171,7 @@ function _base64urlDecode(str) {
 
 
 function handler(event) {
+    console.log(event);
     var request = event.request;
     var headers = request.headers;
     var querystrings = request.querystring;
@@ -204,9 +205,11 @@ function handler(event) {
 
     try{
         jwt_verify(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
+        console.log("X_JWT_CHECK VALID")
     }
     catch(e) {
         console.log(e);
+        console.log("X_JWT_CHECK INVALID")
         return response401;
     }
 

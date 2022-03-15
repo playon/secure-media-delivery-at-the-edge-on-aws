@@ -116,9 +116,8 @@ export class Api extends Construct {
 
 
     const myOriginRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
-      originRequestPolicyName: Aws.STACK_NAME + '_CMS',
+      originRequestPolicyName: Aws.STACK_NAME + 'CMS',
       comment: 'A default policy',
-      //cookieBehavior: cloudfront.OriginRequestCookieBehavior.none(),
       headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList('CloudFront-Viewer-Address', 'CloudFront-Viewer-Country', 'CloudFront-Viewer-City', 'Referer', 'User-Agent'),
       queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
     });

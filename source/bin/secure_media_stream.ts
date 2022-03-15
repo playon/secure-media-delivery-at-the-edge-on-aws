@@ -4,6 +4,7 @@ import { getOpts } from '../helpers/opts';
 
 import 'source-map-support/register';
 import { SecureMediaStreamingStack } from '../lib/secure_media_stream_stack';
+import { SessionRevocationStack } from '../lib/session_revocation';
 
 const app = new cdk.App();
 // The stack environment.
@@ -17,5 +18,9 @@ const app = new cdk.App();
     const config = await getOpts();
 
     new SecureMediaStreamingStack(app, config.main?.stack_name!, config);
-    //new SessionRevocation(app, 'SessionRevocationStack', config);
+    if(config.sessionRevocation){
+        new SessionRevocationStack(app, config.main?.stack_name! + 'SessionRevocation', config);
+    }
+
+
 })();

@@ -22,7 +22,8 @@ import {
   aws_logs as logs,
   aws_iam as iam,
   aws_sqs as sqs,
-  aws_lambda_event_sources as event_source
+  aws_lambda_event_sources as event_source,
+
 } from 'aws-cdk-lib';
 
 
@@ -30,7 +31,7 @@ import { Construct } from 'constructs';
 import { IConfiguration } from '../helpers/validators/configuration';
 import { GetSessionsWorkflow } from './get_sessions_workflow';
 
-export class SessionRevocation extends Construct {
+export class SessionRevocationStack extends Stack {
 
   constructor(scope: Construct, id: string, configuration: IConfiguration) {
     super(scope, id);

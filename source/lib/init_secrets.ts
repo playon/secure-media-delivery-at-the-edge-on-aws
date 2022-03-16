@@ -51,6 +51,16 @@ export class InitSecrets extends Construct {
 
         physicalResourceId: custom_resources.PhysicalResourceId.of("myResource1"),
       },
+      onUpdate: {
+        service: "Lambda",
+        action: "invoke",
+        parameters: {
+          FunctionName: props.functionName,
+          Payload: `{"initialize": true}`,
+        },
+
+        physicalResourceId: custom_resources.PhysicalResourceId.of("myResource2"),
+      },
       functionName: Aws.STACK_NAME + '_InitSecretsSm',
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [props.functionArn]

@@ -123,7 +123,7 @@ export class Api extends Construct {
     });
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
-      comment : Aws.STACK_NAME + " - Secure Media Delivery",
+      comment : Aws.STACK_NAME + " - Demo website Secure Media Delivery",
       defaultRootObject: "index_hls.html",
       defaultBehavior: {
         origin: new origins.S3Origin(hostingBucket),
@@ -147,7 +147,7 @@ export class Api extends Construct {
     new CfnOutput(this, "DistributionDomainName",{
       value: 'https://' + distribution.domainName,
       exportName: Aws.STACK_NAME + 'DomainName',
-      description: 'Domain name'
+      description: 'Demo Website'
     })
 
     dashboard.buildApiDashboard({

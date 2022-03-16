@@ -13,6 +13,7 @@
 
 import {
   Duration,
+  Aws,
   aws_cloudwatch as cloudwatch
 } from 'aws-cdk-lib';
 import { Dashboard } from 'aws-cdk-lib/aws-cloudwatch';
@@ -47,7 +48,7 @@ export class CWDashboard extends Construct {
     super(scope, id);
 
     this.dashboard = new cloudwatch.Dashboard(this, "MonitoringDashboard", {
-      dashboardName: "Secure-Media-Stream-Delivery",
+      dashboardName: Aws.STACK_NAME +  + "-Secure-Media-Stream-Delivery",
     });
   }
 

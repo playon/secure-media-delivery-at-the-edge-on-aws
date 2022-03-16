@@ -39,10 +39,7 @@
       "paths": {
        "L": [
         {
-         "S": "/v1/out/videoasset/manifest/"
-        },
-        {
-         "S": "/v1/out/videoasset/segments/"
+         "S": "/out/v1/ad2c661c45d344dfa9e6be858c62d1e4/"
         }
        ]
       },
@@ -56,7 +53,7 @@
        "BOOL": true
       },
       "co": {
-       "BOOL": true
+       "BOOL": false
       },
       "exp": {
        "S": "TTL"

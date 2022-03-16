@@ -28,7 +28,7 @@ cd source
 ./install_dependencies.sh
 ```
 
-You then run the built-in wizard which will prompt you with questions on the type of configuration you would like to apply to the sandobox environment ([More information on CDK bootstrapping](https://docs.aws.amazon.com/cdk/latest/guide/cli.html#cli-bootstrap)).
+You then run the built-in wizard which will prompt you with questions on the type of configuration you would like to apply to the environment ([More information on CDK bootstrapping](https://docs.aws.amazon.com/cdk/latest/guide/cli.html#cli-bootstrap)).
 
 ```bash
 npm run wizard

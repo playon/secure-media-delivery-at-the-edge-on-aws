@@ -31,8 +31,7 @@ exports.handler = async (event, context) => {
     var querystrings = event.queryStringParameters;
     var viewer_ip;
     if(headers['cloudfront-viewer-address']){
-        //TO-DO: ipv6 support
-        viewer_ip = headers['cloudfront-viewer-address'].split(':')[0];
+        viewer_ip = headers['cloudfront-viewer-address'].substring(0, paragraph.lastIndexOf(':'))
     } else {
         viewer_ip = event.requestContext.http.sourceIp;
     }

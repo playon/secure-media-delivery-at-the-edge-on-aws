@@ -1,132 +1,172 @@
-<!DOCTYPE html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="description" content="">
+    <meta name="author" content="">
 
-<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>Secure Media Streaming Solution</title>
 
-	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-	<meta name="description" content="">
-	<meta name="author" content="">
-	<title>Secure Media Delivery Demo</title>
-
+    <!-- Bootstrap core CSS -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
-	<link href="css/app.css" rel="stylesheet">
 	<link href="https://vjs.zencdn.net/7.5.5/video-js.css" rel="stylesheet" />
 
-</head>
+
+    <!-- Custom styles for this template -->
+    <link href="css/app.css" rel="stylesheet">
+  </head>
+
+  <body>
+
+    <header>
+
+      <div class="navbar navbar-dark bg-dark box-shadow">
+        <div class="container d-flex justify-content-between">
+          <a href="#" class="navbar-brand d-flex align-items-center">
+            <img class="header-logo mx-2" src="img/smile.png" alt="logo">
+            <strong>Secure Media Streaming</strong>
+          </a>
+
+        </div>
+      </div>
+    </header>
 
 
 
-<body>
-	<!-- Navbar -->
-	<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-		<img class="header-logo mx-2" src="img/smile.png" alt="logo">
-		<a class="navbar-brand">AWS Video</a>
-	</nav>
+    <section class="header-section text-center">
+      <div class="container">
+        <h1 class="jumbotron-heading">Demo website</h1>
+        <p class="lead text-muted">This demo website demonstrates how secure media stream delivery solution works</p>
+        <p>
+        <div id="login">
+          <form class="form-signin" id="auth">
+            <h1 class="h3 mb-3 font-weight-normal">Please sign in</h1>
+            <label for="inputUsername" class="sr-only">Username</label>
+            <input type="username" id="inputUsername" class="form-control" placeholder="Username" required autofocus>
+            <label for="inputPassword" class="sr-only">Password</label>
+            <input type="password" id="inputPassword" class="form-control" placeholder="Password" required>
 
-	<!-- Content -->
-	<main role="main" class="container container-fluid">
-
-		<section class="text-center pb-4">
-			<p class="lead">
-                <form id="auth">
-                    <label for="user">User:</label><br>
-                    <input type="text" id="user" name="user"><br>
-                    <label for="pass">Password:</label><br>
-                    <input type="text" id="pass" name="pass"><br><br>
-                    <input type="submit" value="Submit">
-                </form>
-
-			</p>
-
-		</section>
+            <button class="btn btn-lg btn-primary btn-block " type="submit" id="submit">Sign in</button>
 
 
-		<section id="video_sec" style="visibility: hidden" class="mb-4">
-			<video
-						id="videoPlayer"
-						class="video-js"
-						controls
-						width="720"
-						height="480"
-						data-setup="{}"
-						muted="muted"
-					  >
+          </form>
+          <div class="alert alert-warning" role="alert">
+            This is content for authenticated users only!
+          </div>
+          <div id="errorMsg" class="alert alert-danger d-none" role="alert">
+            Authentication Error!
+          </div>
+        </div>
+        </p>
+      </div>
+    </section>
+
+    <div class="album py-5 bg-light d-none" id="result">
+      <div class="container">
+
+        <div class="row">
+          <div class="col-md-12 " id="video_div">
+            <div class="card mb-4 box-shadow">
+              <div class="card-body">
+                <div class="d-flex justify-content-center bg-dark">
+                  <video class="video-js" id="videoPlayer" class="video-js" controls width="720" height="480"
+                    data-setup="{}" muted="muted">
+
+                  </video>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="row">
+          <div class="col-md-5 ">
+
+            <div class="col-md-12 ">
+              <div class="card mb-4 box-shadow">
+                <div class="card-header">
+                  Request URL
+                </div>
+                <div class="card-body">
+                  <p class="card-text" id="request_url_value"></p>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-12 ">
+              <div class="card mb-4 box-shadow">
+                <div class="card-header">
+                  Playback URL
+                </div>
+                <div class="card-body">
+                  <p class="card-text" id="playback_url_value"></p>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="col-md-7 ">
+
+            <div class="col-md-12 ">
+              <div class="card mb-4 box-shadow">
+                <div class="card-header">
+                  JWT Token
+                </div>
+                <div class="card-body">
+                  <p class="card-text"></p>
+                  <h5 class="card-title">HEADER</h5>
+                  <pre><code id="jwt_header"></code></pre>
+                  <h5 class="card-title">PAYLOAD</h5>
+                  <pre><code id="jwt_payload"></code></pre>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+    </div>
 
 
-			</video>
 
-			<script src="https://vjs.zencdn.net/7.5.5/video.js"></script>
-			<div id="stream" class="text-center text-danger p-2"></div>
-		</section>
 
-		<section class="mb-4">
-			<div id="prompt" style="visibility: hidden;" class="text-center text-danger p-2"> This is content for authenticated users only. Please log in.</div>
-		</section>
+    <!-- Bootstrap core JavaScript
+      ================================================== -->
+    <!-- Placed at the end of the document so the pages load faster -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"
+      integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.14.3/dist/umd/popper.min.js"
+      integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49"
+      crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"
+      integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
+      crossorigin="anonymous"></script>
+    <script src="https://vjs.zencdn.net/7.5.5/video.js"></script>
 
-		<section class="text-center">
-				<div class="card">
-					<div class="card-header">Playback URL</div>
-					<div class="card-body" id="URL">
+  </body>
 
-					</div>
-				</div>
-
-		</section>
-
-	</main>
-
-	<!-- Footer -->
-	<footer class="footer">
-		<span>AWS @ 2021</span>
-	</footer>
-
-	<script src="js/exports.js"></script>
+  <script src="js/main.js"></script>
 
 	<script>
-		'us strict'
-		var player = videojs('videoPlayer');
-		var manifest_url;
-		const manifest_store = exports.manifest_store;
-		const stream_id = exports.stream_id;
-        var manifest;
+      'use strict'
+      var player = videojs('videoPlayer');
+      const manifest_store = exports.manifest_store;
+      const stream_id = exports.stream_id;
 
-        $( "#auth" ).submit(function( event ) {
+      $("#auth").submit(function (event) {
+        $("#submit").text("Loading...");
+        $('#submit').prop('disabled', true);
         event.preventDefault();
-        var form = $('#auth').serializeArray();
-        var user = form[0].value;
-        var pass = form[1].value;
-        loadHLS(user,pass);
-        });
-
-		function loadHLS(user='', pass='') {
-
-			$.ajax({
-				type: 'POST',
-				url: `${location.protocol}\/\/${location.hostname}/${manifest_store}?id=${stream_id}`,
-				headers: {
-    				"Authorization": "Basic " + btoa(user + ":" + pass)
-  				},
-				success: function(data, status, xhr) {
-                    $("#URL").text(data);
-					manifest_url= data;
-					document.getElementById("video_sec").style.visibility = "visible";
-					document.getElementById("prompt").style.visibility = "hidden";
-					player.src({type: 'application/x-mpegURL', src: manifest_url});
-					player.play();
-				},
-				error: function(data, status, xhr) {
-                    player.reset();
-                    $("#URL").text('');
-                    document.getElementById("prompt").style.visibility = "visible";
-                    document.getElementById("video_sec").style.visibility = "hidden";
-				}
-			});
-
-
-
-		}
+        const manifest_store = exports.manifest_store;
+        var user = $("#inputUsername").val();
+        var pass = $("#inputPassword").val();
+        loadHLS(user, pass);
+      });
 
 
 </script>
-
-</body></html>
+</html>

@@ -62,8 +62,26 @@ function loadHLS(user, pass) {
       $('#jwt_header').html(library.json.prettyPrint(JSON.parse(atob(tokens[1]))));
       $('#jwt_payload').html(library.json.prettyPrint(JSON.parse(atob(tokens[2]))));
 
-      player.src({ type: 'application/x-mpegURL', src: manifest_url });
-      player.play();
+      if (Hls.isSupported()) {
+
+        var video = document.getElementById('videoPlayer');
+        var hls = new Hls();
+        // bind them together
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+          console.log('video and hls.js are now bound together !');
+          hls.loadSource(manifest_url);
+          hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+            console.log(
+              'manifest loaded, found ' + data.levels.length + ' quality level'
+            );
+          });
+
+          video.play();
+        });
+      }
+
+
     },
     error: function (data, status, xhr) {
       $("#errorMsg").removeClass('d-none');
@@ -81,3 +99,5 @@ function loadHLS(user, pass) {
 
 
 }
+
+

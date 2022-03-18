@@ -10,7 +10,6 @@
 
     <!-- Bootstrap core CSS -->
 	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.3.1/dist/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-	<link href="https://vjs.zencdn.net/7.5.5/video-js.css" rel="stylesheet" />
 
 
     <!-- Custom styles for this template -->
@@ -145,15 +144,14 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.1.3/dist/js/bootstrap.min.js"
       integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy"
       crossorigin="anonymous"></script>
-    <script src="https://vjs.zencdn.net/7.5.5/video.js"></script>
 
+      <script src="//cdn.jsdelivr.net/npm/hls.js"></script>
   </body>
 
   <script src="js/main.js"></script>
 
 	<script>
-      'use strict'
-      var player = videojs('videoPlayer');
+
       const manifest_store = exports.manifest_store;
       const stream_id = exports.stream_id;
 
@@ -166,6 +164,8 @@
         var pass = $("#inputPassword").val();
         loadHLS(user, pass);
       });
+
+
 
 
 </script>

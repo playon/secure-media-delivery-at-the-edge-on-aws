@@ -11,7 +11,7 @@
 # script continuing to execute despite an error being thrown.
 
 [ "$DEBUG" == 'true' ] && set -x
-set -e
+set -x
 
 setup_python_env() {
 	if [ -d "./.venv-test" ]; then

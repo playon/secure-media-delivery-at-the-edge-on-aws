@@ -71,8 +71,8 @@ echo "NPM Install in the source folder"
 echo "------------------------------------------------------------------------------"
 
 # Install the npm install in the source folder
-echo "npm install"
-npm install
+#echo "npm install"
+#npm install
 
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
@@ -109,11 +109,4 @@ echo "--------------------------------------------------------------------------
 echo "Copy the python lambda files from source/lambda directory to staging lambda directory"
 cp -pr $source_dir/lambda $staging_dist_dir/
 cp -pr $source_dir/cli $staging_dist_dir/
-
-echo "Install NodeJs dependencies for AWS Lambda"
-npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
-
-echo "Install Python dependencies for AWS Lambda"
-pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
-
 

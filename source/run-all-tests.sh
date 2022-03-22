@@ -15,6 +15,16 @@ source_dir=$PWD
 
 # Test the CDK project
 npm install
+
+echo "Install NodeJs dependencies for AWS Lambda"
+npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
+
+echo "Install Python dependencies for AWS Lambda"
+pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
+
+
+
+
 npm run test
 if [ "$?" = "1" ]; then
 	echo "(source/run-all-tests.sh) ERROR: there is likely output above." 1>&2

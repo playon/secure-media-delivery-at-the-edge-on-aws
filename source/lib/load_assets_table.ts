@@ -32,10 +32,11 @@ export class LoadAssetsTable extends Construct {
 
     const loadItem = {
       service: "DynamoDB",
-      action: "putItem",
+      action: "batchWriteItem",
       parameters: {
-        TableName: props.table.tableName,
-        Item: this.generateItem(props.configuration),
+        RequestItems: {
+          [props.table.tableName]: this.loadItems(props.configuration),
+        },
       },
       physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
     }
@@ -51,19 +52,44 @@ export class LoadAssetsTable extends Construct {
 
   }
 
-  private generateItem = (configuration: IConfiguration) => {
+  private loadItems = (configuration: IConfiguration) => {
 
-    //TODO to get this from the wizard
-    const hostName = configuration.hosting?.hostname!;
-    const urlPath = configuration.hosting?.url_path!;
-    const ttl = configuration.hosting?.ttl!;
 
     var fileContent = fs.readFileSync('resources/mock/assets.json').toString()
-    fileContent = fileContent.replace('HOST_NAME', hostName)
-    fileContent = fileContent.replace('URL_PATH', urlPath)
-    fileContent = fileContent.replace('TTL', ttl)
+    var itemsToInsert = new Array();
 
-    return JSON.parse(fileContent);
+    if(configuration.hls){
+      const urlPath = configuration.hls?.url_path!;
+      const path = urlPath.substring(0, urlPath.lastIndexOf('/')) + '/';
+
+      var hlsFileContent = fileContent.replace('CUSTOM_HOST_NAME', configuration.hls?.hostname! )
+      hlsFileContent = hlsFileContent.replace('CUSTOM_URL_PATH', configuration.hls?.url_path!)
+      hlsFileContent = hlsFileContent.replace('CUSTOM_TTL', configuration.hls?.ttl!)
+      hlsFileContent = hlsFileContent.replace('CUSTOM_ID', "1");
+      hlsFileContent = hlsFileContent.replace('CUSTOM_PATH', path);
+
+      itemsToInsert.push({ PutRequest: { Item: JSON.parse(hlsFileContent) } });
+    }
+
+    if(configuration.dash){
+      const urlPath = configuration.dash?.url_path!;
+      const path = urlPath.substring(0, urlPath.lastIndexOf('/')) + '/';
+      var dashFileContent = fileContent.replace('CUSTOM_HOST_NAME', configuration.dash?.hostname! )
+      dashFileContent = dashFileContent.replace('CUSTOM_URL_PATH', configuration.dash?.url_path!)
+      dashFileContent = dashFileContent.replace('CUSTOM_TTL', configuration.dash?.ttl!)
+      dashFileContent = dashFileContent.replace('CUSTOM_ID', "2");
+      dashFileContent = dashFileContent.replace('CUSTOM_PATH', path);
+
+      itemsToInsert.push({ PutRequest: { Item: JSON.parse(dashFileContent) } });
+    }
+
+    if(itemsToInsert.length==0){
+      //DASH or HLS not configured
+      fileContent = fileContent.replace('ID', "1");
+      itemsToInsert.push({ PutRequest: { Item: JSON.parse(fileContent) } });
+    }
+
+    return itemsToInsert;
 
     };
 

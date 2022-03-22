@@ -62,7 +62,12 @@ exports.handler = async (event, context) => {
 
     var video_metadata = await docClient.get(params).promise();
     console.log("From DynamoDB:"+video_metadata);
-
+    if(!video_metadata.Item){
+        return {
+        "statusCode": 404,
+        "body": 'No video asset for the given ID'
+        };
+    }
     var endpoint_hostname = video_metadata.Item['endpoint_hostname'];
     var video_url = video_metadata.Item['url_path'];
     var token_policy = video_metadata.Item.token_policy;

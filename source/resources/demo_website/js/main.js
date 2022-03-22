@@ -1,7 +1,9 @@
-const exports = {
-  manifest_store: 'tokengenerate',
-  stream_id: '1'
-}
+
+const videoHls = document.getElementById('videoPlayer');
+const hls = new Hls();
+const playerDash = dashjs.MediaPlayer().create();
+
+var dash_initialized = false;
 
 var getLocation = function (href) {
   var l = document.createElement("a");
@@ -33,10 +35,39 @@ library.json = {
   }
 };
 
+function playHLS(url) {
 
-function loadHLS(user, pass) {
+  if (dash_initialized) {
+    playerDash.reset();
+  }
 
-  var urlToGet = `${location.protocol}\/\/${location.hostname}/${manifest_store}?id=${stream_id}`
+  // bind them together
+  hls.attachMedia(videoHls);
+  hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+    hls.loadSource(url);
+    hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+    });
+
+    videoHls.play();
+  });
+
+}
+
+function playDASH(url) {
+  dash_initialized = true;
+  hls.detachMedia();
+  playerDash.initialize(document.querySelector("#videoPlayer"), url, true);
+}
+
+function load(type) {
+
+  resetAllDivText();
+  const idAsset = type == 'hls' ? 1 : 2;
+  const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
+
+  const user = $("#inputUsername").val();
+  const pass = $("#inputPassword").val();
+
   $.ajax({
     type: 'POST',
     url: urlToGet,
@@ -44,60 +75,129 @@ function loadHLS(user, pass) {
       "Authorization": "Basic " + btoa(user + ":" + pass)
     },
     success: function (data, status, xhr) {
-      console.log("success");
-
-
-      $("#result").removeClass('d-none');
-
-      $("#login").addClass('d-none');
-      $("#errorMsg").addClass('d-none');
-
-      $("#request_url_value").text(urlToGet);
-      $("#playback_url_value").text(data);
+      showResultDiv();
+      showVideo();
+      hideLoginDiv()
+      hideErrorDiv();
 
       var manifest_url = data;
       var l = getLocation(manifest_url);
       var tokens = l.pathname.substring(1, l.pathname.indexOf('/', 1)).split(".");
+      const jwtHeader = library.json.prettyPrint(JSON.parse(atob(tokens[1])));
+      const jwtPayload = library.json.prettyPrint(JSON.parse(atob(tokens[2])));
 
-      $('#jwt_header').html(library.json.prettyPrint(JSON.parse(atob(tokens[1]))));
-      $('#jwt_payload').html(library.json.prettyPrint(JSON.parse(atob(tokens[2]))));
+      showVideoMetadata(urlToGet, data, jwtHeader, jwtPayload);
 
-      if (Hls.isSupported()) {
-
-        var video = document.getElementById('videoPlayer');
-        var hls = new Hls();
-        // bind them together
-        hls.attachMedia(video);
-        hls.on(Hls.Events.MEDIA_ATTACHED, function () {
-          console.log('video and hls.js are now bound together !');
-          hls.loadSource(manifest_url);
-          hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
-            console.log(
-              'manifest loaded, found ' + data.levels.length + ' quality level'
-            );
-          });
-
-          video.play();
-        });
+      if (type == 'hls') {
+        playHLS(manifest_url);
+      } else {
+        playDASH(manifest_url);
       }
-
 
     },
     error: function (data, status, xhr) {
-      $("#errorMsg").removeClass('d-none');
-      $("#login").removeClass('d-none');
 
-      $('#submit').prop('disabled', false);
-      $("#submit").text("Sign in");
+      if (data.status == 401) {
+        //error authentication
+        showLoginErrorDiv();
+        showLoginError("Authentication failed!");
+        enableSubmitButton();
 
-      player.reset();
-      $("#url_value").text('');
+      } else if (data.status == 404) {
+        //not found
+        showVideoError("Video asset not configured for " + type.toUpperCase()+ " !")
+        showVideoErrorDiv();
+        hideLoginDiv();
+        showResultDiv();
+        hideVideo();
+
+      } else {
+        //different error
+        $("#errorAsset").text("Unknown error!");
+
+        showVideoErrorDiv();
+        hideLoginDiv();
+        showResultDiv();
+
+      }
+      destroyPlayers();
+      resetAllDivText();
 
     }
   });
 
 
+}
+
+function showVideoMetadata(requestUrl, playbackUrl, jwtHeader, jwtPayload) {
+  $("#request_url_value").text(requestUrl);
+  $("#playback_url_value").text(playbackUrl);
+  $('#jwt_header').html(jwtHeader);
+  $('#jwt_payload').html(jwtPayload);
+}
+function showLoginError(errorMsg) {
+  $("#errorMsg").text(errorMsg);
+}
+function showVideoError(errorMsg) {
+  $("#errorAsset").text(errorMsg);
+}
+function showResultDiv() {
+  $("#result").removeClass('d-none');
+  $("#video_div").removeClass('d-none');
+  $("#metadataDiv").removeClass('d-none');
+}
+
+function hideVideo(){
+  $("#video_div").addClass('d-none');
+  $("#metadataDiv").addClass('d-none');
+}
+function showVideo(){
+  $("#video_div").removeClass('d-none');
+  $("#metadataDiv").removeClass('d-none');
+}
+
+function hideLoginDiv() {
+  $("#login").addClass('d-none');
+}
+
+function showVideoErrorDiv() {
+  $("#errorAsset").removeClass('d-none');
+}
+function showLoginErrorDiv() {
+  $("#errorMsg").removeClass('d-none');
+}
+function hideErrorDiv() {
+  $("#errorMsg").addClass('d-none');
+  $("#errorAsset").addClass('d-none');
+}
+function enableSubmitButton() {
+  $('#submit').prop('disabled', false);
+  $("#submit").text("Sign in");
+}
+
+function resetAllDivText() {
+  $("#request_url_value").text('');
+  $("#playback_url_value").text('');
+  $('#jwt_header').text('');
+  $('#jwt_payload').html('');
+}
+function destroyPlayers() {
+  hls.detachMedia();
+  if (dash_initialized) {
+    playerDash.reset();
+  }
 
 }
+
+$('#hls').on('change', function () {
+  load('hls');
+
+});
+
+$('#dash').on('change', function () {
+  load('dash')
+
+});
+
 
 

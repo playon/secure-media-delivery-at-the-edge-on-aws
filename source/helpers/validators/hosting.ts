@@ -1,10 +1,11 @@
 import * as Joi from 'joi';
 
+
 export interface IHosting {
 
-   hostname: string;
-   url_path: string;
-   ttl: string;
+  hostname: string;
+  url_path: string;
+  ttl: string;
 
 }
 

@@ -40,7 +40,6 @@ export class Api extends Construct {
 
   constructor(scope: Construct, id: string, configuration: IConfiguration, secrets: Secrets, dashboard: CWDashboard) {
     super(scope, id);
-    console.log(configuration.api)
 
     var runtime: lambda.Runtime;
 

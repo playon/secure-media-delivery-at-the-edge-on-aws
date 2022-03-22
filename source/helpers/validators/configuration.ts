@@ -16,7 +16,8 @@ import { sessionRevocationSchema, ISessionRevocation } from './session-revocatio
   main?: IMain;
   sessionRevocation?: ISessionRevocation;
   api?: IApi;
-  hosting?: IHosting;
+  hls?: IHosting;
+  dash?: IHosting;
   demo?: IDemo;
 }
 
@@ -29,6 +30,7 @@ export const schema = Joi.object().keys({
   api: apiSchema.optional(),
   hosting: hostingSchema.optional(),
   demo: demoSchema.optional(),
+
 
 
 }).unknown().required();

@@ -11,7 +11,6 @@ import { IHosting } from '../../../helpers/validators/hosting';
  * A question prompting the user for the session invalidation
  * to allocate to a prototype.
  */
-//const language = new Array('nodejs','python');
 const apiQuestions = [
 
 {
@@ -35,29 +34,44 @@ const selectAssetHosting = [{
   inactive: 'no'
 }]
 
-const hostQuestions = [
-  {
-    type: 'text',
-    name: 'hostname',
-    message: '[API] --> Hostname used for asset delivery',
-    validate: (value: string) => Joi.string().required().validate(value).error ?
-    'Hostname is mandatory' : true
-  },
-  {
-    type: 'text',
-    name: 'url_path',
-    message: '[API] --> URL path for existing playable asset',
-    validate: (value: string) => Joi.string().required().validate(value).error ?
-    'URL path for existing playable asset is mandatory' : true
-  },
-  {
-    type: 'text',
-    name: 'ttl',
-    message: '[API] --> TTL for the token',
-    validate: (value: string) => Joi.number().required().validate(value).error ?
-    'TTL for the token is mandatory' : true
-  }
-]
+const selectVideoStreamType = [{
+  type: 'multiselect',
+  name: 'value',
+  message: '[API] --> Which video stream type would you like to configure?',
+  min: 1,
+  instructions: false,
+  hint: '- Space to select. Return to submit. \'a\' to toggle all.',
+  choices: [
+    { title: 'HLS', value: 'hls' },
+    { title: 'DASH', value: 'dash'  },
+  ]
+}]
+
+function hostQuestions (type: string) {
+  return  [
+    {
+      type: 'text',
+      name: 'hostname',
+      message: '[API][' + type + '] --> Hostname used for asset delivery',
+      validate: (value: string) => Joi.string().required().validate(value).error ?
+      'Hostname is mandatory' : true
+    },
+    {
+      type: 'text',
+      name: 'url_path',
+      message: '[API][' + type + '] --> URL path for existing playable asset',
+      validate: (value: string) => Joi.string().required().validate(value).error ?
+      'URL path for existing playable asset is mandatory' : true
+    },
+    {
+      type: 'text',
+      name: 'ttl',
+      message: '[API][' + type + '] --> TTL for the token',
+      validate: (value: string) => Joi.number().required().validate(value).error ?
+      'TTL for the token is mandatory' : true
+    }
+  ]
+}
 
 const selectDemoWebsite = [{
   type: 'toggle',
@@ -67,8 +81,6 @@ const selectDemoWebsite = [{
   active: 'yes',
   inactive: 'no'
 }]
-
-
 
 const demoQuestions = [
 
@@ -100,13 +112,21 @@ export class ApiModule implements PromptComponent {
     console.log("\n--------------------- API Module -------------------\n")
     configuration.api = <IApi> await prompts.prompt(apiQuestions, { onCancel });
 
-    if(configuration.hosting){
-      configuration.api = <IApi> await prompts.prompt(hostQuestions, { onCancel });
-    }
-
     const configureHosting =  await prompts.prompt(selectAssetHosting, { onCancel });
+
     if(configureHosting.hosting){
-      configuration.hosting = <IHosting> await prompts.prompt(hostQuestions, { onCancel });
+
+      const streamType =  await prompts.prompt(selectVideoStreamType, { onCancel });
+
+      if(streamType.value.includes('hls')){
+        configuration.hls = <IHosting> await prompts.prompt(hostQuestions('HLS'), { onCancel });
+      }
+
+      if(streamType.value.includes('dash')){
+        configuration.dash = <IHosting> await prompts.prompt(hostQuestions('DASH'), { onCancel });
+      }
+
+
     }
 
     const configureDemo =  await prompts.prompt(selectDemoWebsite, { onCancel });

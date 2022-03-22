@@ -56,21 +56,44 @@
           <div id="errorMsg" class="alert alert-danger d-none" role="alert">
             Authentication Error!
           </div>
+
         </div>
         </p>
       </div>
     </section>
 
     <div class="album py-5 bg-light d-none" id="result">
+
+      <section class="header-section text-center">
+        <div class="row justify-content-center">
+          <div role="alert">
+            <div class="btn-group btn-group-toggle" data-toggle="buttons">
+              <label class="btn btn-secondary my-btn active">
+                <input type="radio" name="options" id="hls" autocomplete="off" checked> HLS
+              </label>
+              <label class="btn btn-secondary my-btn">
+                <input type="radio" name="options" id="dash" autocomplete="off"> DASH
+              </label>
+
+            </div>
+          </div>
+        </div>
+
+      </section>
+      <hr>
       <div class="container">
 
-        <div class="row">
-          <div class="col-md-12 " id="video_div">
+
+
+        <div class="row"></div>
+
+        <div class="row  d-none" id="video_div">
+          <div class="col-md-12 " >
+
             <div class="card mb-4 box-shadow">
               <div class="card-body">
                 <div class="d-flex justify-content-center bg-dark">
-                  <video class="video-js" id="videoPlayer" class="video-js" controls width="720" height="480"
-                    data-setup="{}" muted="muted">
+                  <video class="video-js" id="videoPlayer" controls >
 
                   </video>
                 </div>
@@ -81,6 +104,14 @@
         </div>
 
         <div class="row">
+          <div class="col-md-12 ">
+          <div id="errorAsset" class="alert alert-danger d-none text-center" role="alert">
+          </div>
+          </div>
+
+        </div>
+
+        <div class="row  d-none" id="metadataDiv">
           <div class="col-md-5 ">
 
             <div class="col-md-12 ">
@@ -100,7 +131,7 @@
                   Playback URL
                 </div>
                 <div class="card-body">
-                  <p class="card-text" id="playback_url_value"></p>
+                  <p class="card-text" id="playback_url_value">AA</p>
                 </div>
               </div>
             </div>
@@ -127,6 +158,8 @@
           </div>
 
         </div>
+
+
       </div>
     </div>
 
@@ -146,24 +179,22 @@
       crossorigin="anonymous"></script>
 
       <script src="//cdn.jsdelivr.net/npm/hls.js"></script>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/dashjs/4.3.0/dash.all.min.js"></script>
   </body>
 
   <script src="js/main.js"></script>
 
 	<script>
 
-      const manifest_store = exports.manifest_store;
-      const stream_id = exports.stream_id;
-
       $("#auth").submit(function (event) {
         $("#submit").text("Loading...");
         $('#submit').prop('disabled', true);
         event.preventDefault();
-        const manifest_store = exports.manifest_store;
-        var user = $("#inputUsername").val();
-        var pass = $("#inputPassword").val();
-        loadHLS(user, pass);
+        load('hls');
       });
+
+
+
 
 
 

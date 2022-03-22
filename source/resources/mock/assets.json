@@ -1,12 +1,12 @@
 {
     "id": {
-     "S": "1"
+     "S": "CUSTOM_ID"
     },
     "url_path": {
-     "S": "URL_PATH"
+     "S": "CUSTOM_URL_PATH"
     },
     "endpoint_hostname": {
-     "S": "HOST_NAME"
+     "S": "CUSTOM_HOST_NAME"
     },
     "token_policy": {
      "M": {
@@ -39,7 +39,7 @@
       "paths": {
        "L": [
         {
-         "S": "/out/v1/ad2c661c45d344dfa9e6be858c62d1e4/"
+         "S": "CUSTOM_PATH"
         }
        ]
       },

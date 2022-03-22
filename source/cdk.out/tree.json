@@ -1,0 +1,3295 @@
+{
+  "version": "tree-0.1",
+  "tree": {
+    "id": "App",
+    "path": "",
+    "children": {
+      "Tree": {
+        "id": "Tree",
+        "path": "Tree",
+        "constructInfo": {
+          "fqn": "constructs.Construct",
+          "version": "10.0.84"
+        }
+      },
+      "LIVE": {
+        "id": "LIVE",
+        "path": "LIVE",
+        "children": {
+          "Function": {
+            "id": "Function",
+            "path": "LIVE/Function",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "LIVE/Function/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::CloudFront::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "name": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          {
+                            "Ref": "AWS::StackName"
+                          },
+                          "_checkJWTToken"
+                        ]
+                      ]
+                    },
+                    "autoPublish": true,
+                    "functionCode": "//DO NOT CHANGE THIS LINE\nvar secrets = { \"secret1_key_to_replace\": \"secret1_value_to_replace\", \"secret2_key_to_replace\": \"secret2_value_to_replace\"};\n// END\n\nvar crypto = require('crypto');\n\n//Response when JWT is not valid.\nvar response401 = {\n    statusCode: 401,\n    statusDescription: 'Unauthorized'\n};\n\n\nfunction jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVerify) {\n    // check token and uri -> obligatory inputs\n    if (!token ) {\n        throw new Error('No token supplied');\n    }\n    if ( !uri ) {\n        throw new Error('No uri supplied');\n    }\n    // check segments\n    var segments = token.split('.');\n    if (segments.length !== 3) {\n        throw new Error('Not enough or too many segments in JWT token');\n    }\n\n    // All segment should be base64url\n    var headerSeg = segments[0];\n    var payloadSeg = segments[1];\n    var signatureSeg = segments[2];\n\n    // base64url decode and parse JSON\n    var header = JSON.parse(_base64urlDecode(headerSeg));\n    var payload = JSON.parse(_base64urlDecode(payloadSeg));\n\n    if (!noVerify) {\n        var alg = header['alg'];\n        var signingMethod;\n        var signingType;\n\n        if (alg=='HS256'){\n            signingMethod = 'sha256';\n            signingType = 'hmac';\n        } else {\n            throw new Error('Missing or unsupported signing algorithm in JWT header');\n        }\n\n        // Verify signature. `sign` will return base64 string.\n        var signingInput = [headerSeg, payloadSeg].join('.');\n\n        if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {\n            throw new Error('Signature verification failed');\n        }\n\n        if (payload.exp && Date.now() > payload.exp*1000) {\n            throw new Error('Token expired');\n        }\n\n        if (payload.nbf && Date.now() < payload.nbf*1000) {\n            throw new Error('Token not yet valid');\n        }\n\n\n        //check if request URL is not in the exclusion list and omit remaining validations if so\n        for (var i=0; i<payload.exc.length; i++){\n            if (uri.startsWith(payload.exc[i])) {\n                return payload;\n            }\n        }\n\n        //validate if the request URL matches paths covered by the token\n        var uri_match = false;\n        for (var i=0; i<payload.paths.length; i++){\n            if (uri.startsWith(payload.paths[i])) {\n                uri_match = true;\n                break;\n            }\n        }\n        if (!uri_match) {\n            throw new Error('URI path doesn\\'t match any path in the token');\n        }\n\n\n        if (!_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {\n            throw new Error('Internal signature verification failed');\n        }\n\n    }\n\n    return true;\n}\n\n\nfunction _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, request_headers, request_querystrings, request_ip) {\n    var indirect_attr = '';\n\n    //recreating signing input based on JWT payload claims and request attributes\n    if (payload_jwt['ip']){\n        if (request_ip){\n            indirect_attr += (request_ip + ':');\n        } else {\n            throw new Error('intsig reference error: Request IP is missing');\n        }\n    }\n\n    if (payload_jwt['co']){\n        if (request_headers['cloudfront-viewer-country']){\n            indirect_attr += (request_headers['cloudfront-viewer-country'].value + ':');\n        } else {\n            throw new Error('intsig reference error: cloudfront-viewer-country header is missing');\n        }\n    }\n\n    if (payload_jwt['cty']){\n        if (request_headers['cloudfront-viewer-city']){\n            indirect_attr += (request_headers['cloudfront-viewer-city'].value + ':');\n        } else {\n            throw new Error('intsig reference error: cloudfront-viewer-city header is missing');\n        }\n    }\n\n    if (payload_jwt['ssn']){\n        if (sessionId){\n            indirect_attr += sessionId + ':';\n        } else {\n            throw new Error('intsig reference error: Session id is missing');\n        }\n\n    }\n\n    if(payload_jwt['headers']) payload_jwt.headers.forEach( attribute => {\n        if (request_headers[attribute]){\n            indirect_attr += (request_headers[attribute].value + ':' );\n        }\n    });\n\n    if(payload_jwt['qs']) payload_jwt.qs.forEach( attribute => {\n        if (request_querystrings[attribute]){\n            indirect_attr += (request_querystrings[attribute].value + ':' );\n        }\n     });\n    indirect_attr = indirect_attr.slice(0,-1);\n\n    if (indirect_attr && !_verify_signature(indirect_attr, intsig_key, method, type, payload_jwt['intsig'])) {\n        throw new Error('Internal signature verification failed');\n    } else {\n        return true;\n    }\n}\n\n\nfunction _verify_signature(input, key, method, type, signature) {\n    if(type === \"hmac\") {\n        return (signature === _sign(input, key, method));\n    }\n    else {\n        throw new Error('Algorithm type not recognized');\n    }\n}\n\n\nfunction _sign(input, key, method) {\n    return crypto.createHmac(method, key).update(input).digest('base64url');\n}\n\n\nfunction _base64urlDecode(str) {\n    return String.bytesFrom(str, 'base64url')\n}\n\n\nfunction handler(event) {\n    console.log(event);\n    var request = event.request;\n    var headers = request.headers;\n    var querystrings = request.querystring;\n    var uri = request.uri;\n    var viewer_ip = event.viewer.ip;\n\n    //Secret key used to verify JWT token.\n    //Update with your own key.\n\n\n    // If no JWT token, then generate HTTP redirect 401 response.\n    var sessionId;\n    var pathArray = uri.split('/');\n\n    // Inputs grooming and setting internal variables\n    var auth_sequence = pathArray[1];\n    var auth_sequence_array = auth_sequence.split('.');\n    if(auth_sequence_array.length == 4) sessionId=auth_sequence_array.shift();\n    var jwtToken = auth_sequence_array.join('.');\n\n    //removing token part of the URL path to restore original URL path pattern recognizable by the Origin\n    delete pathArray[1];\n    var newUri = pathArray.join(\"/\")\n    newUri = newUri.replace(/\\/\\/+/g, '/')\n\n    //sanity check of the JWT token length\n    if (jwtToken.length < 60) {\n        console.log(\"Error: No JWT in the path\");\n        return response401;\n    }\n\n    try{\n        jwt_verify(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);\n        console.log(\"X_JWT_CHECK VALID\")\n    }\n    catch(e) {\n        console.log(e);\n        console.log(\"X_JWT_CHECK INVALID\")\n        return response401;\n    }\n\n    //returining original playback URL to continue on the request path\n    request.uri = newUri\n    return request;\n}",
+                    "functionConfig": {
+                      "comment": "CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery",
+                      "runtime": "cloudfront-js-1.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudfront.CfnFunction",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_cloudfront.Function",
+              "version": "2.15.0"
+            }
+          },
+          "Secrets": {
+            "id": "Secrets",
+            "path": "LIVE/Secrets",
+            "children": {
+              "Primary": {
+                "id": "Primary",
+                "path": "LIVE/Secrets/Primary",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Secrets/Primary/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SecretsManager::Secret",
+                      "aws:cdk:cloudformation:props": {
+                        "description": "Primary secret for Secure Media Stream Delivery",
+                        "generateSecretString": {
+                          "secretStringTemplate": "{\"MY_PRIMARY_KEY\":\"\"}",
+                          "generateStringKey": "MY_PRIMARY_KEY"
+                        },
+                        "name": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_PrimarySecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_secretsmanager.CfnSecret",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_secretsmanager.Secret",
+                  "version": "2.15.0"
+                }
+              },
+              "Secondary": {
+                "id": "Secondary",
+                "path": "LIVE/Secrets/Secondary",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Secrets/Secondary/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SecretsManager::Secret",
+                      "aws:cdk:cloudformation:props": {
+                        "description": "Secondary secret for Secure Media Stream Delivery",
+                        "generateSecretString": {
+                          "secretStringTemplate": "{\"MY_SECONDARY_KEY\":\"\"}",
+                          "generateStringKey": "MY_SECONDARY_KEY"
+                        },
+                        "name": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_SecondarySecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_secretsmanager.CfnSecret",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_secretsmanager.Secret",
+                  "version": "2.15.0"
+                }
+              },
+              "Temporary": {
+                "id": "Temporary",
+                "path": "LIVE/Secrets/Temporary",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Secrets/Temporary/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::SecretsManager::Secret",
+                      "aws:cdk:cloudformation:props": {
+                        "description": "Temporary secret for Secure Media Stream Delivery",
+                        "generateSecretString": {
+                          "secretStringTemplate": "{\"MY_TEMPORARY_KEY\":\"\"}",
+                          "generateStringKey": "MY_TEMPORARY_KEY"
+                        },
+                        "name": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_TemporarySecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_secretsmanager.CfnSecret",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_secretsmanager.Secret",
+                  "version": "2.15.0"
+                }
+              },
+              "PrimarySecret": {
+                "id": "PrimarySecret",
+                "path": "LIVE/Secrets/PrimarySecret",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.15.0"
+                }
+              },
+              "SecondarySecret": {
+                "id": "SecondarySecret",
+                "path": "LIVE/Secrets/SecondarySecret",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.84"
+            }
+          },
+          "RotateSecrets": {
+            "id": "RotateSecrets",
+            "path": "LIVE/RotateSecrets",
+            "children": {
+              "JsonPathLayer": {
+                "id": "JsonPathLayer",
+                "path": "LIVE/RotateSecrets/JsonPathLayer",
+                "children": {
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/RotateSecrets/JsonPathLayer/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/RotateSecrets/JsonPathLayer/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/RotateSecrets/JsonPathLayer/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/JsonPathLayer/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::LayerVersion",
+                      "aws:cdk:cloudformation:props": {
+                        "content": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "4009f221e4622248ed6319ce71c95d490cec155d7c65f719c16422d094ef64e2.zip"
+                        },
+                        "compatibleRuntimes": [
+                          "python3.7"
+                        ],
+                        "description": "Layer with jsonpath lib"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnLayerVersion",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.LayerVersion",
+                  "version": "2.15.0"
+                }
+              },
+              "GenerateSecretUpdateCff": {
+                "id": "GenerateSecretUpdateCff",
+                "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "cloudfront:DescribeFunction",
+                                        "cloudfront:UpdateFunction",
+                                        "cloudfront:PublishFunction"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "Function76856677",
+                                          "FunctionARN"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsTemporary49A96AA2"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsSecondaryBE68E89A"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsGenerateSecretUpdateCffServiceRoleDefaultPolicyCCC3914C",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/GenerateSecretUpdateCff/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "ccf779b46a6cb4034cfb118870e596f2af0151a3a7c76e0c67eee0fe1ee02df8.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "TEMPORARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_TemporarySecret"
+                                ]
+                              ]
+                            },
+                            "PRIMARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_PrimarySecret"
+                                ]
+                              ]
+                            },
+                            "SECONDARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_SecondarySecret"
+                                ]
+                              ]
+                            },
+                            "CFF_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_checkJWTToken"
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_GenerateSecretUpdateCff"
+                            ]
+                          ]
+                        },
+                        "handler": "index.handler",
+                        "runtime": "python3.7",
+                        "timeout": 300
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.15.0"
+                }
+              },
+              "GenerateNewSecretLogs": {
+                "id": "GenerateNewSecretLogs",
+                "path": "LIVE/RotateSecrets/GenerateNewSecretLogs",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/GenerateNewSecretLogs/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "logGroupName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "/aws/lambda/",
+                              {
+                                "Ref": "RotateSecretsGenerateSecretUpdateCff20242564"
+                              }
+                            ]
+                          ]
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.15.0"
+                }
+              },
+              "GetLastModifiedTime": {
+                "id": "GetLastModifiedTime",
+                "path": "LIVE/RotateSecrets/GetLastModifiedTime",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "cloudfront:Get*",
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsGetLastModifiedTimeServiceRoleDefaultPolicy7EBB7E8D",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/RotateSecrets/GetLastModifiedTime/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/RotateSecrets/GetLastModifiedTime/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/RotateSecrets/GetLastModifiedTime/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/GetLastModifiedTime/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "4bfb9480f1b61e0d7af3eb54c543412668d6060c156b95c259942db4e15f0f14.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "MAX_ITERATIONS": "5"
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_GetLastModifiedTime"
+                            ]
+                          ]
+                        },
+                        "handler": "index.handler",
+                        "runtime": "python3.7"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.15.0"
+                }
+              },
+              "LastModifiedTimeLogs": {
+                "id": "LastModifiedTimeLogs",
+                "path": "LIVE/RotateSecrets/LastModifiedTimeLogs",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/LastModifiedTimeLogs/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "logGroupName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "/aws/lambda/",
+                              {
+                                "Ref": "RotateSecretsGetLastModifiedTime125EBEE5"
+                              }
+                            ]
+                          ]
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.15.0"
+                }
+              },
+              "getDistributionsList": {
+                "id": "getDistributionsList",
+                "path": "LIVE/RotateSecrets/getDistributionsList",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "LIVE/RotateSecrets/getDistributionsList/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/getDistributionsList/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/RotateSecrets/getDistributionsList/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/getDistributionsList/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "cloudfront:List*",
+                                      "Effect": "Allow",
+                                      "Resource": "*"
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsgetDistributionsListServiceRoleDefaultPolicyDC20A3A6",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsgetDistributionsListServiceRole75DF7CF1"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/RotateSecrets/getDistributionsList/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/RotateSecrets/getDistributionsList/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/RotateSecrets/getDistributionsList/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/getDistributionsList/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "420d46c139b291a2541211fd821bbe8d6dde273bffe021f0ffe875923c76de76.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsgetDistributionsListServiceRole75DF7CF1",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "CFF_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_checkJWTToken"
+                                ]
+                              ]
+                            },
+                            "ACCOUNT_ID": {
+                              "Ref": "AWS::AccountId"
+                            }
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_GetDistributionsForCff"
+                            ]
+                          ]
+                        },
+                        "handler": "index.handler",
+                        "layers": [
+                          {
+                            "Ref": "RotateSecretsJsonPathLayer18BE3FD5"
+                          }
+                        ],
+                        "runtime": "python3.7",
+                        "timeout": 300
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.15.0"
+                }
+              },
+              "updateCFFLogs": {
+                "id": "updateCFFLogs",
+                "path": "LIVE/RotateSecrets/updateCFFLogs",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/updateCFFLogs/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "logGroupName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "/aws/lambda/",
+                              {
+                                "Ref": "RotateSecretsgetDistributionsList9406583A"
+                              }
+                            ]
+                          ]
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.15.0"
+                }
+              },
+              "Init": {
+                "id": "Init",
+                "path": "LIVE/RotateSecrets/Init",
+                "children": {
+                  "Role1": {
+                    "id": "Role1",
+                    "path": "LIVE/RotateSecrets/Init/Role1",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/Init/Role1/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/RotateSecrets/Init/Role1/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/Init/Role1/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsGenerateSecretUpdateCff20242564",
+                                          "Arn"
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsInitRole1DefaultPolicyECDFB7E7",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsInitRole19C6E9D4F"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "rotateSecrets": {
+                    "id": "rotateSecrets",
+                    "path": "LIVE/RotateSecrets/Init/rotateSecrets",
+                    "children": {
+                      "Provider": {
+                        "id": "Provider",
+                        "path": "LIVE/RotateSecrets/Init/rotateSecrets/Provider",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_lambda.SingletonFunction",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "CustomResourcePolicy": {
+                        "id": "CustomResourcePolicy",
+                        "path": "LIVE/RotateSecrets/Init/rotateSecrets/CustomResourcePolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/Init/rotateSecrets/CustomResourcePolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:Invoke",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsGenerateSecretUpdateCff20242564",
+                                          "Arn"
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsInitrotateSecretsCustomResourcePolicy736850A2",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsInitRole19C6E9D4F"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/Init/rotateSecrets/Resource",
+                        "children": {
+                          "Default": {
+                            "id": "Default",
+                            "path": "LIVE/RotateSecrets/Init/rotateSecrets/Resource/Default",
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.CfnResource",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.CustomResource",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.custom_resources.AwsCustomResource",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "constructs.Construct",
+                  "version": "10.0.84"
+                }
+              },
+              "SwapSecrets": {
+                "id": "SwapSecrets",
+                "path": "LIVE/RotateSecrets/SwapSecrets",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "LIVE/RotateSecrets/SwapSecrets/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/SwapSecrets/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsTemporary49A96AA2"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsTemporary49A96AA2"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:PutSecretValue",
+                                        "secretsmanager:UpdateSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsSecondaryBE68E89A"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsSecondaryBE68E89A"
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsSwapSecretsServiceRole0C5A9507"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/RotateSecrets/SwapSecrets/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/RotateSecrets/SwapSecrets/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/RotateSecrets/SwapSecrets/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/SwapSecrets/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "085b750cf2f189af986758dde76709cdf1235379fa10aeab1b4da557b3093f9b.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsSwapSecretsServiceRole0C5A9507",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "TEMPORARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_TemporarySecret"
+                                ]
+                              ]
+                            },
+                            "PRIMARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_PrimarySecret"
+                                ]
+                              ]
+                            },
+                            "SECONDARY_KEY_NAME": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  {
+                                    "Ref": "AWS::StackName"
+                                  },
+                                  "_SecondarySecret"
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_SwapSecrets"
+                            ]
+                          ]
+                        },
+                        "handler": "index.lambda_handler",
+                        "runtime": "python3.7"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.15.0"
+                }
+              },
+              "KeyRotationLogs": {
+                "id": "KeyRotationLogs",
+                "path": "LIVE/RotateSecrets/KeyRotationLogs",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/KeyRotationLogs/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Logs::LogGroup",
+                      "aws:cdk:cloudformation:props": {
+                        "logGroupName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "/aws/lambda/",
+                              {
+                                "Ref": "RotateSecretsSwapSecretsD91628F3"
+                              }
+                            ]
+                          ]
+                        },
+                        "retentionInDays": 30
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_logs.CfnLogGroup",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_logs.LogGroup",
+                  "version": "2.15.0"
+                }
+              },
+              "Get distributions for CloudFront Function": {
+                "id": "Get distributions for CloudFront Function",
+                "path": "LIVE/RotateSecrets/Get distributions for CloudFront Function",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
+                  "version": "2.15.0"
+                }
+              },
+              "Generate secrets & update CloudFront Function": {
+                "id": "Generate secrets & update CloudFront Function",
+                "path": "LIVE/RotateSecrets/Generate secrets & update CloudFront Function",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
+                  "version": "2.15.0"
+                }
+              },
+              "Get Last Modified Time": {
+                "id": "Get Last Modified Time",
+                "path": "LIVE/RotateSecrets/Get Last Modified Time",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
+                  "version": "2.15.0"
+                }
+              },
+              "Swap secrets": {
+                "id": "Swap secrets",
+                "path": "LIVE/RotateSecrets/Swap secrets",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions_tasks.LambdaInvoke",
+                  "version": "2.15.0"
+                }
+              },
+              "Wait 1 minute": {
+                "id": "Wait 1 minute",
+                "path": "LIVE/RotateSecrets/Wait 1 minute",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Wait",
+                  "version": "2.15.0"
+                }
+              },
+              "Map State": {
+                "id": "Map State",
+                "path": "LIVE/RotateSecrets/Map State",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Map",
+                  "version": "2.15.0"
+                }
+              },
+              "Keep waiting?": {
+                "id": "Keep waiting?",
+                "path": "LIVE/RotateSecrets/Keep waiting?",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Choice",
+                  "version": "2.15.0"
+                }
+              },
+              "Fail propagating": {
+                "id": "Fail propagating",
+                "path": "LIVE/RotateSecrets/Fail propagating",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Fail",
+                  "version": "2.15.0"
+                }
+              },
+              "Update propagated?": {
+                "id": "Update propagated?",
+                "path": "LIVE/RotateSecrets/Update propagated?",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Choice",
+                  "version": "2.15.0"
+                }
+              },
+              "Propagation OK": {
+                "id": "Propagation OK",
+                "path": "LIVE/RotateSecrets/Propagation OK",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.Succeed",
+                  "version": "2.15.0"
+                }
+              },
+              "Rotate": {
+                "id": "Rotate",
+                "path": "LIVE/RotateSecrets/Rotate",
+                "children": {
+                  "Role": {
+                    "id": "Role",
+                    "path": "LIVE/RotateSecrets/Rotate/Role",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/RotateSecrets/Rotate/Role/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": {
+                                      "Fn::FindInMap": [
+                                        "ServiceprincipalMap",
+                                        {
+                                          "Ref": "AWS::Region"
+                                        },
+                                        "states"
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/RotateSecrets/Rotate/Role/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/RotateSecrets/Rotate/Role/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsgetDistributionsList9406583A",
+                                          "Arn"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsGenerateSecretUpdateCff20242564",
+                                          "Arn"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsSwapSecretsD91628F3",
+                                          "Arn"
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "Action": "lambda:InvokeFunction",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "RotateSecretsGetLastModifiedTime125EBEE5",
+                                          "Arn"
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "RotateSecretsRotateRoleDefaultPolicy4D14D725",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsRotateRole815561C0"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/RotateSecrets/Rotate/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::StepFunctions::StateMachine",
+                      "aws:cdk:cloudformation:props": {
+                        "roleArn": {
+                          "Fn::GetAtt": [
+                            "RotateSecretsRotateRole815561C0",
+                            "Arn"
+                          ]
+                        },
+                        "definitionString": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{\"StartAt\":\"Get distributions for CloudFront Function\",\"States\":{\"Get distributions for CloudFront Function\":{\"Next\":\"Generate secrets & update CloudFront Function\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$\",\"ResultSelector\":{\"Output.$\":\"$.Payload\"},\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsgetDistributionsList9406583A",
+                                  "Arn"
+                                ]
+                              },
+                              "\",\"Payload.$\":\"$\"}},\"Generate secrets & update CloudFront Function\":{\"Next\":\"Map State\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"ResultPath\":null,\"ResultSelector\":{\"Output.$\":\"$.Payload\"},\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsGenerateSecretUpdateCff20242564",
+                                  "Arn"
+                                ]
+                              },
+                              "\",\"Payload.$\":\"$\"}},\"Map State\":{\"Type\":\"Map\",\"ResultPath\":null,\"Next\":\"Swap secrets\",\"InputPath\":\"$.Output.distributions\",\"Iterator\":{\"StartAt\":\"Get Last Modified Time\",\"States\":{\"Get Last Modified Time\":{\"Next\":\"Update propagated?\",\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"OutputPath\":\"$.Output\",\"ResultSelector\":{\"Output.$\":\"$.Payload\"},\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsGetLastModifiedTime125EBEE5",
+                                  "Arn"
+                                ]
+                              },
+                              "\",\"Payload.$\":\"$\"}},\"Wait 1 minute\":{\"Type\":\"Wait\",\"Seconds\":60,\"Next\":\"Get Last Modified Time\"},\"Update propagated?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.propagated\",\"BooleanEquals\":false,\"Next\":\"Keep waiting?\"}],\"Default\":\"Propagation OK\"},\"Propagation OK\":{\"Type\":\"Succeed\"},\"Keep waiting?\":{\"Type\":\"Choice\",\"Choices\":[{\"Variable\":\"$.continue\",\"BooleanEquals\":false,\"Next\":\"Fail propagating\"}],\"Default\":\"Wait 1 minute\"},\"Fail propagating\":{\"Type\":\"Fail\"}}},\"MaxConcurrency\":1},\"Swap secrets\":{\"End\":true,\"Retry\":[{\"ErrorEquals\":[\"Lambda.ServiceException\",\"Lambda.AWSLambdaException\",\"Lambda.SdkClientException\"],\"IntervalSeconds\":2,\"MaxAttempts\":6,\"BackoffRate\":2}],\"Type\":\"Task\",\"Resource\":\"arn:",
+                              {
+                                "Ref": "AWS::Partition"
+                              },
+                              ":states:::lambda:invoke\",\"Parameters\":{\"FunctionName\":\"",
+                              {
+                                "Fn::GetAtt": [
+                                  "RotateSecretsSwapSecretsD91628F3",
+                                  "Arn"
+                                ]
+                              },
+                              "\",\"Payload.$\":\"$\"}}},\"TimeoutSeconds\":3600}"
+                            ]
+                          ]
+                        },
+                        "stateMachineName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_RotateSecret"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_stepfunctions.CfnStateMachine",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_stepfunctions.StateMachine",
+                  "version": "2.15.0"
+                }
+              },
+              "SFRotateSecrets": {
+                "id": "SFRotateSecrets",
+                "path": "LIVE/RotateSecrets/SFRotateSecrets",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.84"
+            }
+          },
+          "AWS679f53fac002430cb0da5b7982bd2287": {
+            "id": "AWS679f53fac002430cb0da5b7982bd2287",
+            "path": "LIVE/AWS679f53fac002430cb0da5b7982bd2287",
+            "children": {
+              "Code": {
+                "id": "Code",
+                "path": "LIVE/AWS679f53fac002430cb0da5b7982bd2287/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "LIVE/AWS679f53fac002430cb0da5b7982bd2287/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "LIVE/AWS679f53fac002430cb0da5b7982bd2287/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.15.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "LIVE/AWS679f53fac002430cb0da5b7982bd2287/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": {
+                        "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                      },
+                      "s3Key": "4a575666d1c2c6412590d2a56f328e040a81ad1ef59aecee31ae9b393d05f659.zip"
+                    },
+                    "role": {
+                      "Fn::GetAtt": [
+                        "RotateSecretsInitRole19C6E9D4F",
+                        "Arn"
+                      ]
+                    },
+                    "functionName": {
+                      "Fn::Join": [
+                        "",
+                        [
+                          {
+                            "Ref": "AWS::StackName"
+                          },
+                          "_InitSecretsSm"
+                        ]
+                      ]
+                    },
+                    "handler": "index.handler",
+                    "runtime": "nodejs12.x",
+                    "timeout": 120
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
+              "version": "2.15.0"
+            }
+          },
+          "CoreDashboard": {
+            "id": "CoreDashboard",
+            "path": "LIVE/CoreDashboard",
+            "children": {
+              "MonitoringDashboard": {
+                "id": "MonitoringDashboard",
+                "path": "LIVE/CoreDashboard/MonitoringDashboard",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/CoreDashboard/MonitoringDashboard/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::CloudWatch::Dashboard",
+                      "aws:cdk:cloudformation:props": {
+                        "dashboardBody": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              "{\"widgets\":[{\"type\":\"log\",\"width\":9,\"height\":6,\"x\":0,\"y\":0,\"properties\":{\"view\":\"pie\",\"title\":\"Verify JWT token\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"query\":\"SOURCE '/aws/cloudfront/function/",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken' | fields @timestamp, @message\\n| filter @message like /X_JWT_CHECK/\\n| parse \\\"* * *\\\" as a,b,result\\n| stats count(*) as RESULT by result as total\"}},{\"type\":\"metric\",\"width\":9,\"height\":6,\"x\":9,\"y\":0,\"properties\":{\"view\":\"pie\",\"title\":\"Rotate Secrets\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/States\",\"ExecutionsFailed\",\"StateMachineArn\",\"",
+                              {
+                                "Ref": "RotateSecretsRotateDD9D7C2F"
+                              },
+                              "\",{\"label\":\"Failure\",\"stat\":\"Sum\"}],[\"AWS/States\",\"ExecutionsSucceeded\",\"StateMachineArn\",\"",
+                              {
+                                "Ref": "RotateSecretsRotateDD9D7C2F"
+                              },
+                              "\",{\"label\":\"Success\",\"stat\":\"Sum\"}]],\"yAxis\":{},\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":18,\"y\":0,\"properties\":{\"view\":\"singleValue\",\"title\":\"Tokens checked\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/CloudFront\",\"FunctionInvocations\",\"FunctionName\",\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"Region\",\"Global\",{\"label\":\"Invocations\",\"stat\":\"Sum\"}]],\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":24,\"height\":6,\"x\":0,\"y\":6,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Check JWT Token - Compute Utilization (Avg)\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/CloudFront\",\"FunctionComputeUtilization\",\"FunctionName\",\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"Region\",\"Global\",{\"label\":\"Compute usage\"}]],\"yAxis\":{},\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":24,\"height\":6,\"x\":0,\"y\":12,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Check JWT Token - Invocations (Sum)\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"stacked\":true,\"metrics\":[[\"AWS/CloudFront\",\"FunctionInvocations\",\"FunctionName\",\"",
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_checkJWTToken\",\"Region\",\"Global\",{\"label\":\"Invocations\",\"stat\":\"Sum\"}]],\"yAxis\":{},\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":6,\"height\":6,\"x\":0,\"y\":18,\"properties\":{\"view\":\"singleValue\",\"title\":\"Nb of tokens generated\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/Lambda\",\"Invocations\",\"FunctionName\",\"",
+                              {
+                                "Ref": "ApiGenerateTokenF559573A"
+                              },
+                              "\"]],\"setPeriodToTimeRange\":true}},{\"type\":\"metric\",\"width\":18,\"height\":6,\"x\":6,\"y\":18,\"properties\":{\"view\":\"timeSeries\",\"title\":\"Tokens generated\",\"region\":\"",
+                              {
+                                "Ref": "AWS::Region"
+                              },
+                              "\",\"metrics\":[[\"AWS/Lambda\",\"Invocations\",\"FunctionName\",\"",
+                              {
+                                "Ref": "ApiGenerateTokenF559573A"
+                              },
+                              "\"]],\"yAxis\":{},\"setPeriodToTimeRange\":true}}]}"
+                            ]
+                          ]
+                        },
+                        "dashboardName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "NaN"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_cloudwatch.CfnDashboard",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudwatch.Dashboard",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.84"
+            }
+          },
+          "Api": {
+            "id": "Api",
+            "path": "LIVE/Api",
+            "children": {
+              "RotateSecretLayer": {
+                "id": "RotateSecretLayer",
+                "path": "LIVE/Api/RotateSecretLayer",
+                "children": {
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/Api/RotateSecretLayer/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/Api/RotateSecretLayer/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/Api/RotateSecretLayer/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/RotateSecretLayer/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::LayerVersion",
+                      "aws:cdk:cloudformation:props": {
+                        "content": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "318f6a2a1e40cc7002d88b6a02d5094488a382c15c1f558a822ccd61d6832765.zip"
+                        },
+                        "compatibleRuntimes": [
+                          "nodejs14.x"
+                        ],
+                        "description": "Layer used by generate new secret lambda"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnLayerVersion",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.LayerVersion",
+                  "version": "2.15.0"
+                }
+              },
+              "HostingBucket": {
+                "id": "HostingBucket",
+                "path": "LIVE/Api/HostingBucket",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/HostingBucket/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::S3::Bucket",
+                      "aws:cdk:cloudformation:props": {
+                        "tags": [
+                          {
+                            "key": "aws-cdk:cr-owned:12c91cee",
+                            "value": "true"
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.CfnBucket",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Policy": {
+                    "id": "Policy",
+                    "path": "LIVE/Api/HostingBucket/Policy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/HostingBucket/Policy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::S3::BucketPolicy",
+                          "aws:cdk:cloudformation:props": {
+                            "bucket": {
+                              "Ref": "ApiHostingBucket29312F0D"
+                            },
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "s3:GetObject",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "CanonicalUser": {
+                                      "Fn::GetAtt": [
+                                        "ApiDistributionOrigin1S3OriginE11C57D5",
+                                        "S3CanonicalUserId"
+                                      ]
+                                    }
+                                  },
+                                  "Resource": {
+                                    "Fn::Join": [
+                                      "",
+                                      [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "ApiHostingBucket29312F0D",
+                                            "Arn"
+                                          ]
+                                        },
+                                        "/*"
+                                      ]
+                                    ]
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.CfnBucketPolicy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketPolicy",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3.Bucket",
+                  "version": "2.15.0"
+                }
+              },
+              "DemoTable": {
+                "id": "DemoTable",
+                "path": "LIVE/Api/DemoTable",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/DemoTable/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::DynamoDB::Table",
+                      "aws:cdk:cloudformation:props": {
+                        "keySchema": [
+                          {
+                            "attributeName": "id",
+                            "keyType": "HASH"
+                          }
+                        ],
+                        "attributeDefinitions": [
+                          {
+                            "attributeName": "id",
+                            "attributeType": "S"
+                          }
+                        ],
+                        "billingMode": "PAY_PER_REQUEST",
+                        "tableName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_videoassets"
+                            ]
+                          ]
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_dynamodb.CfnTable",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "ScalingRole": {
+                    "id": "ScalingRole",
+                    "path": "LIVE/Api/DemoTable/ScalingRole",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.Resource",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_dynamodb.Table",
+                  "version": "2.15.0"
+                }
+              },
+              "AssetsTable": {
+                "id": "AssetsTable",
+                "path": "LIVE/Api/AssetsTable",
+                "children": {
+                  "initDBResource": {
+                    "id": "initDBResource",
+                    "path": "LIVE/Api/AssetsTable/initDBResource",
+                    "children": {
+                      "Provider": {
+                        "id": "Provider",
+                        "path": "LIVE/Api/AssetsTable/initDBResource/Provider",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_lambda.SingletonFunction",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "CustomResourcePolicy": {
+                        "id": "CustomResourcePolicy",
+                        "path": "LIVE/Api/AssetsTable/initDBResource/CustomResourcePolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/Api/AssetsTable/initDBResource/CustomResourcePolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": "dynamodb:BatchWriteItem",
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Fn::GetAtt": [
+                                          "ApiDemoTableFE9A9502",
+                                          "Arn"
+                                        ]
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "ApiAssetsTableinitDBResourceCustomResourcePolicyDAF30561",
+                                "roles": [
+                                  {
+                                    "Ref": "RotateSecretsInitRole19C6E9D4F"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/AssetsTable/initDBResource/Resource",
+                        "children": {
+                          "Default": {
+                            "id": "Default",
+                            "path": "LIVE/Api/AssetsTable/initDBResource/Resource/Default",
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.CfnResource",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.CustomResource",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.custom_resources.AwsCustomResource",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "constructs.Construct",
+                  "version": "10.0.84"
+                }
+              },
+              "DeployWebsite": {
+                "id": "DeployWebsite",
+                "path": "LIVE/Api/DeployWebsite",
+                "children": {
+                  "AwsCliLayer": {
+                    "id": "AwsCliLayer",
+                    "path": "LIVE/Api/DeployWebsite/AwsCliLayer",
+                    "children": {
+                      "Code": {
+                        "id": "Code",
+                        "path": "LIVE/Api/DeployWebsite/AwsCliLayer/Code",
+                        "children": {
+                          "Stage": {
+                            "id": "Stage",
+                            "path": "LIVE/Api/DeployWebsite/AwsCliLayer/Code/Stage",
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.AssetStaging",
+                              "version": "2.15.0"
+                            }
+                          },
+                          "AssetBucket": {
+                            "id": "AssetBucket",
+                            "path": "LIVE/Api/DeployWebsite/AwsCliLayer/Code/AssetBucket",
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/DeployWebsite/AwsCliLayer/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::Lambda::LayerVersion",
+                          "aws:cdk:cloudformation:props": {
+                            "content": {
+                              "s3Bucket": {
+                                "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                              },
+                              "s3Key": "391a62714930dde9689f73f04bec0cd78494b9d9b7167446e54c6c939bbbb6b4.zip"
+                            },
+                            "description": "/opt/awscli/aws"
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_lambda.CfnLayerVersion",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.lambda_layer_awscli.AwsCliLayer",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "CustomResourceHandler": {
+                    "id": "CustomResourceHandler",
+                    "path": "LIVE/Api/DeployWebsite/CustomResourceHandler",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.SingletonFunction",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Asset1": {
+                    "id": "Asset1",
+                    "path": "LIVE/Api/DeployWebsite/Asset1",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/Api/DeployWebsite/Asset1/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/Api/DeployWebsite/Asset1/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "CustomResource": {
+                    "id": "CustomResource",
+                    "path": "LIVE/Api/DeployWebsite/CustomResource",
+                    "children": {
+                      "Default": {
+                        "id": "Default",
+                        "path": "LIVE/Api/DeployWebsite/CustomResource/Default",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.CfnResource",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.CustomResource",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_deployment.BucketDeployment",
+                  "version": "2.15.0"
+                }
+              },
+              "GenerateToken": {
+                "id": "GenerateToken",
+                "path": "LIVE/Api/GenerateToken",
+                "children": {
+                  "ServiceRole": {
+                    "id": "ServiceRole",
+                    "path": "LIVE/Api/GenerateToken/ServiceRole",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/GenerateToken/ServiceRole/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                          "aws:cdk:cloudformation:props": {
+                            "assumeRolePolicyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": "sts:AssumeRole",
+                                  "Effect": "Allow",
+                                  "Principal": {
+                                    "Service": "lambda.amazonaws.com"
+                                  }
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "managedPolicyArns": [
+                              {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    "arn:",
+                                    {
+                                      "Ref": "AWS::Partition"
+                                    },
+                                    ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                                  ]
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "DefaultPolicy": {
+                        "id": "DefaultPolicy",
+                        "path": "LIVE/Api/GenerateToken/ServiceRole/DefaultPolicy",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/Api/GenerateToken/ServiceRole/DefaultPolicy/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                              "aws:cdk:cloudformation:props": {
+                                "policyDocument": {
+                                  "Statement": [
+                                    {
+                                      "Action": [
+                                        "dynamodb:BatchGetItem",
+                                        "dynamodb:GetRecords",
+                                        "dynamodb:GetShardIterator",
+                                        "dynamodb:Query",
+                                        "dynamodb:GetItem",
+                                        "dynamodb:Scan",
+                                        "dynamodb:ConditionCheckItem",
+                                        "dynamodb:DescribeTable"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": [
+                                        {
+                                          "Fn::GetAtt": [
+                                            "ApiDemoTableFE9A9502",
+                                            "Arn"
+                                          ]
+                                        },
+                                        {
+                                          "Ref": "AWS::NoValue"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsPrimaryB2FD59FF"
+                                      }
+                                    },
+                                    {
+                                      "Action": [
+                                        "secretsmanager:GetSecretValue",
+                                        "secretsmanager:DescribeSecret"
+                                      ],
+                                      "Effect": "Allow",
+                                      "Resource": {
+                                        "Ref": "SecretsSecondaryBE68E89A"
+                                      }
+                                    }
+                                  ],
+                                  "Version": "2012-10-17"
+                                },
+                                "policyName": "ApiGenerateTokenServiceRoleDefaultPolicyCFC159C7",
+                                "roles": [
+                                  {
+                                    "Ref": "ApiGenerateTokenServiceRoleCA28640D"
+                                  }
+                                ]
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.Policy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Role",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Code": {
+                    "id": "Code",
+                    "path": "LIVE/Api/GenerateToken/Code",
+                    "children": {
+                      "Stage": {
+                        "id": "Stage",
+                        "path": "LIVE/Api/GenerateToken/Code/Stage",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.AssetStaging",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "AssetBucket": {
+                        "id": "AssetBucket",
+                        "path": "LIVE/Api/GenerateToken/Code/AssetBucket",
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/GenerateToken/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                      "aws:cdk:cloudformation:props": {
+                        "code": {
+                          "s3Bucket": {
+                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                          },
+                          "s3Key": "e972b2cd387dd97c1edd1d00f0e289400b904aee23861f0d121cdbefc61eca96.zip"
+                        },
+                        "role": {
+                          "Fn::GetAtt": [
+                            "ApiGenerateTokenServiceRoleCA28640D",
+                            "Arn"
+                          ]
+                        },
+                        "environment": {
+                          "variables": {
+                            "STACK_NAME": {
+                              "Ref": "AWS::StackName"
+                            },
+                            "TABLE_NAME": {
+                              "Ref": "ApiDemoTableFE9A9502"
+                            },
+                            "USERNAME": "abcd",
+                            "PASSWORD": "abcd"
+                          }
+                        },
+                        "functionName": {
+                          "Fn::Join": [
+                            "",
+                            [
+                              {
+                                "Ref": "AWS::StackName"
+                              },
+                              "_GenerateToken"
+                            ]
+                          ]
+                        },
+                        "handler": "index.handler",
+                        "layers": [
+                          {
+                            "Ref": "ApiRotateSecretLayerB09DA817"
+                          }
+                        ],
+                        "runtime": "nodejs14.x"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.Function",
+                  "version": "2.15.0"
+                }
+              },
+              "HttpApi": {
+                "id": "HttpApi",
+                "path": "LIVE/Api/HttpApi",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/HttpApi/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::ApiGatewayV2::Api",
+                      "aws:cdk:cloudformation:props": {
+                        "name": "HttpApi",
+                        "protocolType": "HTTP"
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_apigatewayv2.CfnApi",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "DefaultStage": {
+                    "id": "DefaultStage",
+                    "path": "LIVE/Api/HttpApi/DefaultStage",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/HttpApi/DefaultStage/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::ApiGatewayV2::Stage",
+                          "aws:cdk:cloudformation:props": {
+                            "apiId": {
+                              "Ref": "ApiHttpApi4C294DC0"
+                            },
+                            "stageName": "$default",
+                            "autoDeploy": true
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_apigatewayv2.CfnStage",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "@aws-cdk/aws-apigatewayv2-alpha.HttpStage",
+                      "version": "2.15.0-alpha.0"
+                    }
+                  },
+                  "GET--tokengenerate": {
+                    "id": "GET--tokengenerate",
+                    "path": "LIVE/Api/HttpApi/GET--tokengenerate",
+                    "children": {
+                      "GenerateTokenIntegration-Permission": {
+                        "id": "GenerateTokenIntegration-Permission",
+                        "path": "LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration-Permission",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::Lambda::Permission",
+                          "aws:cdk:cloudformation:props": {
+                            "action": "lambda:InvokeFunction",
+                            "functionName": {
+                              "Fn::GetAtt": [
+                                "ApiGenerateTokenF559573A",
+                                "Arn"
+                              ]
+                            },
+                            "principal": "apigateway.amazonaws.com",
+                            "sourceArn": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  "arn:",
+                                  {
+                                    "Ref": "AWS::Partition"
+                                  },
+                                  ":execute-api:",
+                                  {
+                                    "Ref": "AWS::Region"
+                                  },
+                                  ":",
+                                  {
+                                    "Ref": "AWS::AccountId"
+                                  },
+                                  ":",
+                                  {
+                                    "Ref": "ApiHttpApi4C294DC0"
+                                  },
+                                  "/*/*/tokengenerate"
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_lambda.CfnPermission",
+                          "version": "2.15.0"
+                        }
+                      },
+                      "GenerateTokenIntegration": {
+                        "id": "GenerateTokenIntegration",
+                        "path": "LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::ApiGatewayV2::Integration",
+                              "aws:cdk:cloudformation:props": {
+                                "apiId": {
+                                  "Ref": "ApiHttpApi4C294DC0"
+                                },
+                                "integrationType": "AWS_PROXY",
+                                "integrationUri": {
+                                  "Fn::GetAtt": [
+                                    "ApiGenerateTokenF559573A",
+                                    "Arn"
+                                  ]
+                                },
+                                "payloadFormatVersion": "2.0"
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_apigatewayv2.CfnIntegration",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "@aws-cdk/aws-apigatewayv2-alpha.HttpIntegration",
+                          "version": "2.15.0-alpha.0"
+                        }
+                      },
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/HttpApi/GET--tokengenerate/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::ApiGatewayV2::Route",
+                          "aws:cdk:cloudformation:props": {
+                            "apiId": {
+                              "Ref": "ApiHttpApi4C294DC0"
+                            },
+                            "routeKey": "GET /tokengenerate",
+                            "authorizationType": "NONE",
+                            "target": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  "integrations/",
+                                  {
+                                    "Ref": "ApiHttpApiGETtokengenerateGenerateTokenIntegration8E6A2EB4"
+                                  }
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_apigatewayv2.CfnRoute",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "@aws-cdk/aws-apigatewayv2-alpha.HttpRoute",
+                      "version": "2.15.0-alpha.0"
+                    }
+                  },
+                  "POST--tokengenerate": {
+                    "id": "POST--tokengenerate",
+                    "path": "LIVE/Api/HttpApi/POST--tokengenerate",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Api/HttpApi/POST--tokengenerate/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::ApiGatewayV2::Route",
+                          "aws:cdk:cloudformation:props": {
+                            "apiId": {
+                              "Ref": "ApiHttpApi4C294DC0"
+                            },
+                            "routeKey": "POST /tokengenerate",
+                            "authorizationType": "NONE",
+                            "target": {
+                              "Fn::Join": [
+                                "",
+                                [
+                                  "integrations/",
+                                  {
+                                    "Ref": "ApiHttpApiGETtokengenerateGenerateTokenIntegration8E6A2EB4"
+                                  }
+                                ]
+                              ]
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_apigatewayv2.CfnRoute",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "@aws-cdk/aws-apigatewayv2-alpha.HttpRoute",
+                      "version": "2.15.0-alpha.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "@aws-cdk/aws-apigatewayv2-alpha.HttpApi",
+                  "version": "2.15.0-alpha.0"
+                }
+              },
+              "OriginRequestPolicy": {
+                "id": "OriginRequestPolicy",
+                "path": "LIVE/Api/OriginRequestPolicy",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/OriginRequestPolicy/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::CloudFront::OriginRequestPolicy",
+                      "aws:cdk:cloudformation:props": {
+                        "originRequestPolicyConfig": {
+                          "name": {
+                            "Fn::Join": [
+                              "",
+                              [
+                                {
+                                  "Ref": "AWS::StackName"
+                                },
+                                "CMS"
+                              ]
+                            ]
+                          },
+                          "comment": "A default policy",
+                          "cookiesConfig": {
+                            "cookieBehavior": "none"
+                          },
+                          "headersConfig": {
+                            "headerBehavior": "whitelist",
+                            "headers": [
+                              "CloudFront-Viewer-Address",
+                              "CloudFront-Viewer-Country",
+                              "CloudFront-Viewer-City",
+                              "Referer",
+                              "User-Agent"
+                            ]
+                          },
+                          "queryStringsConfig": {
+                            "queryStringBehavior": "all"
+                          }
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_cloudfront.CfnOriginRequestPolicy",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudfront.OriginRequestPolicy",
+                  "version": "2.15.0"
+                }
+              },
+              "Distribution": {
+                "id": "Distribution",
+                "path": "LIVE/Api/Distribution",
+                "children": {
+                  "Origin1": {
+                    "id": "Origin1",
+                    "path": "LIVE/Api/Distribution/Origin1",
+                    "children": {
+                      "S3Origin": {
+                        "id": "S3Origin",
+                        "path": "LIVE/Api/Distribution/Origin1/S3Origin",
+                        "children": {
+                          "Resource": {
+                            "id": "Resource",
+                            "path": "LIVE/Api/Distribution/Origin1/S3Origin/Resource",
+                            "attributes": {
+                              "aws:cdk:cloudformation:type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+                              "aws:cdk:cloudformation:props": {
+                                "cloudFrontOriginAccessIdentityConfig": {
+                                  "comment": "Identity for LIVEApiDistributionOrigin1C2EFA8F5"
+                                }
+                              }
+                            },
+                            "constructInfo": {
+                              "fqn": "aws-cdk-lib.aws_cloudfront.CfnCloudFrontOriginAccessIdentity",
+                              "version": "2.15.0"
+                            }
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_cloudfront.OriginAccessIdentity",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "constructs.Construct",
+                      "version": "10.0.84"
+                    }
+                  },
+                  "Origin2": {
+                    "id": "Origin2",
+                    "path": "LIVE/Api/Distribution/Origin2",
+                    "constructInfo": {
+                      "fqn": "constructs.Construct",
+                      "version": "10.0.84"
+                    }
+                  },
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Api/Distribution/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::CloudFront::Distribution",
+                      "aws:cdk:cloudformation:props": {
+                        "distributionConfig": {
+                          "enabled": true,
+                          "origins": [
+                            {
+                              "domainName": {
+                                "Fn::GetAtt": [
+                                  "ApiHostingBucket29312F0D",
+                                  "RegionalDomainName"
+                                ]
+                              },
+                              "id": "LIVEApiDistributionOrigin1C2EFA8F5",
+                              "s3OriginConfig": {
+                                "originAccessIdentity": {
+                                  "Fn::Join": [
+                                    "",
+                                    [
+                                      "origin-access-identity/cloudfront/",
+                                      {
+                                        "Ref": "ApiDistributionOrigin1S3OriginE11C57D5"
+                                      }
+                                    ]
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "domainName": {
+                                "Fn::Join": [
+                                  "",
+                                  [
+                                    {
+                                      "Ref": "ApiHttpApi4C294DC0"
+                                    },
+                                    ".execute-api.",
+                                    {
+                                      "Ref": "AWS::Region"
+                                    },
+                                    ".amazonaws.com"
+                                  ]
+                                ]
+                              },
+                              "id": "LIVEApiDistributionOrigin21851A9BB",
+                              "customOriginConfig": {
+                                "originSslProtocols": [
+                                  "TLSv1.2"
+                                ],
+                                "originProtocolPolicy": "https-only"
+                              }
+                            }
+                          ],
+                          "defaultCacheBehavior": {
+                            "pathPattern": "*",
+                            "targetOriginId": "LIVEApiDistributionOrigin1C2EFA8F5",
+                            "allowedMethods": [
+                              "GET",
+                              "HEAD"
+                            ],
+                            "cachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+                            "compress": true,
+                            "viewerProtocolPolicy": "allow-all"
+                          },
+                          "cacheBehaviors": [
+                            {
+                              "pathPattern": "/tokengenerate",
+                              "targetOriginId": "LIVEApiDistributionOrigin21851A9BB",
+                              "allowedMethods": [
+                                "GET",
+                                "HEAD",
+                                "OPTIONS",
+                                "PUT",
+                                "PATCH",
+                                "POST",
+                                "DELETE"
+                              ],
+                              "cachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+                              "compress": true,
+                              "originRequestPolicyId": {
+                                "Ref": "ApiOriginRequestPolicy935342BF"
+                              },
+                              "responseHeadersPolicyId": "5cc3b908-e619-4b99-88e5-2cf7f45965bd",
+                              "viewerProtocolPolicy": "redirect-to-https"
+                            }
+                          ],
+                          "comment": {
+                            "Fn::Join": [
+                              "",
+                              [
+                                {
+                                  "Ref": "AWS::StackName"
+                                },
+                                " - Demo website Secure Media Delivery"
+                              ]
+                            ]
+                          },
+                          "defaultRootObject": "index_hls.html",
+                          "httpVersion": "http2",
+                          "ipv6Enabled": true
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_cloudfront.CfnDistribution",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cloudfront.Distribution",
+                  "version": "2.15.0"
+                }
+              },
+              "DistributionDomainName": {
+                "id": "DistributionDomainName",
+                "path": "LIVE/Api/DistributionDomainName",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.15.0"
+                }
+              },
+              "ApiEndpoint": {
+                "id": "ApiEndpoint",
+                "path": "LIVE/Api/ApiEndpoint",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.15.0"
+                }
+              },
+              "HostingBucketName": {
+                "id": "HostingBucketName",
+                "path": "LIVE/Api/HostingBucketName",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnOutput",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.84"
+            }
+          },
+          "Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C": {
+            "id": "Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C",
+            "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C",
+            "children": {
+              "ServiceRole": {
+                "id": "ServiceRole",
+                "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::IAM::Role",
+                      "aws:cdk:cloudformation:props": {
+                        "assumeRolePolicyDocument": {
+                          "Statement": [
+                            {
+                              "Action": "sts:AssumeRole",
+                              "Effect": "Allow",
+                              "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                              }
+                            }
+                          ],
+                          "Version": "2012-10-17"
+                        },
+                        "managedPolicyArns": [
+                          {
+                            "Fn::Join": [
+                              "",
+                              [
+                                "arn:",
+                                {
+                                  "Ref": "AWS::Partition"
+                                },
+                                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+                              ]
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.CfnRole",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "DefaultPolicy": {
+                    "id": "DefaultPolicy",
+                    "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy",
+                    "children": {
+                      "Resource": {
+                        "id": "Resource",
+                        "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource",
+                        "attributes": {
+                          "aws:cdk:cloudformation:type": "AWS::IAM::Policy",
+                          "aws:cdk:cloudformation:props": {
+                            "policyDocument": {
+                              "Statement": [
+                                {
+                                  "Action": [
+                                    "s3:GetObject*",
+                                    "s3:GetBucket*",
+                                    "s3:List*"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          "arn:",
+                                          {
+                                            "Ref": "AWS::Partition"
+                                          },
+                                          ":s3:::",
+                                          {
+                                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                                          }
+                                        ]
+                                      ]
+                                    },
+                                    {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          "arn:",
+                                          {
+                                            "Ref": "AWS::Partition"
+                                          },
+                                          ":s3:::",
+                                          {
+                                            "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                                          },
+                                          "/*"
+                                        ]
+                                      ]
+                                    }
+                                  ]
+                                },
+                                {
+                                  "Action": [
+                                    "s3:GetObject*",
+                                    "s3:GetBucket*",
+                                    "s3:List*",
+                                    "s3:DeleteObject*",
+                                    "s3:PutObject",
+                                    "s3:PutObjectLegalHold",
+                                    "s3:PutObjectRetention",
+                                    "s3:PutObjectTagging",
+                                    "s3:PutObjectVersionTagging",
+                                    "s3:Abort*"
+                                  ],
+                                  "Effect": "Allow",
+                                  "Resource": [
+                                    {
+                                      "Fn::GetAtt": [
+                                        "ApiHostingBucket29312F0D",
+                                        "Arn"
+                                      ]
+                                    },
+                                    {
+                                      "Fn::Join": [
+                                        "",
+                                        [
+                                          {
+                                            "Fn::GetAtt": [
+                                              "ApiHostingBucket29312F0D",
+                                              "Arn"
+                                            ]
+                                          },
+                                          "/*"
+                                        ]
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ],
+                              "Version": "2012-10-17"
+                            },
+                            "policyName": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF",
+                            "roles": [
+                              {
+                                "Ref": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265"
+                              }
+                            ]
+                          }
+                        },
+                        "constructInfo": {
+                          "fqn": "aws-cdk-lib.aws_iam.CfnPolicy",
+                          "version": "2.15.0"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_iam.Policy",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_iam.Role",
+                  "version": "2.15.0"
+                }
+              },
+              "Code": {
+                "id": "Code",
+                "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Code",
+                "children": {
+                  "Stage": {
+                    "id": "Stage",
+                    "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Code/Stage",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.AssetStaging",
+                      "version": "2.15.0"
+                    }
+                  },
+                  "AssetBucket": {
+                    "id": "AssetBucket",
+                    "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Code/AssetBucket",
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_s3.BucketBase",
+                      "version": "2.15.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_s3_assets.Asset",
+                  "version": "2.15.0"
+                }
+              },
+              "Resource": {
+                "id": "Resource",
+                "path": "LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::Lambda::Function",
+                  "aws:cdk:cloudformation:props": {
+                    "code": {
+                      "s3Bucket": {
+                        "Fn::Sub": "cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
+                      },
+                      "s3Key": "f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da.zip"
+                    },
+                    "role": {
+                      "Fn::GetAtt": [
+                        "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265",
+                        "Arn"
+                      ]
+                    },
+                    "handler": "index.handler",
+                    "layers": [
+                      {
+                        "Ref": "ApiDeployWebsiteAwsCliLayer70BB4C93"
+                      }
+                    ],
+                    "runtime": "python3.7",
+                    "timeout": 900
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_lambda.CfnFunction",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_lambda.Function",
+              "version": "2.15.0"
+            }
+          },
+          "CDKMetadata": {
+            "id": "CDKMetadata",
+            "path": "LIVE/CDKMetadata",
+            "children": {
+              "Default": {
+                "id": "Default",
+                "path": "LIVE/CDKMetadata/Default",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnResource",
+                  "version": "2.15.0"
+                }
+              },
+              "Condition": {
+                "id": "Condition",
+                "path": "LIVE/CDKMetadata/Condition",
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.CfnCondition",
+                  "version": "2.15.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "constructs.Construct",
+              "version": "10.0.84"
+            }
+          },
+          "Service-principalMap": {
+            "id": "Service-principalMap",
+            "path": "LIVE/Service-principalMap",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnMapping",
+              "version": "2.15.0"
+            }
+          }
+        },
+        "constructInfo": {
+          "fqn": "aws-cdk-lib.Stack",
+          "version": "2.15.0"
+        }
+      }
+    },
+    "constructInfo": {
+      "fqn": "aws-cdk-lib.App",
+      "version": "2.15.0"
+    }
+  }
+}

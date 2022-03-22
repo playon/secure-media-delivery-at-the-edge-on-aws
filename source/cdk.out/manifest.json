@@ -1,0 +1,438 @@
+{
+  "version": "16.0.0",
+  "artifacts": {
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    },
+    "LIVE.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "LIVE.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "LIVE": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://unknown-account/unknown-region",
+      "properties": {
+        "templateFile": "LIVE.template.json",
+        "validateOnSynth": false,
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-deploy-role-${AWS::AccountId}-${AWS::Region}",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-cfn-exec-role-${AWS::AccountId}-${AWS::Region}",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}/69961746af96bff048d92957ac5ad27ad371fdb65300c1397221b87cd20df544.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "LIVE.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::${AWS::AccountId}:role/cdk-hnb659fds-lookup-role-${AWS::AccountId}-${AWS::Region}",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "LIVE.assets"
+      ],
+      "metadata": {
+        "/LIVE/Function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "Function76856677"
+          }
+        ],
+        "/LIVE/Secrets/Primary/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsPrimaryB2FD59FF"
+          }
+        ],
+        "/LIVE/Secrets/Secondary/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsSecondaryBE68E89A"
+          }
+        ],
+        "/LIVE/Secrets/Temporary/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsTemporary49A96AA2"
+          }
+        ],
+        "/LIVE/Secrets/PrimarySecret": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsPrimarySecretEDCB1C24"
+          }
+        ],
+        "/LIVE/Secrets/SecondarySecret": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "SecretsSecondarySecret91CCF14C"
+          }
+        ],
+        "/LIVE/RotateSecrets/JsonPathLayer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsJsonPathLayer18BE3FD5"
+          }
+        ],
+        "/LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA"
+          }
+        ],
+        "/LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateSecretUpdateCffServiceRoleDefaultPolicyCCC3914C"
+          }
+        ],
+        "/LIVE/RotateSecrets/GenerateSecretUpdateCff/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateSecretUpdateCff20242564"
+          }
+        ],
+        "/LIVE/RotateSecrets/GenerateNewSecretLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGenerateNewSecretLogs9DC62D0F"
+          }
+        ],
+        "/LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE"
+          }
+        ],
+        "/LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGetLastModifiedTimeServiceRoleDefaultPolicy7EBB7E8D"
+          }
+        ],
+        "/LIVE/RotateSecrets/GetLastModifiedTime/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsGetLastModifiedTime125EBEE5"
+          }
+        ],
+        "/LIVE/RotateSecrets/LastModifiedTimeLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsLastModifiedTimeLogs1FC78F25"
+          }
+        ],
+        "/LIVE/RotateSecrets/getDistributionsList/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsgetDistributionsListServiceRole75DF7CF1"
+          }
+        ],
+        "/LIVE/RotateSecrets/getDistributionsList/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsgetDistributionsListServiceRoleDefaultPolicyDC20A3A6"
+          }
+        ],
+        "/LIVE/RotateSecrets/getDistributionsList/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsgetDistributionsList9406583A"
+          }
+        ],
+        "/LIVE/RotateSecrets/updateCFFLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsupdateCFFLogs5282EBB2"
+          }
+        ],
+        "/LIVE/RotateSecrets/Init/Role1/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsInitRole19C6E9D4F"
+          }
+        ],
+        "/LIVE/RotateSecrets/Init/Role1/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsInitRole1DefaultPolicyECDFB7E7"
+          }
+        ],
+        "/LIVE/RotateSecrets/Init/rotateSecrets/CustomResourcePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsInitrotateSecretsCustomResourcePolicy736850A2"
+          }
+        ],
+        "/LIVE/RotateSecrets/Init/rotateSecrets/Resource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsInitrotateSecrets98D99413"
+          }
+        ],
+        "/LIVE/RotateSecrets/SwapSecrets/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSwapSecretsServiceRole0C5A9507"
+          }
+        ],
+        "/LIVE/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1"
+          }
+        ],
+        "/LIVE/RotateSecrets/SwapSecrets/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSwapSecretsD91628F3"
+          }
+        ],
+        "/LIVE/RotateSecrets/KeyRotationLogs/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsKeyRotationLogsA1A412E8"
+          }
+        ],
+        "/LIVE/RotateSecrets/Rotate/Role/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateRole815561C0"
+          }
+        ],
+        "/LIVE/RotateSecrets/Rotate/Role/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateRoleDefaultPolicy4D14D725"
+          }
+        ],
+        "/LIVE/RotateSecrets/Rotate/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsRotateDD9D7C2F"
+          }
+        ],
+        "/LIVE/RotateSecrets/SFRotateSecrets": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "RotateSecretsSFRotateSecrets1D481A31"
+          }
+        ],
+        "/LIVE/AWS679f53fac002430cb0da5b7982bd2287/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AWS679f53fac002430cb0da5b7982bd22872D164C4C"
+          }
+        ],
+        "/LIVE/CoreDashboard/MonitoringDashboard/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CoreDashboardMonitoringDashboardB3A63980"
+          }
+        ],
+        "/LIVE/Api/RotateSecretLayer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiRotateSecretLayerB09DA817"
+          }
+        ],
+        "/LIVE/Api/HostingBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHostingBucket29312F0D"
+          }
+        ],
+        "/LIVE/Api/HostingBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHostingBucketPolicy06E6EC36"
+          }
+        ],
+        "/LIVE/Api/DemoTable": [
+          {
+            "type": "aws:cdk:hasPhysicalName",
+            "data": {
+              "Ref": "ApiDemoTableFE9A9502"
+            }
+          }
+        ],
+        "/LIVE/Api/DemoTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiDemoTableFE9A9502"
+          }
+        ],
+        "/LIVE/Api/AssetsTable/initDBResource/CustomResourcePolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiAssetsTableinitDBResourceCustomResourcePolicyDAF30561"
+          }
+        ],
+        "/LIVE/Api/AssetsTable/initDBResource/Resource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiAssetsTableinitDBResourceA492F46E"
+          }
+        ],
+        "/LIVE/Api/DeployWebsite/AwsCliLayer/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiDeployWebsiteAwsCliLayer70BB4C93"
+          }
+        ],
+        "/LIVE/Api/DeployWebsite/CustomResource/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiDeployWebsiteCustomResourceE1B99939"
+          }
+        ],
+        "/LIVE/Api/GenerateToken/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGenerateTokenServiceRoleCA28640D"
+          }
+        ],
+        "/LIVE/Api/GenerateToken/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGenerateTokenServiceRoleDefaultPolicyCFC159C7"
+          }
+        ],
+        "/LIVE/Api/GenerateToken/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiGenerateTokenF559573A"
+          }
+        ],
+        "/LIVE/Api/HttpApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHttpApi4C294DC0"
+          }
+        ],
+        "/LIVE/Api/HttpApi/DefaultStage/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHttpApiDefaultStageE708EF42"
+          }
+        ],
+        "/LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHttpApiGETtokengenerateGenerateTokenIntegrationPermissionAF241B24"
+          }
+        ],
+        "/LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHttpApiGETtokengenerateGenerateTokenIntegration8E6A2EB4"
+          }
+        ],
+        "/LIVE/Api/HttpApi/GET--tokengenerate/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHttpApiGETtokengenerate2E820112"
+          }
+        ],
+        "/LIVE/Api/HttpApi/POST--tokengenerate/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHttpApiPOSTtokengenerateA6E03031"
+          }
+        ],
+        "/LIVE/Api/OriginRequestPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiOriginRequestPolicy935342BF"
+          }
+        ],
+        "/LIVE/Api/Distribution/Origin1/S3Origin/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiDistributionOrigin1S3OriginE11C57D5"
+          }
+        ],
+        "/LIVE/Api/Distribution/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiDistribution2AD4699A"
+          }
+        ],
+        "/LIVE/Api/DistributionDomainName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiDistributionDomainName6B333B25"
+          }
+        ],
+        "/LIVE/Api/ApiEndpoint": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiApiEndpointE2C5D803"
+          }
+        ],
+        "/LIVE/Api/HostingBucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiHostingBucketName00314312"
+          }
+        ],
+        "/LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265"
+          }
+        ],
+        "/LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF"
+          }
+        ],
+        "/LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536"
+          }
+        ],
+        "/LIVE/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/LIVE/CDKMetadata/Condition": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadataAvailable"
+          }
+        ],
+        "/LIVE/Service-principalMap": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ServiceprincipalMap"
+          }
+        ],
+        "/LIVE/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/LIVE/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "LIVE"
+    }
+  }
+}

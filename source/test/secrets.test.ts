@@ -2,7 +2,7 @@ import { Template } from 'aws-cdk-lib/assertions';
 import * as cdk from 'aws-cdk-lib';
 import { Secrets } from '../lib/secrets';
 
-test('CloudFront distribution Created', () => {
+test('Secrets Created', () => {
   const stack = new cdk.Stack();
   // WHEN
   new Secrets(stack, 'Secrets')

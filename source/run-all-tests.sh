@@ -9,7 +9,7 @@
 # The if/then blocks are for error handling. They will cause the script to stop executing if an error is thrown from the
 # node process running the test case(s). Removing them or not using them for additional calls with result in the
 # script continuing to execute despite an error being thrown.
-
+set -x
 # Save the current working directory
 source_dir=$PWD
 

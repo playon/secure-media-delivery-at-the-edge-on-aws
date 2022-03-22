@@ -74,6 +74,8 @@ echo "--------------------------------------------------------------------------
 #echo "npm install"
 #npm install
 
+mv solution.context.json.template solution.context.json
+
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"

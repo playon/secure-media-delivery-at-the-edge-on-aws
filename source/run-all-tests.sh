@@ -13,6 +13,7 @@ set -x
 # Save the current working directory
 source_dir=$PWD
 
+
 # Test the CDK project
 npm install
 

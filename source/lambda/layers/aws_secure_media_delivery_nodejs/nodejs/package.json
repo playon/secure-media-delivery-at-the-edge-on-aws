@@ -1,8 +1,8 @@
 {
-  "name": "API endpoint layer",
+  "name": "API_endpoint_layer",
   "version": "1.0.0",
   "description": "",
-  "main": "aws-secure-media-delivery.js",
+  "main": "",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

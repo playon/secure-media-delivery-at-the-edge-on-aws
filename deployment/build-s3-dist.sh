@@ -105,10 +105,5 @@ for f in $template_dist_dir/*.template.json; do
     mv -- "$f" "${f%.template.json}.template"
 done
 
-echo "------------------------------------------------------------------------------"
-echo "[Packing] Source code lambda python artifacts and scheduler-cli artifacts"
-echo "------------------------------------------------------------------------------"
-echo "Copy the python lambda files from source/lambda directory to staging lambda directory"
-cp -pr $source_dir/lambda $staging_dist_dir/
-cp -pr $source_dir/cli $staging_dist_dir/
+
 

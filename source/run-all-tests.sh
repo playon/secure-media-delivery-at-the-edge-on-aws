@@ -77,6 +77,8 @@ run_python_test() {
 }
 
 prepare_jest_coverage_report() {
+
+	ls
 	local component_name=$1
 
     if [ ! -d "coverage" ]; then

@@ -3,14 +3,14 @@ version: 0.2
 phases:
   install:
     runtime-versions:
-      nodejs: 12
+      nodejs: 14
     commands:
       - echo "nothing to do in install"
   pre_build:
     commands:
       - echo "Installing dependencies and executing unit tests - `pwd`"
       - echo Update npm to latest
-      - npm install -g npm@latest
+      - npm install -g npm@14.15.0
       - cd source
       - chmod +x ./run-all-tests.sh && ./run-all-tests.sh
       - echo "Installing dependencies and executing unit tests completed `date`"

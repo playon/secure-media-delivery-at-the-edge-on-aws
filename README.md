@@ -10,7 +10,6 @@ The cdk-solution-init-pkg provides a reference for building solutions using the 
 
 ## Initializing the Repository
 
-
 After successfully cloning the repository into your local development environment, a source code package must be built based on your language of choice. This will define which language the CDK code will be written in.
 
 Run the `initialize-repo.sh` script at the root level of the project file. This script will prompt a series of questions before initializing a git repo using the current directory name as the solution name. It will also stage the `deployment` and `source` directories with fundamental assets for your solution.

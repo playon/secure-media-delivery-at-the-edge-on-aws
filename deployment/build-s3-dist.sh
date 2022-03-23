@@ -76,6 +76,13 @@ echo "--------------------------------------------------------------------------
 
 mv solution.context.json.template solution.context.json
 
+echo "Install NodeJs dependencies for AWS Lambda"
+npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
+
+echo "Install Python dependencies for AWS Lambda"
+pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
+
+
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"

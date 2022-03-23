@@ -71,8 +71,8 @@ echo "NPM Install in the source folder"
 echo "------------------------------------------------------------------------------"
 
 # Install the npm install in the source folder
-#echo "npm install"
-#npm install
+echo "npm install"
+npm install
 
 mv solution.context.json.template solution.context.json
 
@@ -105,5 +105,6 @@ for f in $template_dist_dir/*.template.json; do
     mv -- "$f" "${f%.template.json}.template"
 done
 
+cp $template_dist_dir/*.template $build_dist_dir/
 
 

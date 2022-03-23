@@ -71,23 +71,25 @@ echo "NPM Install in the source folder"
 echo "------------------------------------------------------------------------------"
 
 # Install the npm install in the source folder
-#echo "npm install"
-#npm install
+echo "npm install"
+npm install
 
 mv solution.context.json.template solution.context.json
-
-echo "Install NodeJs dependencies for AWS Lambda"
-npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
-
-echo "Install Python dependencies for AWS Lambda"
-pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
-
 
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
+
+CDK_BUCKET_NAME=`aws cloudformation describe-stacks --stack-name CDKToolkit --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text`
+echo "CDK Boostrap Bucket Name=$CDK_BUCKET_NAME"
+ASSET_KEYS=`grep -o '"S3Key": "[^"]*' $staging_dist_dir/*.template.json | grep -o '[^"]*$'`
+
+for CDK_KEY in $ASSET_KEYS; do
+	echo "Copy from Bucket=$CDK_BUCKET_NAME, KEY=$CDK_KEY to Bucket="
+done
+
 
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"

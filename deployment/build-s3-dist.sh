@@ -105,5 +105,6 @@ for f in $template_dist_dir/*.template.json; do
     mv -- "$f" "${f%.template.json}.template"
 done
 
+cp $template_dist_dir/*.template $build_dist_dir/
 
 

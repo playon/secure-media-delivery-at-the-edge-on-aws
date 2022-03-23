@@ -82,9 +82,10 @@ cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
 
-CDK_BUCKET_NAME=`aws cloudformation describe-stacks --stack-name CDKToolkit --query "Stacks[0].Outputs[?OutputKey=='BucketName'].OutputValue" --output text`
+CDK_BUCKET_NAME="cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}"
 echo "CDK Boostrap Bucket Name=$CDK_BUCKET_NAME"
 ASSET_KEYS=`grep -o '"S3Key": "[^"]*' $staging_dist_dir/*.template.json | grep -o '[^"]*$'`
+aws sts get-caller-identity --query Account --output text
 
 for CDK_KEY in $ASSET_KEYS; do
 	echo "Copy from Bucket=$CDK_BUCKET_NAME, KEY=$CDK_KEY to Bucket="

@@ -1,3 +1,4 @@
+
 /**
  *  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
  *
@@ -11,65 +12,63 @@
  *  and limitations under the License.
  */
 
-import {
-  Stack,
-  RemovalPolicy,
-  CfnOutput,
-  Aws,
-  aws_wafv2 as wafv2,
-  aws_dynamodb as ddb,
-  aws_lambda as lambda,
-  aws_logs as logs,
-  aws_iam as iam,
-  aws_sqs as sqs,
-  aws_lambda_event_sources as event_source,
+ import {
+    aws_secretsmanager as secretsmanager,
+    Stack,
+    RemovalPolicy,
+    aws_wafv2 as wafv2,
+    aws_dynamodb as ddb,
+    aws_lambda as lambda,
+    aws_logs as logs,
+    aws_iam as iam,
+    aws_sqs as sqs,
+    aws_lambda_event_sources as event_source,
+  } from 'aws-cdk-lib';
+  import { Construct } from 'constructs';
 
-} from 'aws-cdk-lib';
 
+  export class SessionRevocation extends Construct {
 
-import { Construct } from 'constructs';
-import { IConfiguration } from '../helpers/validators/configuration';
-import { GetSessionsWorkflow } from './get_sessions_workflow';
+    public readonly sessionsTable: ddb.ITable;
 
-export class SessionRevocationStack extends Stack {
-
-  constructor(scope: Construct, id: string, configuration: IConfiguration) {
+    constructor(scope: Construct, id: string) {
     super(scope, id);
-
 
     //TODO rule name as parameter
     const ruleGroupName = "RevokedSessions"
     const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup",{
-            capacity: 99,
-            scope: "CLOUDFRONT",
-            visibilityConfig: {
-                cloudWatchMetricsEnabled: false,
-                metricName: "metricName",
-                sampledRequestsEnabled: false
-            },
-            description: "Revoked sessions",
-            name: ruleGroupName,
-            rules: []
-            })
+        capacity: 99,
+        scope: "CLOUDFRONT",
+        visibilityConfig: {
+            cloudWatchMetricsEnabled: false,
+            metricName: "metricName",
+            sampledRequestsEnabled: false
+        },
+        description: "Revoked sessions",
+        name: ruleGroupName,
+        rules: []
+    })
 
     const ddbTable = new ddb.Table(this, "CompromisedSessions",{
-            billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-            partitionKey: {name: "sessionid", type: ddb.AttributeType.STRING},
-            stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
-            removalPolicy: RemovalPolicy.DESTROY
-    })
+        billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+        partitionKey: {name: "sessionid", type: ddb.AttributeType.STRING},
+        stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
+        removalPolicy: RemovalPolicy.DESTROY
+    });
+
+    this.sessionsTable = ddbTable;
 
     //Revoke an active session
     const readDbStream = new lambda.Function(this, 'ReadStream',{
         runtime: lambda.Runtime.PYTHON_3_7,
         code: lambda.Code.fromAsset('lambda/read_stream'),
         handler: 'index.lambda_handler',
-            environment: {
-                'RULE_GROUP_ID' : cfnRuleGroup.attrId,
-                'RULE_GROUP_NAME'
-                : ruleGroupName
+        environment: {
+            'RULE_GROUP_ID' : cfnRuleGroup.attrId,
+            'RULE_GROUP_NAME'
+            : ruleGroupName
         },
-      }
+        }
     )
 
     // Set Lambda Logs Retention and Removal Policy
@@ -83,9 +82,9 @@ export class SessionRevocationStack extends Stack {
     const accountId = Stack.of(this).account
 
     readDbStream.addToRolePolicy(new iam.PolicyStatement({
-      effect: iam.Effect.ALLOW,
-      actions: ["wafv2:GetRuleGroup","wafv2:UpdateRuleGroup", "wafv2:ListRuleGroups"],
-      resources: [`arn:aws:wafv2:${region}:${accountId}:*`]
+        effect: iam.Effect.ALLOW,
+        actions: ["wafv2:GetRuleGroup","wafv2:UpdateRuleGroup", "wafv2:ListRuleGroups"],
+        resources: [`arn:aws:wafv2:${region}:${accountId}:*`]
     }))
 
     //Event Source Mapping DynamoDB -> Lambda
@@ -97,32 +96,9 @@ export class SessionRevocationStack extends Stack {
         bisectBatchOnError: true,
         onFailure: new event_source.SqsDlq(deadLetterQueue),
         retryAttempts: 10
-    }))
-
-    //TODO use input parameter for the following values
-    const cloudFrontAccessLogsBucketName = configuration.sessionRevocation?.s3_logs_bucket_name || "undefined";
-
-    const athenaDatabaseName = "secure_media_athena_database"
-    const athenaTableName = 'secure_media_athena_table'
+    }));
 
 
-    new GetSessionsWorkflow(this, 'GetSessions',{
-      accountId: accountId,
-      athenaDatabaseName: athenaDatabaseName,
-      athenaTableName: athenaTableName,
-      logsBucketName: cloudFrontAccessLogsBucketName,
-      dynamodbTable: ddbTable,
-      configuration: configuration
+    }
 
-    })
-
-    new CfnOutput(this, "TableName",{
-      value: ddbTable.tableName,
-      exportName: Aws.STACK_NAME + 'TableName',
-      description: 'DynamoDB table name used to keep sessions to be invalidated'
-    })
-
-
-
-  }
 }

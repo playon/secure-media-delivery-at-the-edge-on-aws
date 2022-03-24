@@ -82,6 +82,17 @@ cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
 
+ACCOUNT_ID=`aws sts get-caller-identity --query Account --output text`
+CDK_BUCKET_NAME="cdk-hnb659fds-assets-$ACCOUNT_ID-us-west-2"
+echo "CDK Boostrap Bucket Name=$CDK_BUCKET_NAME"
+ASSET_KEYS=`grep -o '"S3Key": "[^"]*' $staging_dist_dir/*.template.json | grep -o '[^"]*$'`
+
+
+for CDK_KEY in $ASSET_KEYS; do
+	echo "Copy from Bucket=$CDK_BUCKET_NAME, KEY=$CDK_KEY to Bucket="
+done
+
+
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"
 cd $staging_dist_dir

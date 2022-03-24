@@ -25,6 +25,7 @@ import { Api } from './api';
 import { CWDashboard } from './dashboard';
 import { RotateSecretsWorkflow } from './rotate_secrets_workflow';
 import { Secrets } from './secrets';
+import { SessionRevocation } from './session_revocation';
 
 export class SecureMediaStreamingStack extends Stack {
   constructor(scope: Construct, id: string, configuration: IConfiguration, props?: StackProps) {
@@ -42,6 +43,8 @@ export class SecureMediaStreamingStack extends Stack {
 
     const secrets = new Secrets(this, 'Secrets')
 
+    const sessionRevocation = new SessionRevocation(this, "SessionRevocation");
+
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
       secrets: secrets,
       checkTokenFunction: checkToken,
@@ -56,7 +59,12 @@ export class SecureMediaStreamingStack extends Stack {
     )
 
     if(configuration.api){
-      new Api(this, 'Api', configuration, secrets, dashboard)
+      new Api(this, 'Api', {
+        configuration: configuration,
+        secrets: secrets,
+        dashboard: dashboard,
+        sessionsTable: sessionRevocation.sessionsTable
+      })
     }
 
 

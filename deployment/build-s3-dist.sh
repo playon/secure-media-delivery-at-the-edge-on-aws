@@ -114,8 +114,8 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     echo sed -i'' -e "s#$ZIPPED_ITEM.zip#$SUBFOLDER/$ZIPPED_ITEM.zip#g" $staging_dist_dir/*.template.json
     sed -i'' -e "s#$ZIPPED_ITEM.zip#$SUBFOLDER/$ZIPPED_ITEM.zip#g" $staging_dist_dir/*.template.json
 
-    echo aws cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-    aws cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    echo aws s3 cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    aws s3 cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
 
 
     #aws s3 ls $CDK_BUCKET_NAME

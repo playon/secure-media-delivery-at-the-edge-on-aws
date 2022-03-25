@@ -189,6 +189,16 @@ function destroyPlayers() {
 
 }
 
+function enableRevokeSessionButton() {
+  $('#sessionrevoke').prop('disabled', false);
+  $("#sessionrevoke").text("Revoke current session");
+}
+
+function loadingRevokeSessionButton() {
+  $('#sessionrevoke').prop('disabled', true);
+  $("#sessionrevoke").text("Submitting...");
+}
+
 $('#hls').on('change', function () {
   load('hls');
 
@@ -196,6 +206,37 @@ $('#hls').on('change', function () {
 
 $('#dash').on('change', function () {
   load('dash')
+
+});
+
+$('#sessionrevoke').on('click', function () {
+
+  console.log("Session revoke");
+  loadingRevokeSessionButton();
+
+  const playback_url = $("#playback_url_value").text();
+  console.log(playback_url);
+  var l = getLocation(playback_url);
+  const session_id=l.pathname.split(".")[0];
+  console.log("session_id="+session_id);
+  const urlToGet = `${location.protocol}\/\/${location.hostname}/sessionrevoke?sessionid=` + session_id;
+
+  $.ajax({
+    type: 'POST',
+    url: urlToGet,
+    success: function (data, status, xhr) {
+      console.log("Session revocation OK");
+      enableRevokeSessionButton();
+    },
+    error: function (data, status, xhr) {
+      console.log("Session revocation error:" + JSON.stringify(data));
+      if(data.status==0){
+        showVideoError("Session revocation feature not deployed!");
+      }
+      enableRevokeSessionButton();
+
+    }
+  });
 
 });
 

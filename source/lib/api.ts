@@ -36,14 +36,21 @@ import { Secrets } from './secrets';
 import { LoadAssetsTable } from './load_assets_table';
 import { CWDashboard } from './dashboard';
 
+export interface IConfigProps {
+  configuration: IConfiguration;
+  secrets: Secrets;
+  dashboard: CWDashboard;
+  sessionsTable: ddb.ITable;
+}
+
 export class Api extends Construct {
 
-  constructor(scope: Construct, id: string, configuration: IConfiguration, secrets: Secrets, dashboard: CWDashboard) {
+  constructor(scope: Construct, id: string,props: IConfigProps ) {
     super(scope, id);
 
     var runtime: lambda.Runtime;
 
-    if(configuration.api?.language=='nodejs'){
+    if(props.configuration.api?.language=='nodejs'){
       runtime = lambda.Runtime.NODEJS_14_X
     }else{
       runtime = lambda.Runtime.PYTHON_3_7
@@ -52,7 +59,7 @@ export class Api extends Construct {
       compatibleRuntimes: [
         runtime
       ],
-      code: lambda.Code.fromAsset('lambda/layers/aws_secure_media_delivery_'+configuration.api?.language),
+      code: lambda.Code.fromAsset('lambda/layers/aws_secure_media_delivery_'+props.configuration.api?.language),
       description: 'Layer used by generate new secret lambda',
     });
 
@@ -67,10 +74,10 @@ export class Api extends Construct {
 
     new LoadAssetsTable(this, "AssetsTable", {
       table: demoAssetsTable,
-      configuration: configuration
+      configuration: props.configuration
     });
 
-    const folder = configuration.demo ? "demo_website" : "empty_demo_website";
+    const folder = props.configuration.demo ? "demo_website" : "empty_demo_website";
 
     new s3deploy.BucketDeployment(this, 'DeployWebsite', {
       sources: [s3deploy.Source.asset('resources/' + folder)],
@@ -85,20 +92,29 @@ export class Api extends Construct {
           environment: {
             STACK_NAME: Aws.STACK_NAME,
             TABLE_NAME: demoAssetsTable.tableName,
-            USERNAME: configuration.demo?.username!,
-            PASSWORD: configuration.demo?.password!
+            USERNAME: props.configuration.demo?.username!,
+            PASSWORD: props.configuration.demo?.password!
       },
       layers: [cloudfrontTokenLayer],
+    })
+
+    const revokeSession = new lambda.Function(this, 'RevokeSession',{
+      functionName: Aws.STACK_NAME + '_RevokeSession',
+      runtime: lambda.Runtime.PYTHON_3_7,
+      code: lambda.Code.fromAsset('lambda/revoke_session/python'),
+      handler: 'index.handler',
+          environment: {
+            TABLE_NAME: props.sessionsTable.tableName
+      }
     })
 
 
 
     demoAssetsTable.grantReadData(generateToken);
+    props.sessionsTable.grantReadWriteData(revokeSession);
 
-
-
-    secrets.primarySecret.grantRead(generateToken)
-    secrets.secondarySecret.grantRead(generateToken)
+    props.secrets.primarySecret.grantRead(generateToken)
+    props.secrets.secondarySecret.grantRead(generateToken)
 
     const httpApi = new apigwv2.HttpApi(this, 'HttpApi');
 
@@ -106,6 +122,12 @@ export class Api extends Construct {
       path: '/tokengenerate',
       methods: [ apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST ],
       integration: new HttpLambdaIntegration('GenerateTokenIntegration', generateToken)
+    });
+
+    httpApi.addRoutes({
+      path: '/sessionrevoke',
+      methods: [ apigwv2.HttpMethod.POST ],
+      integration: new HttpLambdaIntegration('RevokeSessionIntegration', revokeSession)
     });
 
 
@@ -123,7 +145,7 @@ export class Api extends Construct {
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
       comment : Aws.STACK_NAME + " - Demo website Secure Media Delivery",
-      defaultRootObject: "index_hls.html",
+      defaultRootObject: "index.html",
       defaultBehavior: {
         origin: new origins.S3Origin(hostingBucket),
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
@@ -131,6 +153,16 @@ export class Api extends Construct {
       },
       additionalBehaviors: {
         '/tokengenerate': {
+
+          origin: new origins.HttpOrigin(`${httpApi.apiId}.execute-api.${region}.amazonaws.com`, {
+          }),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: myOriginRequestPolicy,
+          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        },
+        '/sessionrevoke': {
 
           origin: new origins.HttpOrigin(`${httpApi.apiId}.execute-api.${region}.amazonaws.com`, {
           }),
@@ -149,7 +181,7 @@ export class Api extends Construct {
       description: 'Demo Website'
     })
 
-    dashboard.buildApiDashboard({
+    props.dashboard.buildApiDashboard({
         lambdaFunctionName: generateToken.functionName,
         region: region
     })

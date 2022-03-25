@@ -83,7 +83,7 @@ echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
 
 
-ls -lrt $staging_dist_dir/*.assets.json
+more $staging_dist_dir/*.assets.json
 
 #ACCOUNT_ID=`aws sts get-caller-identity --query Account --output text`
 

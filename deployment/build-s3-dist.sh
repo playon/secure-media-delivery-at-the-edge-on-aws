@@ -117,8 +117,8 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$SUBFOLDER/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
     sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$SUBFOLDER/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
 
-    echo aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-    aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    #echo aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    #aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
 
 
     #aws s3 ls $CDK_BUCKET_NAME
@@ -138,9 +138,13 @@ echo "[Packing] Template artifacts"
 echo "------------------------------------------------------------------------------"
 
 # Move outputs from staging to template_dist_dir
+echo ls $staging_dist_dir/
+ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 echo "cp $template_dir/*.template $template_dist_dir/"
 cp $staging_dist_dir/*.template.json $template_dist_dir/
+echo cp $staging_dist_dir/*.zip $template_dist_dir/
+cp $staging_dist_dir/*.zip $template_dist_dir/
 rm *.template.json
 
 # Rename all *.template.json files to *.template

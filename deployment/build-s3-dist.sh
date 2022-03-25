@@ -96,30 +96,29 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
 	echo "CDK_KEY=$CDK_KEY"
     WORDTOREMOVE="asset."
     ITEM=${CDK_KEY//$WORDTOREMOVE/}
-    ASSET_NEW_NAME="asset_$i"
+    ASSET_NEW_NAME="asset_$i.zip"
 
     if [[ $ITEM == *zip ]];
     then
         echo "ZIP-> $ITEM"
-        mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME.zip
-        ZIPPED_ITEM=$ASSET_NEW_NAME.zip
-
+        mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME
+        ZIPPED_ITEM_NAME=$ITEM
     else
         echo $ITEM
         echo "zipping $CDK_KEY to $staging_dist_dir/$ITEM.zip"
-        echo zip -r $staging_dist_dir/$ASSET_NEW_NAME.zip $staging_dist_dir/$CDK_KEY
-        zip -r $staging_dist_dir/$ASSET_NEW_NAME.zip $staging_dist_dir/$CDK_KEY
+        echo zip -r $staging_dist_dir/$ASSET_NEW_NAME $staging_dist_dir/$CDK_KEY
+        zip -r $staging_dist_dir/$ASSET_NEW_NAME $staging_dist_dir/$CDK_KEY
         rm -rf $staging_dist_dir/$CDK_KEY
-        ZIPPED_ITEM=$ASSET_NEW_NAME.zip
+        ZIPPED_ITEM_NAME=$ITEM.zip
     fi
-    echo 'ZIPPED_ITEM=$ZIPPED_ITEM'
+    echo 'ASSET_NEW_NAME=$ASSET_NEW_NAME'
     SUBFOLDER="assets"
 
-    echo sed -i'' -e "s#$ZIPPED_ITEM#$SUBFOLDER/$ZIPPED_ITEM#g" $staging_dist_dir/*.template.json
-    sed -i'' -e "s#$ZIPPED_ITEM#$SUBFOLDER/$ZIPPED_ITEM#g" $staging_dist_dir/*.template.json
+    echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SUBFOLDER/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
+    sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SUBFOLDER/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
 
-    echo aws s3 cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-    aws s3 cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    echo aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
 
 
     #aws s3 ls $CDK_BUCKET_NAME

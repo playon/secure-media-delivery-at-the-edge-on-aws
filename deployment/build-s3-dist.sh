@@ -90,7 +90,7 @@ ASSET_KEYS=`grep -o '"aws:asset:path": "[^"]*' $staging_dist_dir/*.template.json
 
 for CDK_KEY in $ASSET_KEYS; do
 	echo "Copy from Bucket=$CDK_BUCKET_NAME, KEY=$CDK_KEY to Bucket="
-    ls -lrt $CDK_KEY
+    ls -lrt $staging_dist_dir/$CDK_KEY
 done
 
 

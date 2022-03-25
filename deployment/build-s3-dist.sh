@@ -90,24 +90,27 @@ echo sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $staging_dist_di
 sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $staging_dist_dir/*.template.json
 
 #exit
+i=20
+
 for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
 	echo "CDK_KEY=$CDK_KEY"
     WORDTOREMOVE="asset."
     ITEM=${CDK_KEY//$WORDTOREMOVE/}
+    ASSET_NEW_NAME="asset_$i"
 
     if [[ $ITEM == *zip ]];
     then
         echo "ZIP-> $ITEM"
-        ZIPPED_ITEM=$ITEM
-        mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ITEM.zip
+        mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME.zip
+        ZIPPED_ITEM=$ASSET_NEW_NAME.zip
 
     else
         echo $ITEM
         echo "zipping $CDK_KEY to $staging_dist_dir/$ITEM.zip"
-        echo zip -r $staging_dist_dir/$ITEM.zip $staging_dist_dir/$CDK_KEY
-        zip -r $staging_dist_dir/$ITEM.zip $staging_dist_dir/$CDK_KEY
+        echo zip -r $staging_dist_dir/$ASSET_NEW_NAME.zip $staging_dist_dir/$CDK_KEY
+        zip -r $staging_dist_dir/$ASSET_NEW_NAME.zip $staging_dist_dir/$CDK_KEY
         rm -rf $staging_dist_dir/$CDK_KEY
-        ZIPPED_ITEM=$ITEM.zip
+        ZIPPED_ITEM=$ASSET_NEW_NAME.zip
     fi
     echo 'ZIPPED_ITEM=$ZIPPED_ITEM'
     SUBFOLDER="assets"
@@ -120,6 +123,9 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
 
 
     #aws s3 ls $CDK_BUCKET_NAME
+
+    let "i+=1"
+
 done
 
 # Remove unnecessary output files

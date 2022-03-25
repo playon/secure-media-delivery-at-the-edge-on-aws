@@ -82,23 +82,40 @@ cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
 
-CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' cdk.out/LIVE.assets.json | grep -o '[^"]*$' | head -1 `
 
-#more $staging_dist_dir/*.assets.json
+CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
+echo $CDK_BUCKET_NAME
+#cp cdk.out/LIVE.template.json cdk.out/LIVE.template.json.mod
+echo sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $template_dist_dir/*.template.json
+sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $template_dist_dir/*.template.json
 
-#ACCOUNT_ID=`aws sts get-caller-identity --query Account --output text`
+#exit
+for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
+	echo "CDK_KEY=$CDK_KEY"
+    WORDTOREMOVE="asset."
+    ITEM=${CDK_KEY//$WORDTOREMOVE/}
 
-#echo "CDK Boostrap Bucket Name=$CDK_BUCKET_NAME"
-#ASSET_KEYS=`grep -o '"S3Key": "[^"]*' $staging_dist_dir/*.template.json | grep -o '[^"]*$'`
-#REGION=`aws configure get region`
-#CDK_BUCKET_NAME="cdk-hnb659fds-assets-$ACCOUNT_ID-$REGION"
-#aws s3 ls $CDK_BUCKET_NAME
+    if [[ $ITEM == *zip ]];
+    then
+        echo "ZIP-> $ITEM"
+    else
+        echo $ITEM
+        echo "zipping $CDK_KEY to cdk.out/$ITEM.zip"
+        echo "zip -r $ITEM.zip cdk.out/$CDK_KEY"
+        zip -r cdk.out/$ITEM.zip cdk.out/$CDK_KEY
 
-#for CDK_KEY in $ASSET_KEYS; do
-#	echo "Copy from Bucket=$CDK_BUCKET_NAME, KEY=$CDK_KEY to Bucket="
-#    aws s3 ls $CDK_BUCKET_NAME
-#done
 
+        rm -rf cdk.out/$CDK_KEY
+        SUBFOLDER="assets"
+        echo sed -i'' -e "s#$ITEM.zip#assets/$ITEM.zip#g" $template_dist_dir/*.template.json
+        sed -i'' -e "s#$ITEM.zip#$SUBFOLDER/$ITEM.zip#g" $template_dist_dir/*.template.json
+        echo aws cp cdk.out/$ITEM.zip s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+        aws cp cdk.out/$ITEM.zip s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+        #exit
+
+    fi
+    #aws s3 ls $CDK_BUCKET_NAME
+done
 
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"

@@ -99,13 +99,14 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     then
         echo "ZIP-> $ITEM"
         ZIPPED_ITEM=$ITEM
+        mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ITEM.zip
 
     else
         echo $ITEM
-        echo "zipping $CDK_KEY to cdk.out/$ITEM.zip"
+        echo "zipping $CDK_KEY to $staging_dist_dir/$ITEM.zip"
         echo zip -r $staging_dist_dir/$ITEM.zip $staging_dist_dir/$CDK_KEY
         zip -r $staging_dist_dir/$ITEM.zip $staging_dist_dir/$CDK_KEY
-        rm -rf cdk.out/$CDK_KEY
+        rm -rf $staging_dist_dir/$CDK_KEY
         ZIPPED_ITEM=$ITEM.zip
     fi
     echo 'ZIPPED_ITEM=$ZIPPED_ITEM'

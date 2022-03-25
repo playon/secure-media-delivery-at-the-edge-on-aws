@@ -143,8 +143,7 @@ ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 echo "cp $template_dir/*.template $template_dist_dir/"
 cp $staging_dist_dir/*.template.json $template_dist_dir/
-echo cp $staging_dist_dir/*.zip $template_dist_dir/
-cp $staging_dist_dir/*.zip $template_dist_dir/
+
 rm *.template.json
 
 # Rename all *.template.json files to *.template
@@ -154,6 +153,9 @@ for f in $template_dist_dir/*.template.json; do
     mv -- "$f" "${f%.template.json}.template"
 done
 
-cp $template_dist_dir/*.template $build_dist_dir/
+#cp $template_dist_dir/*.template $build_dist_dir/
+echo cp $staging_dist_dir/*.zip $build_dist_dir/
+cp $staging_dist_dir/*.zip $build_dist_dir/
+
 
 

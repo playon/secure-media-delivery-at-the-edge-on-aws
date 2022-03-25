@@ -86,8 +86,8 @@ npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir -
 CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
 echo $CDK_BUCKET_NAME
 #cp cdk.out/LIVE.template.json cdk.out/LIVE.template.json.mod
-echo sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $template_dist_dir/*.template.json
-sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $template_dist_dir/*.template.json
+echo sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $staging_dist_dir/*.template.json
+sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $staging_dist_dir/*.template.json
 
 #exit
 for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
@@ -98,22 +98,26 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     if [[ $ITEM == *zip ]];
     then
         echo "ZIP-> $ITEM"
+        ZIPPED_ITEM=$ITEM
+
     else
         echo $ITEM
         echo "zipping $CDK_KEY to cdk.out/$ITEM.zip"
-        echo "zip -r $ITEM.zip cdk.out/$CDK_KEY"
-        zip -r cdk.out/$ITEM.zip cdk.out/$CDK_KEY
-
-
+        echo zip -r $staging_dist_dir/$ITEM.zip $staging_dist_dir/$CDK_KEY
+        zip -r $staging_dist_dir/$ITEM.zip $staging_dist_dir/$CDK_KEY
         rm -rf cdk.out/$CDK_KEY
-        SUBFOLDER="assets"
-        echo sed -i'' -e "s#$ITEM.zip#assets/$ITEM.zip#g" $template_dist_dir/*.template.json
-        sed -i'' -e "s#$ITEM.zip#$SUBFOLDER/$ITEM.zip#g" $template_dist_dir/*.template.json
-        echo aws cp cdk.out/$ITEM.zip s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-        aws cp cdk.out/$ITEM.zip s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-        #exit
-
+        ZIPPED_ITEM=$ITEM.zip
     fi
+    echo 'ZIPPED_ITEM=$ZIPPED_ITEM'
+    SUBFOLDER="assets"
+
+    echo sed -i'' -e "s#$ZIPPED_ITEM.zip#$SUBFOLDER/$ZIPPED_ITEM.zip#g" $staging_dist_dir/*.template.json
+    sed -i'' -e "s#$ZIPPED_ITEM.zip#$SUBFOLDER/$ZIPPED_ITEM.zip#g" $staging_dist_dir/*.template.json
+
+    echo aws cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+    aws cp $staging_dist_dir/$ZIPPED_ITEM s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
+
+
     #aws s3 ls $CDK_BUCKET_NAME
 done
 

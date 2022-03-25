@@ -86,8 +86,8 @@ npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir -
 CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
 echo $CDK_BUCKET_NAME
 #cp cdk.out/LIVE.template.json cdk.out/LIVE.template.json.mod
-echo sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $staging_dist_dir/*.template.json
-sed -i'' -e "s/$CDK_BUCKET_NAME/$TEMPLATE_OUTPUT_BUCKET/g" $staging_dist_dir/*.template.json
+echo sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-${AWS::Region}#g" $staging_dist_dir/*.template.json
+sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-${AWS::Region}#g" $staging_dist_dir/*.template.json
 
 #exit
 i=20

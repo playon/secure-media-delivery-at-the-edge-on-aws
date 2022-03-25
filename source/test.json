@@ -1,0 +1,1998 @@
+Resources:
+  Function76856677:
+    Type: AWS::CloudFront::Function
+    Properties:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _checkJWTToken
+      AutoPublish: true
+      FunctionCode: |-
+        //DO NOT CHANGE THIS LINE
+        var secrets = { "secret1_key_to_replace": "secret1_value_to_replace", "secret2_key_to_replace": "secret2_value_to_replace"};
+        // END
+
+        var crypto = require('crypto');
+
+        //Response when JWT is not valid.
+        var response401 = {
+            statusCode: 401,
+            statusDescription: 'Unauthorized'
+        };
+
+
+        function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVerify) {
+            // check token and uri -> obligatory inputs
+            if (!token ) {
+                throw new Error('No token supplied');
+            }
+            if ( !uri ) {
+                throw new Error('No uri supplied');
+            }
+            // check segments
+            var segments = token.split('.');
+            if (segments.length !== 3) {
+                throw new Error('Not enough or too many segments in JWT token');
+            }
+
+            // All segment should be base64url
+            var headerSeg = segments[0];
+            var payloadSeg = segments[1];
+            var signatureSeg = segments[2];
+
+            // base64url decode and parse JSON
+            var header = JSON.parse(_base64urlDecode(headerSeg));
+            var payload = JSON.parse(_base64urlDecode(payloadSeg));
+
+            if (!noVerify) {
+                var alg = header['alg'];
+                var signingMethod;
+                var signingType;
+
+                if (alg=='HS256'){
+                    signingMethod = 'sha256';
+                    signingType = 'hmac';
+                } else {
+                    throw new Error('Missing or unsupported signing algorithm in JWT header');
+                }
+
+                // Verify signature. `sign` will return base64 string.
+                var signingInput = [headerSeg, payloadSeg].join('.');
+
+                if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {
+                    throw new Error('Signature verification failed');
+                }
+
+                if (payload.exp && Date.now() > payload.exp*1000) {
+                    throw new Error('Token expired');
+                }
+
+                if (payload.nbf && Date.now() < payload.nbf*1000) {
+                    throw new Error('Token not yet valid');
+                }
+
+
+                //check if request URL is not in the exclusion list and omit remaining validations if so
+                for (var i=0; i<payload.exc.length; i++){
+                    if (uri.startsWith(payload.exc[i])) {
+                        return payload;
+                    }
+                }
+
+                //validate if the request URL matches paths covered by the token
+                var uri_match = false;
+                for (var i=0; i<payload.paths.length; i++){
+                    if (uri.startsWith(payload.paths[i])) {
+                        uri_match = true;
+                        break;
+                    }
+                }
+                if (!uri_match) {
+                    throw new Error('URI path doesn\'t match any path in the token');
+                }
+
+
+                if (!_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
+                    throw new Error('Internal signature verification failed');
+                }
+
+            }
+
+            return true;
+        }
+
+
+        function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, request_headers, request_querystrings, request_ip) {
+            var indirect_attr = '';
+
+            //recreating signing input based on JWT payload claims and request attributes
+            if (payload_jwt['ip']){
+                if (request_ip){
+                    indirect_attr += (request_ip + ':');
+                } else {
+                    throw new Error('intsig reference error: Request IP is missing');
+                }
+            }
+
+            if (payload_jwt['co']){
+                if (request_headers['cloudfront-viewer-country']){
+                    indirect_attr += (request_headers['cloudfront-viewer-country'].value + ':');
+                } else {
+                    throw new Error('intsig reference error: cloudfront-viewer-country header is missing');
+                }
+            }
+
+            if (payload_jwt['cty']){
+                if (request_headers['cloudfront-viewer-city']){
+                    indirect_attr += (request_headers['cloudfront-viewer-city'].value + ':');
+                } else {
+                    throw new Error('intsig reference error: cloudfront-viewer-city header is missing');
+                }
+            }
+
+            if (payload_jwt['ssn']){
+                if (sessionId){
+                    indirect_attr += sessionId + ':';
+                } else {
+                    throw new Error('intsig reference error: Session id is missing');
+                }
+
+            }
+
+            if(payload_jwt['headers']) payload_jwt.headers.forEach( attribute => {
+                if (request_headers[attribute]){
+                    indirect_attr += (request_headers[attribute].value + ':' );
+                }
+            });
+
+            if(payload_jwt['qs']) payload_jwt.qs.forEach( attribute => {
+                if (request_querystrings[attribute]){
+                    indirect_attr += (request_querystrings[attribute].value + ':' );
+                }
+             });
+            indirect_attr = indirect_attr.slice(0,-1);
+
+            if (indirect_attr && !_verify_signature(indirect_attr, intsig_key, method, type, payload_jwt['intsig'])) {
+                throw new Error('Internal signature verification failed');
+            } else {
+                return true;
+            }
+        }
+
+
+        function _verify_signature(input, key, method, type, signature) {
+            if(type === "hmac") {
+                return (signature === _sign(input, key, method));
+            }
+            else {
+                throw new Error('Algorithm type not recognized');
+            }
+        }
+
+
+        function _sign(input, key, method) {
+            return crypto.createHmac(method, key).update(input).digest('base64url');
+        }
+
+
+        function _base64urlDecode(str) {
+            return String.bytesFrom(str, 'base64url')
+        }
+
+
+        function handler(event) {
+            console.log(event);
+            var request = event.request;
+            var headers = request.headers;
+            var querystrings = request.querystring;
+            var uri = request.uri;
+            var viewer_ip = event.viewer.ip;
+
+            //Secret key used to verify JWT token.
+            //Update with your own key.
+
+
+            // If no JWT token, then generate HTTP redirect 401 response.
+            var sessionId;
+            var pathArray = uri.split('/');
+
+            // Inputs grooming and setting internal variables
+            var auth_sequence = pathArray[1];
+            var auth_sequence_array = auth_sequence.split('.');
+            if(auth_sequence_array.length == 4) sessionId=auth_sequence_array.shift();
+            var jwtToken = auth_sequence_array.join('.');
+
+            //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
+            delete pathArray[1];
+            var newUri = pathArray.join("/")
+            newUri = newUri.replace(/\/\/+/g, '/')
+
+            //sanity check of the JWT token length
+            if (jwtToken.length < 60) {
+                console.log("Error: No JWT in the path");
+                return response401;
+            }
+
+            try{
+                jwt_verify(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
+                console.log("X_JWT_CHECK VALID")
+            }
+            catch(e) {
+                console.log(e);
+                console.log("X_JWT_CHECK INVALID")
+                return response401;
+            }
+
+            //returining original playback URL to continue on the request path
+            request.uri = newUri
+            return request;
+        }
+      FunctionConfig:
+        Comment: CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery
+        Runtime: cloudfront-js-1.0
+    Metadata:
+      aws:cdk:path: LIVE/Function/Resource
+  SecretsPrimaryB2FD59FF:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Primary secret for Secure Media Stream Delivery
+      GenerateSecretString:
+        GenerateStringKey: MY_PRIMARY_KEY
+        SecretStringTemplate: '{"MY_PRIMARY_KEY":""}'
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _PrimarySecret
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/Secrets/Primary/Resource
+  SecretsSecondaryBE68E89A:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Secondary secret for Secure Media Stream Delivery
+      GenerateSecretString:
+        GenerateStringKey: MY_SECONDARY_KEY
+        SecretStringTemplate: '{"MY_SECONDARY_KEY":""}'
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _SecondarySecret
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/Secrets/Secondary/Resource
+  SecretsTemporary49A96AA2:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Description: Temporary secret for Secure Media Stream Delivery
+      GenerateSecretString:
+        GenerateStringKey: MY_TEMPORARY_KEY
+        SecretStringTemplate: '{"MY_TEMPORARY_KEY":""}'
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _TemporarySecret
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/Secrets/Temporary/Resource
+  SessionRevocationMyCfnRuleGroupCB26AA1F:
+    Type: AWS::WAFv2::RuleGroup
+    Properties:
+      Capacity: 99
+      Scope: CLOUDFRONT
+      VisibilityConfig:
+        CloudWatchMetricsEnabled: false
+        MetricName: metricName
+        SampledRequestsEnabled: false
+      Description: Revoked sessions
+      Name: RevokedSessions
+      Rules: []
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/MyCfnRuleGroup
+  SessionRevocationCompromisedSessionsB97E20DF:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: sessionid
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: sessionid
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/CompromisedSessions/Resource
+  SessionRevocationReadStreamServiceRoleD37EFD05:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/ReadStream/ServiceRole/Resource
+  SessionRevocationReadStreamServiceRoleDefaultPolicy8C96C2C4:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - wafv2:GetRuleGroup
+              - wafv2:UpdateRuleGroup
+              - wafv2:ListRuleGroups
+            Effect: Allow
+            Resource:
+              Fn::Join:
+                - ""
+                - - "arn:aws:wafv2:"
+                  - Ref: AWS::Region
+                  - ":"
+                  - Ref: AWS::AccountId
+                  - :*
+          - Action:
+              - sqs:SendMessage
+              - sqs:GetQueueAttributes
+              - sqs:GetQueueUrl
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - SessionRevocationdeadLetterQueue5AEBE2CC
+                - Arn
+          - Action: dynamodb:ListStreams
+            Effect: Allow
+            Resource: "*"
+          - Action:
+              - dynamodb:DescribeStream
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - SessionRevocationCompromisedSessionsB97E20DF
+                - StreamArn
+        Version: "2012-10-17"
+      PolicyName: SessionRevocationReadStreamServiceRoleDefaultPolicy8C96C2C4
+      Roles:
+        - Ref: SessionRevocationReadStreamServiceRoleD37EFD05
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/ReadStream/ServiceRole/DefaultPolicy/Resource
+  SessionRevocationReadStream2DFE5FE8:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: 941255c7be923fa41a9bcd8d580f1a8275676e9984c9fdb4039c0a9a3dbf670c.zip
+      Role:
+        Fn::GetAtt:
+          - SessionRevocationReadStreamServiceRoleD37EFD05
+          - Arn
+      Environment:
+        Variables:
+          RULE_GROUP_ID:
+            Fn::GetAtt:
+              - SessionRevocationMyCfnRuleGroupCB26AA1F
+              - Id
+          RULE_GROUP_NAME: RevokedSessions
+      Handler: index.lambda_handler
+      Runtime: python3.7
+    DependsOn:
+      - SessionRevocationReadStreamServiceRoleDefaultPolicy8C96C2C4
+      - SessionRevocationReadStreamServiceRoleD37EFD05
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/ReadStream/Resource
+      aws:asset:path: asset.941255c7be923fa41a9bcd8d580f1a8275676e9984c9fdb4039c0a9a3dbf670c
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  SessionRevocationReadStreamDynamoDBEventSourceLIVESessionRevocationCompromisedSessionsB5D9067CCF0C3F50:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      FunctionName:
+        Ref: SessionRevocationReadStream2DFE5FE8
+      BatchSize: 5
+      BisectBatchOnFunctionError: true
+      DestinationConfig:
+        OnFailure:
+          Destination:
+            Fn::GetAtt:
+              - SessionRevocationdeadLetterQueue5AEBE2CC
+              - Arn
+      EventSourceArn:
+        Fn::GetAtt:
+          - SessionRevocationCompromisedSessionsB97E20DF
+          - StreamArn
+      MaximumRetryAttempts: 10
+      StartingPosition: TRIM_HORIZON
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/ReadStream/DynamoDBEventSource:LIVESessionRevocationCompromisedSessionsB5D9067C/Resource
+  SessionRevocationReadStreamLogs5E10EAFA:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ""
+          - - /aws/lambda/
+            - Ref: SessionRevocationReadStream2DFE5FE8
+      RetentionInDays: 30
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/ReadStreamLogs/Resource
+  SessionRevocationdeadLetterQueue5AEBE2CC:
+    Type: AWS::SQS::Queue
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/SessionRevocation/deadLetterQueue/Resource
+  RotateSecretsJsonPathLayer18BE3FD5:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Content:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: bc614dddb0f877ad038695e61bb8e247712d221c1458174ce1391b1c83cd9b31.zip
+      CompatibleRuntimes:
+        - python3.7
+      Description: Layer with jsonpath lib
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/JsonPathLayer/Resource
+      aws:asset:path: asset.bc614dddb0f877ad038695e61bb8e247712d221c1458174ce1391b1c83cd9b31
+      aws:asset:is-bundled: false
+      aws:asset:property: Content
+  RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/Resource
+  RotateSecretsGenerateSecretUpdateCffServiceRoleDefaultPolicyCCC3914C:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - cloudfront:DescribeFunction
+              - cloudfront:UpdateFunction
+              - cloudfront:PublishFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - Function76856677
+                - FunctionARN
+          - Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsTemporary49A96AA2
+          - Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsPrimaryB2FD59FF
+          - Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsSecondaryBE68E89A
+          - Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsPrimaryB2FD59FF
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsGenerateSecretUpdateCffServiceRoleDefaultPolicyCCC3914C
+      Roles:
+        - Ref: RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GenerateSecretUpdateCff/ServiceRole/DefaultPolicy/Resource
+  RotateSecretsGenerateSecretUpdateCff20242564:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: ccf779b46a6cb4034cfb118870e596f2af0151a3a7c76e0c67eee0fe1ee02df8.zip
+      Role:
+        Fn::GetAtt:
+          - RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA
+          - Arn
+      Environment:
+        Variables:
+          TEMPORARY_KEY_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _TemporarySecret
+          PRIMARY_KEY_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _PrimarySecret
+          SECONDARY_KEY_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _SecondarySecret
+          CFF_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _checkJWTToken
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _GenerateSecretUpdateCff
+      Handler: index.handler
+      Runtime: python3.7
+      Timeout: 300
+    DependsOn:
+      - RotateSecretsGenerateSecretUpdateCffServiceRoleDefaultPolicyCCC3914C
+      - RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GenerateSecretUpdateCff/Resource
+      aws:asset:path: asset.ccf779b46a6cb4034cfb118870e596f2af0151a3a7c76e0c67eee0fe1ee02df8
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  RotateSecretsGenerateNewSecretLogs9DC62D0F:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ""
+          - - /aws/lambda/
+            - Ref: RotateSecretsGenerateSecretUpdateCff20242564
+      RetentionInDays: 30
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GenerateNewSecretLogs/Resource
+  RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/Resource
+  RotateSecretsGetLastModifiedTimeServiceRoleDefaultPolicy7EBB7E8D:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: cloudfront:Get*
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsGetLastModifiedTimeServiceRoleDefaultPolicy7EBB7E8D
+      Roles:
+        - Ref: RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GetLastModifiedTime/ServiceRole/DefaultPolicy/Resource
+  RotateSecretsGetLastModifiedTime125EBEE5:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: 4bfb9480f1b61e0d7af3eb54c543412668d6060c156b95c259942db4e15f0f14.zip
+      Role:
+        Fn::GetAtt:
+          - RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE
+          - Arn
+      Environment:
+        Variables:
+          MAX_ITERATIONS: "5"
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _GetLastModifiedTime
+      Handler: index.handler
+      Runtime: python3.7
+    DependsOn:
+      - RotateSecretsGetLastModifiedTimeServiceRoleDefaultPolicy7EBB7E8D
+      - RotateSecretsGetLastModifiedTimeServiceRoleE3536BFE
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/GetLastModifiedTime/Resource
+      aws:asset:path: asset.4bfb9480f1b61e0d7af3eb54c543412668d6060c156b95c259942db4e15f0f14
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  RotateSecretsLastModifiedTimeLogs1FC78F25:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ""
+          - - /aws/lambda/
+            - Ref: RotateSecretsGetLastModifiedTime125EBEE5
+      RetentionInDays: 30
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/LastModifiedTimeLogs/Resource
+  RotateSecretsgetDistributionsListServiceRole75DF7CF1:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/getDistributionsList/ServiceRole/Resource
+  RotateSecretsgetDistributionsListServiceRoleDefaultPolicyDC20A3A6:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: cloudfront:List*
+            Effect: Allow
+            Resource: "*"
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsgetDistributionsListServiceRoleDefaultPolicyDC20A3A6
+      Roles:
+        - Ref: RotateSecretsgetDistributionsListServiceRole75DF7CF1
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/getDistributionsList/ServiceRole/DefaultPolicy/Resource
+  RotateSecretsgetDistributionsList9406583A:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: 420d46c139b291a2541211fd821bbe8d6dde273bffe021f0ffe875923c76de76.zip
+      Role:
+        Fn::GetAtt:
+          - RotateSecretsgetDistributionsListServiceRole75DF7CF1
+          - Arn
+      Environment:
+        Variables:
+          CFF_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _checkJWTToken
+          ACCOUNT_ID:
+            Ref: AWS::AccountId
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _GetDistributionsForCff
+      Handler: index.handler
+      Layers:
+        - Ref: RotateSecretsJsonPathLayer18BE3FD5
+      Runtime: python3.7
+      Timeout: 300
+    DependsOn:
+      - RotateSecretsgetDistributionsListServiceRoleDefaultPolicyDC20A3A6
+      - RotateSecretsgetDistributionsListServiceRole75DF7CF1
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/getDistributionsList/Resource
+      aws:asset:path: asset.420d46c139b291a2541211fd821bbe8d6dde273bffe021f0ffe875923c76de76
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  RotateSecretsupdateCFFLogs5282EBB2:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ""
+          - - /aws/lambda/
+            - Ref: RotateSecretsgetDistributionsList9406583A
+      RetentionInDays: 30
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/updateCFFLogs/Resource
+  RotateSecretsInitRole19C6E9D4F:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Init/Role1/Resource
+  RotateSecretsInitRole1DefaultPolicyECDFB7E7:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - RotateSecretsGenerateSecretUpdateCff20242564
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsInitRole1DefaultPolicyECDFB7E7
+      Roles:
+        - Ref: RotateSecretsInitRole19C6E9D4F
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Init/Role1/DefaultPolicy/Resource
+  RotateSecretsInitrotateSecretsCustomResourcePolicy736850A2:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: lambda:Invoke
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - RotateSecretsGenerateSecretUpdateCff20242564
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsInitrotateSecretsCustomResourcePolicy736850A2
+      Roles:
+        - Ref: RotateSecretsInitRole19C6E9D4F
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Init/rotateSecrets/CustomResourcePolicy/Resource
+  RotateSecretsInitrotateSecrets98D99413:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - AWS679f53fac002430cb0da5b7982bd22872D164C4C
+          - Arn
+      Create:
+        Fn::Join:
+          - ""
+          - - '{"service":"Lambda","action":"invoke","parameters":{"FunctionName":"'
+            - Ref: RotateSecretsGenerateSecretUpdateCff20242564
+            - '","Payload":"{\"initialize\": true}"},"physicalResourceId":{"id":"myResource1"}}'
+      Update:
+        Fn::Join:
+          - ""
+          - - '{"service":"Lambda","action":"invoke","parameters":{"FunctionName":"'
+            - Ref: RotateSecretsGenerateSecretUpdateCff20242564
+            - '","Payload":"{\"initialize\": true}"},"physicalResourceId":{"id":"myResource2"}}'
+      InstallLatestAwsSdk: true
+    DependsOn:
+      - RotateSecretsInitrotateSecretsCustomResourcePolicy736850A2
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Init/rotateSecrets/Resource/Default
+  RotateSecretsSwapSecretsServiceRole0C5A9507:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/SwapSecrets/ServiceRole/Resource
+  RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsTemporary49A96AA2
+          - Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsTemporary49A96AA2
+          - Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsPrimaryB2FD59FF
+          - Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsPrimaryB2FD59FF
+          - Action:
+              - secretsmanager:PutSecretValue
+              - secretsmanager:UpdateSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsSecondaryBE68E89A
+          - Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsSecondaryBE68E89A
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1
+      Roles:
+        - Ref: RotateSecretsSwapSecretsServiceRole0C5A9507
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/SwapSecrets/ServiceRole/DefaultPolicy/Resource
+  RotateSecretsSwapSecretsD91628F3:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: 085b750cf2f189af986758dde76709cdf1235379fa10aeab1b4da557b3093f9b.zip
+      Role:
+        Fn::GetAtt:
+          - RotateSecretsSwapSecretsServiceRole0C5A9507
+          - Arn
+      Environment:
+        Variables:
+          TEMPORARY_KEY_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _TemporarySecret
+          PRIMARY_KEY_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _PrimarySecret
+          SECONDARY_KEY_NAME:
+            Fn::Join:
+              - ""
+              - - Ref: AWS::StackName
+                - _SecondarySecret
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _SwapSecrets
+      Handler: index.lambda_handler
+      Runtime: python3.7
+    DependsOn:
+      - RotateSecretsSwapSecretsServiceRoleDefaultPolicyD2E3DAE1
+      - RotateSecretsSwapSecretsServiceRole0C5A9507
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/SwapSecrets/Resource
+      aws:asset:path: asset.085b750cf2f189af986758dde76709cdf1235379fa10aeab1b4da557b3093f9b
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  RotateSecretsKeyRotationLogsA1A412E8:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Join:
+          - ""
+          - - /aws/lambda/
+            - Ref: RotateSecretsSwapSecretsD91628F3
+      RetentionInDays: 30
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/KeyRotationLogs/Resource
+  RotateSecretsRotateRole815561C0:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                Fn::FindInMap:
+                  - ServiceprincipalMap
+                  - Ref: AWS::Region
+                  - states
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Rotate/Role/Resource
+  RotateSecretsRotateRoleDefaultPolicy4D14D725:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - RotateSecretsgetDistributionsList9406583A
+                - Arn
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - RotateSecretsGenerateSecretUpdateCff20242564
+                - Arn
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - RotateSecretsSwapSecretsD91628F3
+                - Arn
+          - Action: lambda:InvokeFunction
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - RotateSecretsGetLastModifiedTime125EBEE5
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsRotateRoleDefaultPolicy4D14D725
+      Roles:
+        - Ref: RotateSecretsRotateRole815561C0
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Rotate/Role/DefaultPolicy/Resource
+  RotateSecretsRotateDD9D7C2F:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      RoleArn:
+        Fn::GetAtt:
+          - RotateSecretsRotateRole815561C0
+          - Arn
+      DefinitionString:
+        Fn::Join:
+          - ""
+          - - '{"StartAt":"Get distributions for CloudFront Function","States":{"Get distributions for CloudFront Function":{"Next":"Generate secrets & update CloudFront Function","Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$","ResultSelector":{"Output.$":"$.Payload"},"Resource":"arn:'
+            - Ref: AWS::Partition
+            - :states:::lambda:invoke","Parameters":{"FunctionName":"
+            - Fn::GetAtt:
+                - RotateSecretsgetDistributionsList9406583A
+                - Arn
+            - '","Payload.$":"$"}},"Generate secrets & update CloudFront Function":{"Next":"Map State","Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","ResultPath":null,"ResultSelector":{"Output.$":"$.Payload"},"Resource":"arn:'
+            - Ref: AWS::Partition
+            - :states:::lambda:invoke","Parameters":{"FunctionName":"
+            - Fn::GetAtt:
+                - RotateSecretsGenerateSecretUpdateCff20242564
+                - Arn
+            - '","Payload.$":"$"}},"Map State":{"Type":"Map","ResultPath":null,"Next":"Swap secrets","InputPath":"$.Output.distributions","Iterator":{"StartAt":"Get Last Modified Time","States":{"Get Last Modified Time":{"Next":"Update propagated?","Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","OutputPath":"$.Output","ResultSelector":{"Output.$":"$.Payload"},"Resource":"arn:'
+            - Ref: AWS::Partition
+            - :states:::lambda:invoke","Parameters":{"FunctionName":"
+            - Fn::GetAtt:
+                - RotateSecretsGetLastModifiedTime125EBEE5
+                - Arn
+            - '","Payload.$":"$"}},"Wait 1 minute":{"Type":"Wait","Seconds":60,"Next":"Get Last Modified Time"},"Update propagated?":{"Type":"Choice","Choices":[{"Variable":"$.propagated","BooleanEquals":false,"Next":"Keep waiting?"}],"Default":"Propagation OK"},"Propagation OK":{"Type":"Succeed"},"Keep waiting?":{"Type":"Choice","Choices":[{"Variable":"$.continue","BooleanEquals":false,"Next":"Fail propagating"}],"Default":"Wait 1 minute"},"Fail propagating":{"Type":"Fail"}}},"MaxConcurrency":1},"Swap secrets":{"End":true,"Retry":[{"ErrorEquals":["Lambda.ServiceException","Lambda.AWSLambdaException","Lambda.SdkClientException"],"IntervalSeconds":2,"MaxAttempts":6,"BackoffRate":2}],"Type":"Task","Resource":"arn:'
+            - Ref: AWS::Partition
+            - :states:::lambda:invoke","Parameters":{"FunctionName":"
+            - Fn::GetAtt:
+                - RotateSecretsSwapSecretsD91628F3
+                - Arn
+            - '","Payload.$":"$"}}},"TimeoutSeconds":3600}'
+      StateMachineName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _RotateSecret
+    DependsOn:
+      - RotateSecretsRotateRoleDefaultPolicy4D14D725
+      - RotateSecretsRotateRole815561C0
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Rotate/Resource
+  AWS679f53fac002430cb0da5b7982bd22872D164C4C:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: 4a575666d1c2c6412590d2a56f328e040a81ad1ef59aecee31ae9b393d05f659.zip
+      Role:
+        Fn::GetAtt:
+          - RotateSecretsInitRole19C6E9D4F
+          - Arn
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _InitSecretsSm
+      Handler: index.handler
+      Runtime: nodejs12.x
+      Timeout: 120
+    DependsOn:
+      - RotateSecretsInitRole1DefaultPolicyECDFB7E7
+      - RotateSecretsInitRole19C6E9D4F
+    Metadata:
+      aws:cdk:path: LIVE/AWS679f53fac002430cb0da5b7982bd2287/Resource
+      aws:asset:path: asset.4a575666d1c2c6412590d2a56f328e040a81ad1ef59aecee31ae9b393d05f659
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  CoreDashboardMonitoringDashboardB3A63980:
+    Type: AWS::CloudWatch::Dashboard
+    Properties:
+      DashboardBody:
+        Fn::Join:
+          - ""
+          - - '{"widgets":[{"type":"log","width":9,"height":6,"x":0,"y":0,"properties":{"view":"pie","title":"Verify JWT token","region":"'
+            - Ref: AWS::Region
+            - "\",\"query\":\"SOURCE '/aws/cloudfront/function/"
+            - Ref: AWS::StackName
+            - _checkJWTToken' | fields @timestamp, @message\n| filter @message like /X_JWT_CHECK/\n| parse \"* * *\" as a,b,result\n| stats count(*) as RESULT by result as total"}},{"type":"metric","width":9,"height":6,"x":9,"y":0,"properties":{"view":"pie","title":"Rotate Secrets","region":"
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/States","ExecutionsFailed","StateMachineArn","'
+            - Ref: RotateSecretsRotateDD9D7C2F
+            - '",{"label":"Failure","stat":"Sum"}],["AWS/States","ExecutionsSucceeded","StateMachineArn","'
+            - Ref: RotateSecretsRotateDD9D7C2F
+            - '",{"label":"Success","stat":"Sum"}]],"yAxis":{},"setPeriodToTimeRange":true}},{"type":"metric","width":6,"height":6,"x":18,"y":0,"properties":{"view":"singleValue","title":"Tokens checked","region":"'
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/CloudFront","FunctionInvocations","FunctionName","'
+            - Ref: AWS::StackName
+            - _checkJWTToken","Region","Global",{"label":"Invocations","stat":"Sum"}]],"setPeriodToTimeRange":true}},{"type":"metric","width":24,"height":6,"x":0,"y":6,"properties":{"view":"timeSeries","title":"Check JWT Token - Compute Utilization (Avg)","region":"
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/CloudFront","FunctionComputeUtilization","FunctionName","'
+            - Ref: AWS::StackName
+            - _checkJWTToken","Region","Global",{"label":"Compute usage"}]],"yAxis":{},"setPeriodToTimeRange":true}},{"type":"metric","width":24,"height":6,"x":0,"y":12,"properties":{"view":"timeSeries","title":"Check JWT Token - Invocations (Sum)","region":"
+            - Ref: AWS::Region
+            - '","stacked":true,"metrics":[["AWS/CloudFront","FunctionInvocations","FunctionName","'
+            - Ref: AWS::StackName
+            - _checkJWTToken","Region","Global",{"label":"Invocations","stat":"Sum"}]],"yAxis":{},"setPeriodToTimeRange":true}},{"type":"metric","width":6,"height":6,"x":0,"y":18,"properties":{"view":"singleValue","title":"Nb of tokens generated","region":"
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/Lambda","Invocations","FunctionName","'
+            - Ref: ApiGenerateTokenF559573A
+            - '"]],"setPeriodToTimeRange":true}},{"type":"metric","width":18,"height":6,"x":6,"y":18,"properties":{"view":"timeSeries","title":"Tokens generated","region":"'
+            - Ref: AWS::Region
+            - '","metrics":[["AWS/Lambda","Invocations","FunctionName","'
+            - Ref: ApiGenerateTokenF559573A
+            - '"]],"yAxis":{},"setPeriodToTimeRange":true}}]}'
+      DashboardName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - NaN
+    Metadata:
+      aws:cdk:path: LIVE/CoreDashboard/MonitoringDashboard/Resource
+  ApiRotateSecretLayerB09DA817:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Content:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: a9af90d863816b5565dc3c66e9148aec59e9be8cb7bad704202df278e514a2ff.zip
+      CompatibleRuntimes:
+        - nodejs14.x
+      Description: Layer used by generate new secret lambda
+    Metadata:
+      aws:cdk:path: LIVE/Api/RotateSecretLayer/Resource
+      aws:asset:path: asset.a9af90d863816b5565dc3c66e9148aec59e9be8cb7bad704202df278e514a2ff
+      aws:asset:is-bundled: false
+      aws:asset:property: Content
+  ApiHostingBucket29312F0D:
+    Type: AWS::S3::Bucket
+    Properties:
+      Tags:
+        - Key: aws-cdk:cr-owned:12c91cee
+          Value: "true"
+    UpdateReplacePolicy: Retain
+    DeletionPolicy: Retain
+    Metadata:
+      aws:cdk:path: LIVE/Api/HostingBucket/Resource
+  ApiHostingBucketPolicy06E6EC36:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: ApiHostingBucket29312F0D
+      PolicyDocument:
+        Statement:
+          - Action: s3:GetObject
+            Effect: Allow
+            Principal:
+              CanonicalUser:
+                Fn::GetAtt:
+                  - ApiDistributionOrigin1S3OriginE11C57D5
+                  - S3CanonicalUserId
+            Resource:
+              Fn::Join:
+                - ""
+                - - Fn::GetAtt:
+                      - ApiHostingBucket29312F0D
+                      - Arn
+                  - /*
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: LIVE/Api/HostingBucket/Policy/Resource
+  ApiDemoTableFE9A9502:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      BillingMode: PAY_PER_REQUEST
+      TableName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _videoassets
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/Api/DemoTable/Resource
+  ApiAssetsTableinitDBResourceCustomResourcePolicyDAF30561:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: dynamodb:BatchWriteItem
+            Effect: Allow
+            Resource:
+              Fn::GetAtt:
+                - ApiDemoTableFE9A9502
+                - Arn
+        Version: "2012-10-17"
+      PolicyName: ApiAssetsTableinitDBResourceCustomResourcePolicyDAF30561
+      Roles:
+        - Ref: RotateSecretsInitRole19C6E9D4F
+    Metadata:
+      aws:cdk:path: LIVE/Api/AssetsTable/initDBResource/CustomResourcePolicy/Resource
+  ApiAssetsTableinitDBResourceA492F46E:
+    Type: Custom::AWS
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - AWS679f53fac002430cb0da5b7982bd22872D164C4C
+          - Arn
+      Create:
+        Fn::Join:
+          - ""
+          - - '{"service":"DynamoDB","action":"batchWriteItem","parameters":{"RequestItems":{"'
+            - Ref: ApiDemoTableFE9A9502
+            - '":[{"PutRequest":{"Item":{"id":{"S":"1"},"url_path":{"S":"/out/v1/5efe3b8182c248a5802ea32af2efd37a/index.m3u8"},"endpoint_hostname":{"S":"d2r835bcw3yuyi.cloudfront.net"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/out/v1/5efe3b8182c248a5802ea32af2efd37a/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"TTL"}}}}}},{"PutRequest":{"Item":{"id":{"S":"2"},"url_path":{"S":"/out/v1/b7f8e16360fc409da7ae9809d5801b82/index.mpd"},"endpoint_hostname":{"S":"d2r835bcw3yuyi.cloudfront.net"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/out/v1/b7f8e16360fc409da7ae9809d5801b82/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"TTL"}}}}}}]}},"physicalResourceId":{"id":"initDBData"}}'
+      Update:
+        Fn::Join:
+          - ""
+          - - '{"service":"DynamoDB","action":"batchWriteItem","parameters":{"RequestItems":{"'
+            - Ref: ApiDemoTableFE9A9502
+            - '":[{"PutRequest":{"Item":{"id":{"S":"1"},"url_path":{"S":"/out/v1/5efe3b8182c248a5802ea32af2efd37a/index.m3u8"},"endpoint_hostname":{"S":"d2r835bcw3yuyi.cloudfront.net"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/out/v1/5efe3b8182c248a5802ea32af2efd37a/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"TTL"}}}}}},{"PutRequest":{"Item":{"id":{"S":"2"},"url_path":{"S":"/out/v1/b7f8e16360fc409da7ae9809d5801b82/index.mpd"},"endpoint_hostname":{"S":"d2r835bcw3yuyi.cloudfront.net"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/out/v1/b7f8e16360fc409da7ae9809d5801b82/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"TTL"}}}}}}]}},"physicalResourceId":{"id":"initDBData"}}'
+      InstallLatestAwsSdk: true
+    DependsOn:
+      - ApiAssetsTableinitDBResourceCustomResourcePolicyDAF30561
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/Api/AssetsTable/initDBResource/Resource/Default
+  ApiDeployWebsiteAwsCliLayer70BB4C93:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      Content:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: 391a62714930dde9689f73f04bec0cd78494b9d9b7167446e54c6c939bbbb6b4.zip
+      Description: /opt/awscli/aws
+    Metadata:
+      aws:cdk:path: LIVE/Api/DeployWebsite/AwsCliLayer/Resource
+      aws:asset:path: asset.391a62714930dde9689f73f04bec0cd78494b9d9b7167446e54c6c939bbbb6b4.zip
+      aws:asset:is-bundled: false
+      aws:asset:property: Content
+  ApiDeployWebsiteCustomResourceE1B99939:
+    Type: Custom::CDKBucketDeployment
+    Properties:
+      ServiceToken:
+        Fn::GetAtt:
+          - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536
+          - Arn
+      SourceBucketNames:
+        - Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+      SourceObjectKeys:
+        - 3c734d6c051947ba1b2a366d28acd76362b3783d203c51ed3eba67041661a373.zip
+      DestinationBucketName:
+        Ref: ApiHostingBucket29312F0D
+      Prune: true
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Metadata:
+      aws:cdk:path: LIVE/Api/DeployWebsite/CustomResource/Default
+  ApiGenerateTokenServiceRoleCA28640D:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/Api/GenerateToken/ServiceRole/Resource
+  ApiGenerateTokenServiceRoleDefaultPolicyCFC159C7:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:Query
+              - dynamodb:GetItem
+              - dynamodb:Scan
+              - dynamodb:ConditionCheckItem
+              - dynamodb:DescribeTable
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - ApiDemoTableFE9A9502
+                  - Arn
+              - Ref: AWS::NoValue
+          - Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsPrimaryB2FD59FF
+          - Action:
+              - secretsmanager:GetSecretValue
+              - secretsmanager:DescribeSecret
+            Effect: Allow
+            Resource:
+              Ref: SecretsSecondaryBE68E89A
+        Version: "2012-10-17"
+      PolicyName: ApiGenerateTokenServiceRoleDefaultPolicyCFC159C7
+      Roles:
+        - Ref: ApiGenerateTokenServiceRoleCA28640D
+    Metadata:
+      aws:cdk:path: LIVE/Api/GenerateToken/ServiceRole/DefaultPolicy/Resource
+  ApiGenerateTokenF559573A:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: e972b2cd387dd97c1edd1d00f0e289400b904aee23861f0d121cdbefc61eca96.zip
+      Role:
+        Fn::GetAtt:
+          - ApiGenerateTokenServiceRoleCA28640D
+          - Arn
+      Environment:
+        Variables:
+          STACK_NAME:
+            Ref: AWS::StackName
+          TABLE_NAME:
+            Ref: ApiDemoTableFE9A9502
+          USERNAME: abcd
+          PASSWORD: abcd
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _GenerateToken
+      Handler: index.handler
+      Layers:
+        - Ref: ApiRotateSecretLayerB09DA817
+      Runtime: nodejs14.x
+    DependsOn:
+      - ApiGenerateTokenServiceRoleDefaultPolicyCFC159C7
+      - ApiGenerateTokenServiceRoleCA28640D
+    Metadata:
+      aws:cdk:path: LIVE/Api/GenerateToken/Resource
+      aws:asset:path: asset.e972b2cd387dd97c1edd1d00f0e289400b904aee23861f0d121cdbefc61eca96
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  ApiRevokeSessionServiceRoleA4AF7FC3:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/Api/RevokeSession/ServiceRole/Resource
+  ApiRevokeSessionServiceRoleDefaultPolicyB6212B4B:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - dynamodb:BatchGetItem
+              - dynamodb:GetRecords
+              - dynamodb:GetShardIterator
+              - dynamodb:Query
+              - dynamodb:GetItem
+              - dynamodb:Scan
+              - dynamodb:ConditionCheckItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+              - dynamodb:DescribeTable
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - SessionRevocationCompromisedSessionsB97E20DF
+                  - Arn
+              - Ref: AWS::NoValue
+        Version: "2012-10-17"
+      PolicyName: ApiRevokeSessionServiceRoleDefaultPolicyB6212B4B
+      Roles:
+        - Ref: ApiRevokeSessionServiceRoleA4AF7FC3
+    Metadata:
+      aws:cdk:path: LIVE/Api/RevokeSession/ServiceRole/DefaultPolicy/Resource
+  ApiRevokeSession4D35B3C4:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: eaed0f6c9b151e97946cb20cab5a5980537c1482e37357b5a305fe74d5622db2.zip
+      Role:
+        Fn::GetAtt:
+          - ApiRevokeSessionServiceRoleA4AF7FC3
+          - Arn
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: SessionRevocationCompromisedSessionsB97E20DF
+      FunctionName:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - _RevokeSession
+      Handler: index.handler
+      Runtime: python3.7
+    DependsOn:
+      - ApiRevokeSessionServiceRoleDefaultPolicyB6212B4B
+      - ApiRevokeSessionServiceRoleA4AF7FC3
+    Metadata:
+      aws:cdk:path: LIVE/Api/RevokeSession/Resource
+      aws:asset:path: asset.eaed0f6c9b151e97946cb20cab5a5980537c1482e37357b5a305fe74d5622db2
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  ApiHttpApi4C294DC0:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: HttpApi
+      ProtocolType: HTTP
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/Resource
+  ApiHttpApiDefaultStageE708EF42:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId:
+        Ref: ApiHttpApi4C294DC0
+      StageName: $default
+      AutoDeploy: true
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/DefaultStage/Resource
+  ApiHttpApiGETtokengenerateGenerateTokenIntegrationPermissionAF241B24:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ApiGenerateTokenF559573A
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiHttpApi4C294DC0
+            - /*/*/tokengenerate
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration-Permission
+  ApiHttpApiGETtokengenerateGenerateTokenIntegration8E6A2EB4:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ApiHttpApi4C294DC0
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::GetAtt:
+          - ApiGenerateTokenF559573A
+          - Arn
+      PayloadFormatVersion: "2.0"
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/GET--tokengenerate/GenerateTokenIntegration/Resource
+  ApiHttpApiGETtokengenerate2E820112:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiHttpApi4C294DC0
+      RouteKey: GET /tokengenerate
+      AuthorizationType: NONE
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: ApiHttpApiGETtokengenerateGenerateTokenIntegration8E6A2EB4
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/GET--tokengenerate/Resource
+  ApiHttpApiPOSTtokengenerateA6E03031:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiHttpApi4C294DC0
+      RouteKey: POST /tokengenerate
+      AuthorizationType: NONE
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: ApiHttpApiGETtokengenerateGenerateTokenIntegration8E6A2EB4
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/POST--tokengenerate/Resource
+  ApiHttpApiPOSTsessionrevokeRevokeSessionIntegrationPermissionBA765BF4:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Fn::GetAtt:
+          - ApiRevokeSession4D35B3C4
+          - Arn
+      Principal: apigateway.amazonaws.com
+      SourceArn:
+        Fn::Join:
+          - ""
+          - - "arn:"
+            - Ref: AWS::Partition
+            - ":execute-api:"
+            - Ref: AWS::Region
+            - ":"
+            - Ref: AWS::AccountId
+            - ":"
+            - Ref: ApiHttpApi4C294DC0
+            - /*/*/sessionrevoke
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/POST--sessionrevoke/RevokeSessionIntegration-Permission
+  ApiHttpApiPOSTsessionrevokeRevokeSessionIntegrationE869E7F4:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId:
+        Ref: ApiHttpApi4C294DC0
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::GetAtt:
+          - ApiRevokeSession4D35B3C4
+          - Arn
+      PayloadFormatVersion: "2.0"
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/POST--sessionrevoke/RevokeSessionIntegration/Resource
+  ApiHttpApiPOSTsessionrevoke16DF5192:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId:
+        Ref: ApiHttpApi4C294DC0
+      RouteKey: POST /sessionrevoke
+      AuthorizationType: NONE
+      Target:
+        Fn::Join:
+          - ""
+          - - integrations/
+            - Ref: ApiHttpApiPOSTsessionrevokeRevokeSessionIntegrationE869E7F4
+    Metadata:
+      aws:cdk:path: LIVE/Api/HttpApi/POST--sessionrevoke/Resource
+  ApiOriginRequestPolicy935342BF:
+    Type: AWS::CloudFront::OriginRequestPolicy
+    Properties:
+      OriginRequestPolicyConfig:
+        Comment: A default policy
+        CookiesConfig:
+          CookieBehavior: none
+        HeadersConfig:
+          HeaderBehavior: whitelist
+          Headers:
+            - CloudFront-Viewer-Address
+            - CloudFront-Viewer-Country
+            - CloudFront-Viewer-City
+            - Referer
+            - User-Agent
+        Name:
+          Fn::Join:
+            - ""
+            - - Ref: AWS::StackName
+              - CMS
+        QueryStringsConfig:
+          QueryStringBehavior: all
+    Metadata:
+      aws:cdk:path: LIVE/Api/OriginRequestPolicy/Resource
+  ApiDistributionOrigin1S3OriginE11C57D5:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: Identity for LIVEApiDistributionOrigin1C2EFA8F5
+    Metadata:
+      aws:cdk:path: LIVE/Api/Distribution/Origin1/S3Origin/Resource
+  ApiDistribution2AD4699A:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        CacheBehaviors:
+          - AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: true
+            OriginRequestPolicyId:
+              Ref: ApiOriginRequestPolicy935342BF
+            PathPattern: /tokengenerate
+            ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd
+            TargetOriginId: LIVEApiDistributionOrigin21851A9BB
+            ViewerProtocolPolicy: redirect-to-https
+          - AllowedMethods:
+              - GET
+              - HEAD
+              - OPTIONS
+              - PUT
+              - PATCH
+              - POST
+              - DELETE
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            Compress: true
+            OriginRequestPolicyId:
+              Ref: ApiOriginRequestPolicy935342BF
+            PathPattern: /sessionrevoke
+            ResponseHeadersPolicyId: 5cc3b908-e619-4b99-88e5-2cf7f45965bd
+            TargetOriginId: LIVEApiDistributionOrigin34BB886F9
+            ViewerProtocolPolicy: redirect-to-https
+        Comment:
+          Fn::Join:
+            - ""
+            - - Ref: AWS::StackName
+              - " - Demo website Secure Media Delivery"
+        DefaultCacheBehavior:
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          Compress: true
+          TargetOriginId: LIVEApiDistributionOrigin1C2EFA8F5
+          ViewerProtocolPolicy: allow-all
+        DefaultRootObject: index.html
+        Enabled: true
+        HttpVersion: http2
+        IPV6Enabled: true
+        Origins:
+          - DomainName:
+              Fn::GetAtt:
+                - ApiHostingBucket29312F0D
+                - RegionalDomainName
+            Id: LIVEApiDistributionOrigin1C2EFA8F5
+            S3OriginConfig:
+              OriginAccessIdentity:
+                Fn::Join:
+                  - ""
+                  - - origin-access-identity/cloudfront/
+                    - Ref: ApiDistributionOrigin1S3OriginE11C57D5
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            DomainName:
+              Fn::Join:
+                - ""
+                - - Ref: ApiHttpApi4C294DC0
+                  - .execute-api.
+                  - Ref: AWS::Region
+                  - .amazonaws.com
+            Id: LIVEApiDistributionOrigin21851A9BB
+          - CustomOriginConfig:
+              OriginProtocolPolicy: https-only
+              OriginSSLProtocols:
+                - TLSv1.2
+            DomainName:
+              Fn::Join:
+                - ""
+                - - Ref: ApiHttpApi4C294DC0
+                  - .execute-api.
+                  - Ref: AWS::Region
+                  - .amazonaws.com
+            Id: LIVEApiDistributionOrigin34BB886F9
+    Metadata:
+      aws:cdk:path: LIVE/Api/Distribution/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+        Version: "2012-10-17"
+      ManagedPolicyArns:
+        - Fn::Join:
+            - ""
+            - - "arn:"
+              - Ref: AWS::Partition
+              - :iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+    Metadata:
+      aws:cdk:path: LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+            Effect: Allow
+            Resource:
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - ":s3:::"
+                    - Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+              - Fn::Join:
+                  - ""
+                  - - "arn:"
+                    - Ref: AWS::Partition
+                    - ":s3:::"
+                    - Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+                    - /*
+          - Action:
+              - s3:GetObject*
+              - s3:GetBucket*
+              - s3:List*
+              - s3:DeleteObject*
+              - s3:PutObject
+              - s3:PutObjectLegalHold
+              - s3:PutObjectRetention
+              - s3:PutObjectTagging
+              - s3:PutObjectVersionTagging
+              - s3:Abort*
+            Effect: Allow
+            Resource:
+              - Fn::GetAtt:
+                  - ApiHostingBucket29312F0D
+                  - Arn
+              - Fn::Join:
+                  - ""
+                  - - Fn::GetAtt:
+                        - ApiHostingBucket29312F0D
+                        - Arn
+                    - /*
+        Version: "2012-10-17"
+      PolicyName: CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF
+      Roles:
+        - Ref: CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+    Metadata:
+      aws:cdk:path: LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/ServiceRole/DefaultPolicy/Resource
+  CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C81C01536:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket:
+          Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
+        S3Key: f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da.zip
+      Role:
+        Fn::GetAtt:
+          - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+          - Arn
+      Handler: index.handler
+      Layers:
+        - Ref: ApiDeployWebsiteAwsCliLayer70BB4C93
+      Runtime: python3.7
+      Timeout: 900
+    DependsOn:
+      - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRoleDefaultPolicy88902FDF
+      - CustomCDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756CServiceRole89A01265
+    Metadata:
+      aws:cdk:path: LIVE/Custom::CDKBucketDeployment8693BB64968944B69AAFB0CC9EB8756C/Resource
+      aws:asset:path: asset.f98b78092dcdd31f5e6d47489beb5f804d4835ef86a8085d0a2053cb9ae711da
+      aws:asset:is-bundled: false
+      aws:asset:property: Code
+  CDKMetadata:
+    Type: AWS::CDK::Metadata
+    Properties:
+      Analytics: v2:deflate64:H4sIAAAAAAAA/3VTbW8aMQz+LXwPKWWa+nUUxobEtO6Yto/I5MyRkkuueQGh6P77nNxBr1P7yY9fYvuxnSm//8zjZARnNxblcazkjseNB3FkZNpGoUwo99Zoz+MyaOGl0Wy+1zf808pK6gJfAjr/ZJQUl+R/z7yQzlu5C4N3MyHQuVWJ2kufH85TwWUq+FHEME3LHAqL3tWgoUJLvWc9xXWoZWfYn6acDEVQ+M2a0LDyoqE2JVH9DTuFKTqDlimodyV8wPXribrYmGAF/oCmkbpK7nesa7ig/YPW9Rne6BuKUOiNHtZ4QltL5zIlCTWPhen6yvJ1rh0i2p+2EZwj5nyWBCuxUeZSUyv8MYgj+sXNkKJ57KyP4JB1MKXrUSdeqwx1mompHI9rU3XDS3x6TJlfyPUrYMjNZkBGj82+J+e2HtzR8XUe7EqfzBHfBvD4F6RnNDs2PxgpkC1BKrYJtHksGR2jp8GKg9S5xlBvWb7PM3hx4HEB7rAzYMt8JVelZdDIit6c4UJ3EMk3a2SfqcopV9pjZeG6i8IEj22bzzj4JnhWoMv7ZXnW6V3asgjOm3preydt4uzm2XaL/1+l5FfcXdpWpdPY0l8TSuYESuZryX/B6FJeu+pvq2WTMajmAHwy+tL/2rskhyz7iPjd+yaRTbJjm1Dml9GAOPHVpkT+7O5O9w/8gU9Hz07KsQ308WrkRSf/ATMaWeQwBAAA
+    Metadata:
+      aws:cdk:path: LIVE/CDKMetadata/Default
+    Condition: CDKMetadataAvailable
+Outputs:
+  SecretsPrimarySecretEDCB1C24:
+    Description: The name of the PrimarySecret
+    Value:
+      Fn::Join:
+        - ""
+        - - Ref: AWS::StackName
+          - _PrimarySecret
+    Export:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - PrimarySecret
+  SecretsSecondarySecret91CCF14C:
+    Description: The name of the SecondarySecret
+    Value:
+      Fn::Join:
+        - ""
+        - - Ref: AWS::StackName
+          - _SecondarySecret
+    Export:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - SecondarySecret
+  RotateSecretsSFRotateSecrets1D481A31:
+    Description: The name of the Step Function to rotate secrets
+    Value:
+      Fn::GetAtt:
+        - RotateSecretsRotateDD9D7C2F
+        - Name
+    Export:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - SFRotateSecrets
+  ApiDistributionDomainName6B333B25:
+    Description: Demo Website
+    Value:
+      Fn::Join:
+        - ""
+        - - https://
+          - Fn::GetAtt:
+              - ApiDistribution2AD4699A
+              - DomainName
+    Export:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - DomainName
+  ApiApiEndpointE2C5D803:
+    Description: Endpoint
+    Value:
+      Fn::Join:
+        - ""
+        - - Ref: ApiHttpApi4C294DC0
+          - .execute-api.
+          - Ref: AWS::Region
+          - .amazonaws.com
+    Export:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - ApiEndpoint
+  ApiHostingBucketName00314312:
+    Description: Hosting bucket name
+    Value:
+      Ref: ApiHostingBucket29312F0D
+    Export:
+      Name:
+        Fn::Join:
+          - ""
+          - - Ref: AWS::StackName
+            - HostingBucket
+Conditions:
+  CDKMetadataAvailable:
+    Fn::Or:
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - af-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-northeast-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-northeast-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-southeast-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ap-southeast-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - ca-central-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - cn-north-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - cn-northwest-1
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-central-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-north-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-2
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - eu-west-3
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - me-south-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - sa-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-east-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-east-2
+      - Fn::Or:
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-west-1
+          - Fn::Equals:
+              - Ref: AWS::Region
+              - us-west-2
+Mappings:
+  ServiceprincipalMap:
+    af-south-1:
+      states: states.af-south-1.amazonaws.com
+    ap-east-1:
+      states: states.ap-east-1.amazonaws.com
+    ap-northeast-1:
+      states: states.ap-northeast-1.amazonaws.com
+    ap-northeast-2:
+      states: states.ap-northeast-2.amazonaws.com
+    ap-northeast-3:
+      states: states.ap-northeast-3.amazonaws.com
+    ap-south-1:
+      states: states.ap-south-1.amazonaws.com
+    ap-southeast-1:
+      states: states.ap-southeast-1.amazonaws.com
+    ap-southeast-2:
+      states: states.ap-southeast-2.amazonaws.com
+    ap-southeast-3:
+      states: states.ap-southeast-3.amazonaws.com
+    ca-central-1:
+      states: states.ca-central-1.amazonaws.com
+    cn-north-1:
+      states: states.cn-north-1.amazonaws.com
+    cn-northwest-1:
+      states: states.cn-northwest-1.amazonaws.com
+    eu-central-1:
+      states: states.eu-central-1.amazonaws.com
+    eu-north-1:
+      states: states.eu-north-1.amazonaws.com
+    eu-south-1:
+      states: states.eu-south-1.amazonaws.com
+    eu-south-2:
+      states: states.eu-south-2.amazonaws.com
+    eu-west-1:
+      states: states.eu-west-1.amazonaws.com
+    eu-west-2:
+      states: states.eu-west-2.amazonaws.com
+    eu-west-3:
+      states: states.eu-west-3.amazonaws.com
+    me-south-1:
+      states: states.me-south-1.amazonaws.com
+    sa-east-1:
+      states: states.sa-east-1.amazonaws.com
+    us-east-1:
+      states: states.us-east-1.amazonaws.com
+    us-east-2:
+      states: states.us-east-2.amazonaws.com
+    us-gov-east-1:
+      states: states.us-gov-east-1.amazonaws.com
+    us-gov-west-1:
+      states: states.us-gov-west-1.amazonaws.com
+    us-iso-east-1:
+      states: states.amazonaws.com
+    us-iso-west-1:
+      states: states.amazonaws.com
+    us-isob-east-1:
+      states: states.amazonaws.com
+    us-west-1:
+      states: states.us-west-1.amazonaws.com
+    us-west-2:
+      states: states.us-west-2.amazonaws.com
+Parameters:
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
+Rules:
+  CheckBootstrapVersion:
+    Assertions:
+      - Assert:
+          Fn::Not:
+            - Fn::Contains:
+                - - "1"
+                  - "2"
+                  - "3"
+                  - "4"
+                  - "5"
+                - Ref: BootstrapVersion
+        AssertDescription: CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.
+

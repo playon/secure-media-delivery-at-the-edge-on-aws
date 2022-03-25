@@ -82,8 +82,9 @@ cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
 
+CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' cdk.out/LIVE.assets.json | grep -o '[^"]*$' | head -1 `
 
-more $staging_dist_dir/*.assets.json
+#more $staging_dist_dir/*.assets.json
 
 #ACCOUNT_ID=`aws sts get-caller-identity --query Account --output text`
 

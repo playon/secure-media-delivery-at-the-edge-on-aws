@@ -83,22 +83,14 @@ cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-echo cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
-cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
-
 CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
-echo $CDK_BUCKET_NAME
-#cp cdk.out/LIVE.template.json cdk.out/LIVE.template.json.mod
 echo sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$STACK_NAME.template.json
 sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$STACK_NAME.template.json
 
-#exit
 i=1
 cd $staging_dist_dir
 
-#for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
 for CDK_KEY in `ls  | grep '^asset'`; do
-	echo "CDK_KEY=$CDK_KEY"
     WORDTOREMOVE="asset."
     ITEM=${CDK_KEY//$WORDTOREMOVE/}
     ASSET_NEW_NAME="asset_$i.zip"
@@ -106,29 +98,18 @@ for CDK_KEY in `ls  | grep '^asset'`; do
     if [[ $ITEM == *zip ]];
     then
         echo "ZIP-> $ITEM"
-        #mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME
         mv $CDK_KEY $ASSET_NEW_NAME
         ZIPPED_ITEM_NAME=$ITEM
     else
-        pwd
-        echo $ITEM
-        #cd ../deployment/staging
-        echo cd $CDK_KEY
-        cd $CDK_KEY
+        #cd $CDK_KEY
         echo "zipping $CDK_KEY to $ASSET_NEW_NAME"
-        ls
-        echo zip -qr $ASSET_NEW_NAME .
-        zip -qr $ASSET_NEW_NAME .
-        #zip -qr $ASSET_NEW_NAME ./*
-        #cd $CDK_KEY; zip -qr ../$ASSET_NEW_NAME *
-        cd ..
-        mv $CDK_KEY/$ASSET_NEW_NAME $ASSET_NEW_NAME
+        zip -qr $ASSET_NEW_NAME $CDK_KEY/*
+        #cd ..
+        #mv $CDK_KEY/$ASSET_NEW_NAME $ASSET_NEW_NAME
         rm -rf $CDK_KEY
         ZIPPED_ITEM_NAME=$ITEM.zip
     fi
-    echo '$ZIPPED_ITEM_NAME -> $ASSET_NEW_NAME'
-    SUBFOLDER="assets"
-    echo "$ITEM -> $ASSET_NEW_NAME"
+
     echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/$STACK_NAME.template.json
     sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/$STACK_NAME.template.json
 

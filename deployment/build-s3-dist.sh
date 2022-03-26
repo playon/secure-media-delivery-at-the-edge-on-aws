@@ -106,6 +106,7 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
         mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME
         ZIPPED_ITEM_NAME=$ITEM
     else
+        pwd
         echo $ITEM
         echo cd $staging_dist_dir
         cd $staging_dist_dir

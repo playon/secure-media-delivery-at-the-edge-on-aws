@@ -157,10 +157,9 @@ class TokenProvider{
             let playback_url_array = playback_url.split('/');
             playback_url_array.splice(3,0,`${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`);
             this.output_playback_url = playback_url_array.join('/');
-            //console.log('output ',this.output_playback_url);
             return this.output_playback_url;
         } else{
-            return this.encoded_jwt;
+            return `${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`;
         }
     }
 

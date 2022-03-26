@@ -75,23 +75,46 @@ echo "npm install"
 npm install
 
 mv solution.context.json.template solution.context.json
-
+stack_name=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"
-echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
-npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
+echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
+npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-ACCOUNT_ID=`aws sts get-caller-identity --query Account --output text`
-CDK_BUCKET_NAME="cdk-hnb659fds-assets-$ACCOUNT_ID-us-west-2"
-echo "CDK Boostrap Bucket Name=$CDK_BUCKET_NAME"
-ASSET_KEYS=`grep -o '"S3Key": "[^"]*' $staging_dist_dir/*.template.json | grep -o '[^"]*$'`
+cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
+echo sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
+sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
+
+i=1
+cd $staging_dist_dir
+
+for cdk_key in `ls  | grep '^asset'`; do
+    wordtoremove="asset."
+    item=${cdk_key//$wordtoremove/}
+    asset_new_name="asset_$i.zip"
+
+    if [[ $item == *zip ]];
+    then
+        mv $cdk_key $asset_new_name
+        zipped_new_name=$item
+    else
+        cd $cdk_key
+        echo "zipping $cdk_key to $asset_new_name"
+        zip -qr $asset_new_name .
+        cd ..
+        mv $cdk_key/$asset_new_name $asset_new_name
+        rm -rf $cdk_key
+        zipped_new_name=$item.zip
+    fi
+
+    echo sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
+    sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
 
 
-for CDK_KEY in $ASSET_KEYS; do
-	echo "Copy from Bucket=$CDK_BUCKET_NAME, KEY=$CDK_KEY to Bucket="
+    let "i+=1"
+
 done
-
 
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"
@@ -104,9 +127,12 @@ echo "[Packing] Template artifacts"
 echo "------------------------------------------------------------------------------"
 
 # Move outputs from staging to template_dist_dir
+echo ls $staging_dist_dir/
+ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 echo "cp $template_dir/*.template $template_dist_dir/"
 cp $staging_dist_dir/*.template.json $template_dist_dir/
+
 rm *.template.json
 
 # Rename all *.template.json files to *.template
@@ -116,6 +142,9 @@ for f in $template_dist_dir/*.template.json; do
     mv -- "$f" "${f%.template.json}.template"
 done
 
-cp $template_dist_dir/*.template $build_dist_dir/
+#cp $template_dist_dir/*.template $build_dist_dir/
+echo cp $staging_dist_dir/*.zip $build_dist_dir/
+cp $staging_dist_dir/*.zip $build_dist_dir/
+
 
 

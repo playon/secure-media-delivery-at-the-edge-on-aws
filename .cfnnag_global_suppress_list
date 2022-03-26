@@ -27,3 +27,6 @@ RulesToSuppress:
   reason: W41 is something we never care about at enterprise X
 - id: W77
   reason: W41 is something we never care about at enterprise X
+- id: W48
+  reason: W48 is something we never care about at enterprise X
+

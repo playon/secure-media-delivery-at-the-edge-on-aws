@@ -111,18 +111,14 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
         rm -rf $staging_dist_dir/$CDK_KEY
         ZIPPED_ITEM_NAME=$ITEM.zip
     fi
-    echo 'ASSET_NEW_NAME=$ASSET_NEW_NAME'
+    echo '$ZIPPED_ITEM_NAME -> $ASSET_NEW_NAME'
     SUBFOLDER="assets"
-
+    echo "$ITEM -> $ASSET_NEW_NAME"
     echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
     sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
 
-    #echo aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-    #aws s3 cp $staging_dist_dir/$ASSET_NEW_NAME s3://$TEMPLATE_OUTPUT_BUCKET/$SOLUTION_NAME/$VERSION/$SUBFOLDER
-
-
-    #aws s3 ls $CDK_BUCKET_NAME
-
+    echo cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
+    cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
     let "i+=1"
 
 done

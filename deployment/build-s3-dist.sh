@@ -75,43 +75,41 @@ echo "npm install"
 npm install
 
 mv solution.context.json.template solution.context.json
-STACK_NAME=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
-echo "STACK_NAME=$STACK_NAME"
+stack_name=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
-echo sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$STACK_NAME.template.json
-sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$STACK_NAME.template.json
+cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
+echo sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
+sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
 
 i=1
 cd $staging_dist_dir
 
-for CDK_KEY in `ls  | grep '^asset'`; do
-    WORDTOREMOVE="asset."
-    ITEM=${CDK_KEY//$WORDTOREMOVE/}
-    ASSET_NEW_NAME="asset_$i.zip"
+for cdk_key in `ls  | grep '^asset'`; do
+    wordtoremove="asset."
+    item=${cdk_key//$wordtoremove/}
+    asset_new_name="asset_$i.zip"
 
-    if [[ $ITEM == *zip ]];
+    if [[ $item == *zip ]];
     then
-        echo "ZIP-> $ITEM"
-        mv $CDK_KEY $ASSET_NEW_NAME
-        ZIPPED_ITEM_NAME=$ITEM
+        mv $cdk_key $asset_new_name
+        zipped_new_name=$item
     else
-        #cd $CDK_KEY
-        echo "zipping $CDK_KEY to $ASSET_NEW_NAME"
-        zip -qr $ASSET_NEW_NAME $CDK_KEY/*
-        #cd ..
-        #mv $CDK_KEY/$ASSET_NEW_NAME $ASSET_NEW_NAME
-        rm -rf $CDK_KEY
-        ZIPPED_ITEM_NAME=$ITEM.zip
+        cd $cdk_key
+        echo "zipping $cdk_key to $asset_new_name"
+        zip -qr $asset_new_name .
+        cd ..
+        mv $cdk_key/$asset_new_name $asset_new_name
+        rm -rf $cdk_key
+        zipped_new_name=$item.zip
     fi
 
-    echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/$STACK_NAME.template.json
-    sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/$STACK_NAME.template.json
+    echo sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
+    sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
 
 
     let "i+=1"

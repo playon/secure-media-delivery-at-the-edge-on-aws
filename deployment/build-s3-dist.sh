@@ -75,7 +75,8 @@ echo "npm install"
 npm install
 
 mv solution.context.json.template solution.context.json
-
+STACK_NAME=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
+echo "STACK_NAME=$STACK_NAME"
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"
@@ -88,8 +89,8 @@ cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.j
 CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
 echo $CDK_BUCKET_NAME
 #cp cdk.out/LIVE.template.json cdk.out/LIVE.template.json.mod
-echo sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/*.template.json
-sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/*.template.json
+echo sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$STACK_NAME.template.json
+sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$STACK_NAME.template.json
 
 #exit
 i=1
@@ -126,8 +127,8 @@ for CDK_KEY in `ls  | grep '^asset'`; do
     echo '$ZIPPED_ITEM_NAME -> $ASSET_NEW_NAME'
     SUBFOLDER="assets"
     echo "$ITEM -> $ASSET_NEW_NAME"
-    echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
-    sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
+    echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/$STACK_NAME.template.json
+    sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/$STACK_NAME.template.json
 
 
     let "i+=1"

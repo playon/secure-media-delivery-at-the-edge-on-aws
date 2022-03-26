@@ -121,7 +121,9 @@ for CDK_KEY in `ls  | grep '^asset'`; do
         zip -qr $ASSET_NEW_NAME .
         #zip -qr $ASSET_NEW_NAME ./*
         #cd $CDK_KEY; zip -qr ../$ASSET_NEW_NAME *
-        cd .. && rm -rf $CDK_KEY #&& cd ..
+        cd ..
+        mv $CDK_KEY/$ASSET_NEW_NAME $ASSET_NEW_NAME
+        rm -rf $CDK_KEY
         ZIPPED_ITEM_NAME=$ITEM.zip
     fi
     echo '$ZIPPED_ITEM_NAME -> $ASSET_NEW_NAME'

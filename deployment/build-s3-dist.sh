@@ -93,8 +93,10 @@ sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging
 
 #exit
 i=1
+cd $staging_dist_dir
 
-for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
+#for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
+for CDK_KEY in `ls  | grep '^asset'`; do
 	echo "CDK_KEY=$CDK_KEY"
     WORDTOREMOVE="asset."
     ITEM=${CDK_KEY//$WORDTOREMOVE/}
@@ -103,12 +105,13 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     if [[ $ITEM == *zip ]];
     then
         echo "ZIP-> $ITEM"
-        mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME
+        #mv $staging_dist_dir/$CDK_KEY $staging_dist_dir/$ASSET_NEW_NAME
+        mv $CDK_KEY $ASSET_NEW_NAME
         ZIPPED_ITEM_NAME=$ITEM
     else
         pwd
         echo $ITEM
-        cd ../deployment/staging
+        #cd ../deployment/staging
         echo cd $CDK_KEY
         cd $CDK_KEY
         echo "zipping $CDK_KEY to $ASSET_NEW_NAME"

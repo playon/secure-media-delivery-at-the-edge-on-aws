@@ -108,8 +108,7 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     else
         pwd
         echo $ITEM
-        echo cd staging
-        cd staging
+        cd ../deployment/staging
         echo cd $CDK_KEY
         cd $CDK_KEY
         echo "zipping $CDK_KEY to $ASSET_NEW_NAME"

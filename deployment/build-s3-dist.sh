@@ -110,11 +110,10 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
         echo cd $staging_dist_dir
         cd $staging_dist_dir
         echo cd $CDK_KEY
-        cd $CDK_KEY
-
         echo "zipping $CDK_KEY to $ITEM.zip"
         echo zip -qr $ASSET_NEW_NAME ./*
-        zip -qr $ASSET_NEW_NAME ./*
+        #zip -qr $ASSET_NEW_NAME ./*
+        cd $CDK_KEY; zip -qr ../$ASSET_NEW_NAME *
         cd ..
         rm -rf $CDK_KEY
         cd ..

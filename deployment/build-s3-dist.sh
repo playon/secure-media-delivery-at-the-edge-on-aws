@@ -82,6 +82,8 @@ cd "$source_dir"
 echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
 npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
 
+echo cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
+cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
 
 CDK_BUCKET_NAME=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
 echo $CDK_BUCKET_NAME
@@ -90,7 +92,7 @@ echo sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $st
 sed -i'' -e "s#$CDK_BUCKET_NAME#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/*.template.json
 
 #exit
-i=20
+i=1
 
 for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
 	echo "CDK_KEY=$CDK_KEY"
@@ -117,8 +119,7 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
     echo sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
     sed -i'' -e "s#$ZIPPED_ITEM_NAME#$SOLUTION_NAME/$VERSION/$ASSET_NEW_NAME#g" $staging_dist_dir/*.template.json
 
-    echo cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
-    cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
+
     let "i+=1"
 
 done

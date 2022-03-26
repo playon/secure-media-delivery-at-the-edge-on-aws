@@ -15,6 +15,7 @@
  import {
     aws_secretsmanager as secretsmanager,
     Stack,
+    Aws,
     RemovalPolicy,
     aws_wafv2 as wafv2,
     aws_dynamodb as ddb,
@@ -35,7 +36,8 @@
     super(scope, id);
 
     //TODO rule name as parameter
-    const ruleGroupName = "RevokedSessions"
+    //TODO add stack name
+    const ruleGroupName = Aws.STACK_NAME + "_RevokedSessions"
     const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup",{
         capacity: 99,
         scope: "CLOUDFRONT",

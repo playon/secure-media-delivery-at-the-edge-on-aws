@@ -79,8 +79,8 @@ mv solution.context.json.template solution.context.json
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"
-echo "node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir"
-npm run build && node_modules/aws-cdk/bin/cdk synth --output=$staging_dist_dir --no-version-reporting
+echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
+npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
 echo cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
 cp $staging_dist_dir/LIVE.template.json $staging_dist_dir/before.LIVE.template.json
@@ -113,8 +113,8 @@ for CDK_KEY in `ls $staging_dist_dir/ | grep '^asset'`; do
         cd $CDK_KEY
 
         echo "zipping $CDK_KEY to $ITEM.zip"
-        echo zip -r $ASSET_NEW_NAME ./*
-        zip -r $ASSET_NEW_NAME ./*
+        echo zip -qr $ASSET_NEW_NAME ./*
+        zip -qr $ASSET_NEW_NAME ./*
         cd ..
         rm -rf $CDK_KEY
         cd ..

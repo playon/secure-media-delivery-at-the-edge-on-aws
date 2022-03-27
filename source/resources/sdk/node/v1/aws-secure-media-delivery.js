@@ -45,7 +45,7 @@ class TokenProvider{
             console.log("Secrets updated! Last update: ", this._secrets_last_update);
             //TODO - promise error handling
         }
-        else if(this.secret_retrive_mode == 'custom'){
+        else if(this._secrets_retrieve_mode == 'custom'){
             this._secrets = this._secrets_retrieve_function();
         }
         this._secrets_retrival_lock = false;

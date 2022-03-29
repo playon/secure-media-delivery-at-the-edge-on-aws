@@ -270,12 +270,12 @@ export class RotateSecretsWorkflow extends Construct {
       //},
     });
 
-    const triggerFrequency =
-      props.configuration.main?.rotate_secrets_frequency || 0;
-    if (triggerFrequency > 0) {
+    const schedule_expression = props.configuration.main?.rotate_secrets_pattern || 0;
+    if (schedule_expression!==0) {
+      console.log('cron(' + schedule_expression + ')');
       // Trigger Sfn to rotate the secrets every X minutes
       const rule = new events.Rule(this, "Rule1", {
-        schedule: events.Schedule.rate(Duration.minutes(triggerFrequency)),
+        schedule: events.Schedule.expression('cron(' + schedule_expression + ')'),
         description: "Trigger StepFunction to rotate secrets",
         enabled: true,
       });

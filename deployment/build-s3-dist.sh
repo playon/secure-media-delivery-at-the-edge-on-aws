@@ -88,7 +88,7 @@ sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging
 
 i=1
 cd $staging_dist_dir
-
+echo "Searching for assets..."
 for cdk_key in `ls  | grep '^asset'`; do
     wordtoremove="asset."
     item=${cdk_key//$wordtoremove/}
@@ -115,7 +115,7 @@ for cdk_key in `ls  | grep '^asset'`; do
     let "i+=1"
 
 done
-
+echo "Assets zipped"
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"
 cd $staging_dist_dir

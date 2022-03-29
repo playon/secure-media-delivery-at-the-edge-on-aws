@@ -56,7 +56,7 @@
        "BOOL": false
       },
       "exp": {
-       "S": "TTL"
+       "S": "CUSTOM_TTL"
       }
      }
     }

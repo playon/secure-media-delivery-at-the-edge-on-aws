@@ -12,7 +12,9 @@ export interface IMain {
    * to the limit value.
    */
    stack_name: string;
-   rotate_secrets_frequency: number;
+   rotate_secrets_frequency: string;
+   rotate_secrets_pattern: string;
+
 }
 
 /**
@@ -20,5 +22,5 @@ export interface IMain {
  */
 export const coreSchema = Joi.object().keys({
   stack_name:Joi.string().required(),
-  rotate_secrets_frequency: Joi.number().min(0).required()
+  rotate_secrets_frequency: Joi.string().required()
 });

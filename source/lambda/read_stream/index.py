@@ -47,7 +47,7 @@ def lambda_handler(event, context):
                            "Type":"NONE"
                         }
                      ],
-                     "PositionalConstraint":"CONTAINS"
+                     "PositionalConstraint":"STARTS_WITH"
                   }
                },
                "Action":{

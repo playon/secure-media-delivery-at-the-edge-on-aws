@@ -1,11 +1,11 @@
 {
   "main": {
     "stack_name": "LIVE",
-    "rotate_secrets_frequency": "24h",
-    "rotate_secrets_pattern": "00 12 ? * * *"
+    "rotate_secrets_frequency": "1m",
+    "rotate_secrets_pattern": "P"
   },
   "api": {
-    "language": "nodejs"
+    "language": "A"
   },
   "hls": {
     "hostname": "H",

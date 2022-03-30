@@ -31,6 +31,4 @@ export const schema = Joi.object().keys({
   hosting: hostingSchema.optional(),
   demo: demoSchema.optional(),
 
-
-
 }).unknown().required();

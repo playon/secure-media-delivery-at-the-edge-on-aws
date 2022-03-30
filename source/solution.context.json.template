@@ -1,23 +1,24 @@
 {
   "main": {
     "stack_name": "LIVE",
-    "rotate_secrets_frequency": "0"
+    "rotate_secrets_frequency": "1m",
+    "rotate_secrets_pattern": "P"
   },
   "api": {
-    "language": "nodejs"
+    "language": "A"
   },
   "hls": {
-    "hostname": "dbpxwurvuzeq6.cloudfront.net",
-    "url_path": "/out/v1/2e4f2642321341c2a1ebdf3766d4e38c/index.m3u8",
-    "ttl": "+60m"
+    "hostname": "H",
+    "url_path": "U",
+    "ttl": "+3h"
   },
   "dash": {
-    "hostname": "dbpxwurvuzeq6.cloudfront.net",
-    "url_path": "/out/v1/23f4e0d3307a4494b70bda62226990d4/index.mpd",
-    "ttl": "+60m"
+    "hostname": "H",
+    "url_path": "U",
+    "ttl": "+24h"
   },
   "demo": {
-    "username": "abcd",
-    "password": "abcd"
+    "username": "U",
+    "password": "P"
   }
 }

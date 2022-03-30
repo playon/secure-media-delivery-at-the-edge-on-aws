@@ -6,8 +6,7 @@ import { schema, IConfiguration }  from './validators/configuration';
 let config = null;
 
 /**
- * Returns the options to pass to the Prototype Engagement Pack.
- * This function will validate the confioguration read from the CDK context
+ * This function will validate the configuration read from the CDK context
  * file, and will pass the resulted value to the caller.
  * @throws an exception if the configuration is not valid.
  */

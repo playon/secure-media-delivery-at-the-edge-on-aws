@@ -37,25 +37,32 @@ const rotation_day_of_the_week_question = [
     name: 'value',
     message: '[Base configuration] --> On which day of the week you would like to trigger it',
     choices: [
-      { title: 'Monday', value: '1' },
-      { title: 'Tuesday', value: '2'  },
-      { title: 'Wednesday', value: '3'  },
-      { title: 'Thursday', value: '4'  },
-      { title: 'Friday', value: '5'  },
-      { title: 'Saturday', value: '6'  },
-      { title: 'Sunday', value: '7'  },
+      { title: 'Monday', value: '2' },
+      { title: 'Tuesday', value: '3'  },
+      { title: 'Wednesday', value: '4'  },
+      { title: 'Thursday', value: '5'  },
+      { title: 'Friday', value: '6'  },
+      { title: 'Saturday', value: '7'  },
+      { title: 'Sunday', value: '1'  },
     ],
     initial: 1
   }
 ]
 
-const rotation_day_of_month_question = [
+
+const rotation_week_of_month_question = [
   {
-    type: 'text',
+    type: 'select',
     name: 'value',
-    message: '[Base configuration] --> On which day of the month you would like to trigger it',
-    validate: (value: string) => Joi.number().min(1).validate(value).error  && Joi.number().max(31).validate(value).error?
-    'The day of the month must be between 1 and 31' : true
+    message: '[Base configuration] --> On which week of the month you would like to trigger it',
+    choices: [
+      { title: 'Week 1', value: '1' },
+      { title: 'Week 2', value: '2'  },
+      { title: 'Week 3', value: '3'  },
+      { title: 'Week 4', value: '4'  },
+
+    ],
+    initial: 1
   }
 ]
 
@@ -94,14 +101,18 @@ export class MainModule implements PromptComponent {
         day_of_the_month = '?';
       }else if(configuration.main.rotate_secrets_frequency==='1m'){
         //1m
-        const answer_datetime = await prompts.prompt(rotation_day_of_month_question, { onCancel });
-        day_of_the_month = answer_datetime.value;
-        day_of_the_week = '?';
+        const answer_day_week = await prompts.prompt(rotation_day_of_the_week_question, { onCancel });
+        const answer_week_month = await prompts.prompt(rotation_week_of_month_question, { onCancel });
+
+
+        day_of_the_month = '?';
+        day_of_the_week = answer_day_week.value + '#' + answer_week_month.value;
       }
 
       const answer_datetime = await prompts.prompt(rotation_datetime_question, { onCancel });
       const datetime = answer_datetime.value.split(':')
       configuration.main.rotate_secrets_pattern = datetime[1] + ' ' + datetime[0] + ' ' + day_of_the_month + ' * ' + day_of_the_week + ' *'
+      console.log(configuration.main.rotate_secrets_pattern);
 
     }
 

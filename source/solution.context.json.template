@@ -8,17 +8,17 @@
     "language": "nodejs"
   },
   "hls": {
-    "hostname": "aaaa",
-    "url_path": "rrrr",
+    "hostname": "",
+    "url_path": "",
     "ttl": "+3h"
   },
   "dash": {
-    "hostname": "rrrrr",
-    "url_path": "zzzzz",
+    "hostname": "",
+    "url_path": "",
     "ttl": "+24h"
   },
   "demo": {
-    "username": "abcd",
-    "password": "abcd"
+    "username": "",
+    "password": ""
   }
 }

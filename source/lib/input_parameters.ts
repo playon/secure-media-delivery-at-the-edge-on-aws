@@ -40,14 +40,12 @@ export class GetInputParameters extends Construct {
         type: "String",
         description:
           "[API][Demo website] Username used to authenticate demo viewer",
-        default: configuration.demo?.username,
       });
 
       const password = new CfnParameter(this, "password", {
         type: "String",
         description:
           "[API][Demo website] Password used to authenticate demo viewer",
-        default: configuration.demo?.password,
       });
 
       returnObject.demo = {
@@ -59,13 +57,12 @@ export class GetInputParameters extends Construct {
       const dash_hostname = new CfnParameter(this, "dash_hostname", {
         type: "String",
         description: "[API][DASH] Hostname used for asset delivery",
-        default: configuration.dash?.hostname,
       });
 
       const dash_url_path = new CfnParameter(this, "dash_url_path", {
         type: "String",
         description: "[API][DASH] URL path for existing playable asset",
-        default: configuration.dash?.url_path,
+
       });
 
       const dash_ttl = new CfnParameter(this, "dash_ttl", {
@@ -87,13 +84,11 @@ export class GetInputParameters extends Construct {
       const hls_hostname = new CfnParameter(this, "hls_hostname", {
         type: "String",
         description: "[API][HLS] Hostname used for asset delivery",
-        default: configuration.hls?.hostname,
       });
 
       const hls_url_path = new CfnParameter(this, "hls_url_path", {
         type: "String",
         description: "[API][HLS] URL path for existing playable asset",
-        default: configuration.hls?.url_path,
       });
 
       const hls_ttl = new CfnParameter(this, "hls_ttl", {

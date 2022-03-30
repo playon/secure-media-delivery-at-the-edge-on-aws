@@ -1,5 +1,6 @@
 {
   "main": {
+    "stack_name": "LIVE",
     "rotate_secrets_frequency": "24h",
     "rotate_secrets_pattern": "00 12 ? * * *"
   },

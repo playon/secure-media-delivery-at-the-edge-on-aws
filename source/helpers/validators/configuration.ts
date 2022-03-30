@@ -13,7 +13,7 @@ import { sessionRevocationSchema, ISessionRevocation } from './session-revocatio
  */
  export interface IConfiguration {
 
-  main: IMain;
+  main?: IMain;
   sessionRevocation?: ISessionRevocation;
   api?: IApi;
   hls?: IHosting;

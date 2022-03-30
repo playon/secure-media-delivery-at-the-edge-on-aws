@@ -126,7 +126,7 @@ export class GetInputParameters extends Construct {
           "58",
           "59",
         ],
-        description: "[Base configuration] Hours",
+        description: "[Base configuration] Minutes",
       });
 
       const day_of_week = new CfnParameter(this, "C", {
@@ -138,20 +138,20 @@ export class GetInputParameters extends Construct {
       const week_of_month = new CfnParameter(this, "D", {
         type: "String",
         allowedValues: ["1", "2", "3", "4"],
-        description: "[Base configuration] Day of the week",
+        description: "[Base configuration] Week of the month",
       });
 
       returnObject = {
         main: {
           rotate_secrets_frequency: "1m",
           rotate_secrets_pattern:
-            minutes +
+            minutes.valueAsString +
             " " +
-            hours +
+            hours.valueAsString +
             " ? * " +
-            day_of_week +
+            day_of_week.valueAsString +
             "#" +
-            week_of_month +
+            week_of_month.valueAsString +
             " *",
         },
       };
@@ -207,7 +207,7 @@ export class GetInputParameters extends Construct {
           type: "String",
           description: "[API][DASH] TTL for the token",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-          default: configuration.dash?.ttl,
+
         });
 
         returnObject.dash = {
@@ -241,7 +241,7 @@ export class GetInputParameters extends Construct {
           type: "String",
           description: "[API][DASH] TTL for the token",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-          default: configuration.hls?.ttl,
+
         });
 
         returnObject.hls = {
@@ -263,8 +263,8 @@ export class GetInputParameters extends Construct {
             const api_language = new CfnParameter(this, "M", {
               type: "String",
               description: "[API] Choose the programming language for API code ",
-              allowedValues: ["nodejs", "python"],
-              default: configuration.api.language,
+              allowedValues: ["nodejs", "python"]
+
             });
 
             returnObject.api = {

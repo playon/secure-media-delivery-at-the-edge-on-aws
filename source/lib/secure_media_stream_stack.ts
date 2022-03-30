@@ -15,6 +15,7 @@ import {
   Stack,
   StackProps,
   Aws,
+  CfnParameter,
   aws_cloudfront as cloudfront
 } from 'aws-cdk-lib';
 
@@ -23,16 +24,16 @@ import { Construct } from 'constructs';
 import { IConfiguration } from '../helpers/validators/configuration';
 import { Api } from './api';
 import { CWDashboard } from './dashboard';
+import { GetInputParameters } from './input_parameters';
 import { RotateSecretsWorkflow } from './rotate_secrets_workflow';
 import { Secrets } from './secrets';
 import { SessionRevocation } from './session_revocation';
 
 export class SecureMediaStreamingStack extends Stack {
-  constructor(scope: Construct, id: string, configuration: IConfiguration, props?: StackProps) {
+  constructor(scope: Construct, id: string, wizardConfiguration: IConfiguration, props?: StackProps) {
     super(scope, id, props);
 
-    //if(configuration.sessionRevocation){
-    //}
+    const parameters = new GetInputParameters(this, 'InputParameters', wizardConfiguration);
 
     // Create the Cloudfront Function used to check the JWT token
     const checkToken = new cloudfront.Function(this, 'Function', {
@@ -48,23 +49,22 @@ export class SecureMediaStreamingStack extends Stack {
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
       secrets: secrets,
       checkTokenFunction: checkToken,
-      configuration: configuration
+      configuration: parameters.customInputParameters
     } )
 
     const dashboard = new CWDashboard(this, 'CoreDashboard')
     dashboard.buildCoreDashboard({
       cfFunctionName: checkToken.functionName,
       rotateSecretsWorkflowArn: rotateSecretsWorkflow.workflowArn
-    }
-    )
+    });
 
-    if(configuration.api){
+    if(parameters.customInputParameters.api){
       new Api(this, 'Api', {
-        configuration: configuration,
+        configuration: parameters.customInputParameters,
         secrets: secrets,
         dashboard: dashboard,
         sessionsTable: sessionRevocation.sessionsTable
-      })
+      });
     }
 
 

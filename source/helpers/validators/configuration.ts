@@ -13,7 +13,7 @@ import { sessionRevocationSchema, ISessionRevocation } from './session-revocatio
  */
  export interface IConfiguration {
 
-  main?: IMain;
+  main: IMain;
   sessionRevocation?: ISessionRevocation;
   api?: IApi;
   hls?: IHosting;
@@ -30,7 +30,5 @@ export const schema = Joi.object().keys({
   api: apiSchema.optional(),
   hosting: hostingSchema.optional(),
   demo: demoSchema.optional(),
-
-
 
 }).unknown().required();

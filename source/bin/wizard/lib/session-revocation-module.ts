@@ -13,9 +13,9 @@ import { ISessionRevocation } from '../../../helpers/validators/session-revocati
 const sessionRevocationQuestions = [{
   type: 'text',
   name: 'trigger_workflow_frequency',
-  message: '[SESSION REVOCATION] --> At what frequency do you want to trigger the workflow to detect session to invalidate?\n (in minutes between 1 and 1440, type 0 to disable it) ',
-  validate: (value: string) => Joi.number().min(0).required().validate(value).error ?
-    'The value must be a number superior or equal to 0' : true
+  message: '[SESSION REVOCATION] --> At what frequency do you want to trigger the workflow to detect session to invalidate?\n (in minutes between 1 and 15, type 0 for MANUAL trigger) ',
+  validate: (value: string) => Joi.number().min(0).required().validate(value).error && Joi.number().max(15).required().validate(value).error ?
+    'The value must be a number superior or equal to 0 and lower or equal to 15' : true
 },
 {
   type: 'text',

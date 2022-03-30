@@ -45,7 +45,7 @@ class TokenProvider{
             console.log("Secrets updated! Last update: ", this._secrets_last_update);
             //TODO - promise error handling
         }
-        else if(this.secret_retrive_mode == 'custom'){
+        else if(this._secrets_retrieve_mode == 'custom'){
             this._secrets = this._secrets_retrieve_function();
         }
         this._secrets_retrival_lock = false;
@@ -157,10 +157,9 @@ class TokenProvider{
             let playback_url_array = playback_url.split('/');
             playback_url_array.splice(3,0,`${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`);
             this.output_playback_url = playback_url_array.join('/');
-            //console.log('output ',this.output_playback_url);
             return this.output_playback_url;
         } else{
-            return this.encoded_jwt;
+            return `${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`;
         }
     }
 

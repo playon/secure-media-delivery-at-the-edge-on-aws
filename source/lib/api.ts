@@ -49,17 +49,23 @@ export class Api extends Construct {
     super(scope, id);
 
     var runtime: lambda.Runtime;
+    var language : string;
 
     if(props.configuration.api?.language=='nodejs'){
       runtime = lambda.Runtime.NODEJS_14_X
+      language = 'nodejs'
     }else{
-      runtime = lambda.Runtime.PYTHON_3_7
+      //runtime = lambda.Runtime.PYTHON_3_7
+      //language = 'python'
+      runtime = lambda.Runtime.NODEJS_14_X
+      language = 'nodejs'
     }
+    console.log(props.configuration);
     const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
       compatibleRuntimes: [
         runtime
       ],
-      code: lambda.Code.fromAsset('lambda/layers/aws_secure_media_delivery_'+props.configuration.api?.language),
+      code: lambda.Code.fromAsset('lambda/layers/aws_secure_media_delivery_'+language),
       description: 'Layer used by generate new secret lambda',
     });
 

@@ -64,11 +64,17 @@ function hostQuestions (type: string) {
       'URL path for existing playable asset is mandatory' : true
     },
     {
-      type: 'text',
+      type: 'select',
       name: 'ttl',
       message: '[API][' + type + '] --> TTL for the token',
-      validate: (value: string) => Joi.number().required().validate(value).error ?
-      'TTL for the token is mandatory' : true
+      choices: [
+        { title: '30 minutes', value: '+30m' },
+        { title: 'One hour', value: '+1h'  },
+        { title: '3 hours', value: '+3h'  },
+        { title: '6 hours', value: '+6h'  },
+        { title: '24 hours', value: '+24h'  }
+      ],
+      initial: 1
     }
   ]
 }

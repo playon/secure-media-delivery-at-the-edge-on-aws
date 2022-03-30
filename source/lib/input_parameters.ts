@@ -131,7 +131,7 @@ export class GetInputParameters extends Construct {
 
       const day_of_week = new CfnParameter(this, "C", {
         type: "String",
-        allowedValues: ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"],
+        allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
         description: "[Base configuration] Day of the week",
       });
 

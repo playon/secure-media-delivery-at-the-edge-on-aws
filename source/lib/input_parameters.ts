@@ -12,13 +12,9 @@
  */
 
 import {
-  Aws,
-  CfnOutput,
-  aws_secretsmanager as secretsmanager,
   CfnParameter,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { isContext } from "vm";
 import { IConfiguration } from "../helpers/validators/configuration";
 
 export class GetInputParameters extends Construct {
@@ -27,11 +23,10 @@ export class GetInputParameters extends Construct {
   constructor(scope: Construct, id: string, configuration: IConfiguration) {
     super(scope, id);
 
-    console.log("configuration=" + JSON.stringify(configuration));
     var returnObject: IConfiguration;
 
     if (configuration.main?.rotate_secrets_pattern === "P") {
-      const hours = new CfnParameter(this, "A", {
+      const hours = new CfnParameter(this, "AA", {
         type: "String",
         allowedValues: [
           "00",
@@ -62,7 +57,7 @@ export class GetInputParameters extends Construct {
         description: "[Base configuration] Hours",
       });
 
-      const minutes = new CfnParameter(this, "B", {
+      const minutes = new CfnParameter(this, "BB", {
         type: "String",
         allowedValues: [
           "00",
@@ -129,13 +124,13 @@ export class GetInputParameters extends Construct {
         description: "[Base configuration] Minutes",
       });
 
-      const day_of_week = new CfnParameter(this, "C", {
+      const day_of_week = new CfnParameter(this, "CC", {
         type: "String",
         allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
         description: "[Base configuration] Day of the week",
       });
 
-      const week_of_month = new CfnParameter(this, "D", {
+      const week_of_month = new CfnParameter(this, "DD", {
         type: "String",
         allowedValues: ["1", "2", "3", "4"],
         description: "[Base configuration] Week of the month",
@@ -167,13 +162,13 @@ export class GetInputParameters extends Construct {
     if(configuration.demo){
 
         if (configuration.demo?.username === "U") {
-            const username = new CfnParameter(this, "E", {
+            const username = new CfnParameter(this, "EE", {
               type: "String",
               description:
                 "[API][Demo website] Username used to authenticate demo viewer",
             });
 
-            const password = new CfnParameter(this, "F", {
+            const password = new CfnParameter(this, "FF", {
               type: "String",
               description:
                 "[API][Demo website] Password used to authenticate demo viewer",
@@ -193,17 +188,17 @@ export class GetInputParameters extends Construct {
 
     if (configuration.dash) {
       if (configuration.dash?.hostname === "H") {
-        const dash_hostname = new CfnParameter(this, "G", {
+        const dash_hostname = new CfnParameter(this, "GG", {
           type: "String",
           description: "[API][DASH] Hostname used for asset delivery",
         });
 
-        const dash_url_path = new CfnParameter(this, "H", {
+        const dash_url_path = new CfnParameter(this, "HH", {
           type: "String",
           description: "[API][DASH] URL path for existing playable asset",
         });
 
-        const dash_ttl = new CfnParameter(this, "I", {
+        const dash_ttl = new CfnParameter(this, "II", {
           type: "String",
           description: "[API][DASH] TTL for the token",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
@@ -223,21 +218,20 @@ export class GetInputParameters extends Construct {
         };
       }
     }
-    console.log("configuration.hls?.hostname=" + configuration.hls?.hostname);
 
     if (configuration.hls) {
       if (configuration.hls?.hostname === "H") {
-        const hls_hostname = new CfnParameter(this, "J", {
+        const hls_hostname = new CfnParameter(this, "JJ", {
           type: "String",
           description: "[API][HLS] Hostname used for asset delivery",
         });
 
-        const hls_url_path = new CfnParameter(this, "K", {
+        const hls_url_path = new CfnParameter(this, "KK", {
           type: "String",
           description: "[API][HLS] URL path for existing playable asset",
         });
 
-        const hls_ttl = new CfnParameter(this, "L", {
+        const hls_ttl = new CfnParameter(this, "LL", {
           type: "String",
           description: "[API][DASH] TTL for the token",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
@@ -260,7 +254,7 @@ export class GetInputParameters extends Construct {
     if(configuration.api){
 
         if (configuration.api?.language === "A") {
-            const api_language = new CfnParameter(this, "M", {
+            const api_language = new CfnParameter(this, "MM", {
               type: "String",
               description: "[API] Choose the programming language for API code ",
               allowedValues: ["nodejs", "python"]
@@ -278,7 +272,6 @@ export class GetInputParameters extends Construct {
     }
 
 
-    console.log("returnObject=" + JSON.stringify(returnObject));
     this.customInputParameters = returnObject;
   }
 }

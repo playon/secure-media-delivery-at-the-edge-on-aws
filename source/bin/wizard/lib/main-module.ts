@@ -112,7 +112,6 @@ export class MainModule implements PromptComponent {
       const answer_datetime = await prompts.prompt(rotation_datetime_question, { onCancel });
       const datetime = answer_datetime.value.split(':')
       configuration.main.rotate_secrets_pattern = datetime[1] + ' ' + datetime[0] + ' ' + day_of_the_month + ' * ' + day_of_the_week + ' *'
-      console.log(configuration.main.rotate_secrets_pattern);
 
     }
 

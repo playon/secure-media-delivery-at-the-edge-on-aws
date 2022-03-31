@@ -86,6 +86,8 @@ cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json 
 echo sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
 sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
 
+cat $stack_name.template.json | jq '.Parameters |  keys'
+
 i=1
 cd $staging_dist_dir
 echo "Searching for assets..."

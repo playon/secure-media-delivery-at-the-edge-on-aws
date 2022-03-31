@@ -82,7 +82,7 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
         }
 
 
-        if (!_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
+        if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
             throw new Error('Internal signature verification failed');
         }
 

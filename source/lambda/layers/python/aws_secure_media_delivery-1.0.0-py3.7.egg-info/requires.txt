@@ -1,0 +1,3 @@
+PyJWT
+boto3
+cachetools

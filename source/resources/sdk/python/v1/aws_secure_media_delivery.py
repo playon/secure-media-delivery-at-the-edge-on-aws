@@ -1,5 +1,6 @@
 import jwt
 import random
+import string
 import base64
 import cachetools.func
 import json
@@ -7,6 +8,7 @@ import boto3
 import hmac
 import hashlib
 import base64
+#from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 from urllib.parse import urlparse, urldefrag, urlsplit
 
 
@@ -103,16 +105,16 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	  jwt_payload['co'] = True
 	  private_payload += attributes['co'] + ":"
 	
-	if "ip" in attributes:
+	if "cty" in attributes:
 	  jwt_payload['cty'] = True
 	  private_payload += attributes['cty'] + ":"
 	
 	if "ssn" in attributes:
 	  jwt_payload['ssn'] = True
 	  if "generate" in attributes['ssn']:
-	    sessionArr = attributes['ssn'].split(_)
+	    sessionArr = attributes['ssn'].split("_")
 	    sessionLen = sessionArr[1]
-	    sessionPayload = ''.join(random.choices(string.ascii_lowercase, k=sessionLen))
+	    sessionPayload = ''.join(random.choice(string.ascii_lowercase) for _ in range(int(sessionLen)))
 	  else:
 	    sessionPayload = attributes['ssn']
 

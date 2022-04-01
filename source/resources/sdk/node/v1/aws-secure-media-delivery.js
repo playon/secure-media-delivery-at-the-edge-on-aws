@@ -139,11 +139,13 @@ class TokenProvider{
             });
         };
 
-        if(intsig_input) intsig_input = intsig_input.slice(0,-1);
-        console.log("Input for internal signature: ", intsig_input); 
-        console.log(TokenProvider._secrets);
-
-        jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256');
+		if(intsig_input){
+			intsig_input = intsig_input.slice(0,-1);
+			console.log("Input for internal signature: ", intsig_input); 
+			jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256')};
+		else {
+			delete jwt_payload['intsig'];
+		};
 
         jwt_payload['paths'] = attributes['paths'];
         if (attributes['exc']) jwt_payload['exc'] = attributes['exc'];

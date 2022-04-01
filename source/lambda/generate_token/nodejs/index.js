@@ -1,4 +1,5 @@
 const aws = require('aws-sdk');
+const qs = require('querystring');
 const cfToken = require("aws-secure-media-delivery");
 
 const docClient = new aws.DynamoDB.DocumentClient();
@@ -28,7 +29,7 @@ exports.handler = async (event, context) => {
     var id;
     var token_attributes = {};
     var headers = event.headers;
-    var querystrings = event.queryStringParameters;
+    var request_querystrings = event.queryStringParameters;
     var viewer_ip;
     if(headers['cloudfront-viewer-address']){
         viewer_ip = headers['cloudfront-viewer-address'].substring(0, headers['cloudfront-viewer-address'].lastIndexOf(':'))
@@ -51,6 +52,7 @@ exports.handler = async (event, context) => {
 
     if(event['queryStringParameters'] && event.queryStringParameters['id']){
         id = event.queryStringParameters['id'];
+		delete request_querystrings['id'];
     } else {
         return response400;
     }
@@ -129,16 +131,29 @@ exports.handler = async (event, context) => {
         });
     }
 
+    var [pathname, asset_qs, rest] = video_url.split('?');
+    if(rest) throw "Invalid video url path format";
+    var asset_qs_parsed = qs.parse(asset_qs);
+
     if(token_policy['qs'] && token_policy['qs'].length > 0){
         token_attributes['qs'] = [];
         token_policy['qs'].forEach((q) => {
-            var qs_param_value = querystrings[q.toLowerCase()]?querystrings[q.toLowerCase()]:'';
+            var qs_param_value = '';
+            if(asset_qs_parsed[q.toLowerCase()]){
+                qs_param_value = asset_qs_parsed[q.toLowerCase()];
+                delete request_querystrings[q.toLowerCase()]
+            } else if(request_querystrings[q.toLowerCase()]){
+                qs_param_value = request_querystrings[q.toLowerCase()];
+            }
            token_attributes['qs'].push({'key': q.toLowerCase(), 'value': qs_param_value});
         });
     }
 
     console.log(token_attributes);
-    var playback_url = await tokenGenerator.generateToken(token_attributes, 'primary', `https://${video_metadata.Item['endpoint_hostname']}${video_metadata.Item['url_path']}`);
+
+	var additional_qs_params = qs.encode(request_querystrings);
+    if(additional_qs_params) additional_qs_params = (asset_qs?"&":"?") + additional_qs_params;
+    var playback_url = await tokenGenerator.generateToken(token_attributes, 'primary', `https://${video_metadata.Item['endpoint_hostname']}${video_metadata.Item['url_path']}${additional_qs_params}`);
 
     var response = {
     "statusCode": 200,

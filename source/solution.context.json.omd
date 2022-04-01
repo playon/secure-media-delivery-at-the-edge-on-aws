@@ -1,0 +1,23 @@
+{
+  "main": {
+    "stack_name": "LIVE",
+    "rotate_secrets_frequency": "0"
+  },
+  "api": {
+    "language": "nodejs"
+  },
+  "hls": {
+    "hostname": "trr",
+    "url_path": "ttt",
+    "ttl": "+3h"
+  },
+  "dash": {
+    "hostname": "ttt",
+    "url_path": "yyy",
+    "ttl": "+24h"
+  },
+  "demo": {
+    "username": "abcd",
+    "password": "abcd"
+  }
+}

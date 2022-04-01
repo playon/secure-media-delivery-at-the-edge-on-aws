@@ -15,7 +15,6 @@ import {
   Stack,
   StackProps,
   Aws,
-  CfnParameter,
   aws_cloudfront as cloudfront
 } from 'aws-cdk-lib';
 
@@ -29,11 +28,14 @@ import { RotateSecretsWorkflow } from './rotate_secrets_workflow';
 import { Secrets } from './secrets';
 import { SessionRevocation } from './session_revocation';
 
+
+
 export class SecureMediaStreamingStack extends Stack {
   constructor(scope: Construct, id: string, wizardConfiguration: IConfiguration, props?: StackProps) {
     super(scope, id, props);
 
-    const parameters = new GetInputParameters(this, 'InputParameters', wizardConfiguration);
+    const parameters = new GetInputParameters(this, 'InputParameters', wizardConfiguration, this);
+
 
     // Create the Cloudfront Function used to check the JWT token
     const checkToken = new cloudfront.Function(this, 'Function', {

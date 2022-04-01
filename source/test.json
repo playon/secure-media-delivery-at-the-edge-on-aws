@@ -1,3 +1,219 @@
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Key rotation frequency
+        Parameters:
+          - InputParametersAAA7A52BE3
+          - InputParametersBB1A5E2A32
+          - InputParametersCCB43018CE
+          - InputParametersDDD92993FF
+      - Label:
+          default: Demo website
+        Parameters:
+          - InputParametersEE5641638F
+          - InputParametersFF87AB597D
+      - Label:
+          default: DASH stream
+        Parameters:
+          - InputParametersGG61D12B91
+          - InputParametersHH658A4FF3
+          - InputParametersII2554528D
+      - Label:
+          default: HLS stream
+        Parameters:
+          - InputParametersJJ5CCD2C5E
+          - InputParametersKK85FEDEAD
+          - InputParametersLL8634FB46
+      - Label:
+          default: APIs
+        Parameters:
+          - InputParametersMM2FC19C63
+    ParameterLabels:
+      InputParametersAAA7A52BE3:
+        default: Hours
+      InputParametersBB1A5E2A32:
+        default: Minutes
+      InputParametersCCB43018CE:
+        default: Day of the week
+      InputParametersDDD92993FF:
+        default: Week of the month
+      InputParametersEE5641638F:
+        default: Username
+      InputParametersFF87AB597D:
+        default: Password
+      InputParametersGG61D12B91:
+        default: Hostname for asset delivery
+      InputParametersHH658A4FF3:
+        default: Url path for asset delivery
+      InputParametersII2554528D:
+        default: TTL for token
+      InputParametersJJ5CCD2C5E:
+        default: Hostname for asset delivery
+      InputParametersKK85FEDEAD:
+        default: Url path for asset delivery
+      InputParametersLL8634FB46:
+        default: TTL for token
+      InputParametersMM2FC19C63:
+        default: Choose the programming language for the Lambdas
+Parameters:
+  InputParametersAAA7A52BE3:
+    Type: String
+    AllowedValues:
+      - "00"
+      - "01"
+      - "02"
+      - "03"
+      - "04"
+      - "05"
+      - "06"
+      - "07"
+      - "08"
+      - "09"
+      - "10"
+      - "11"
+      - "12"
+      - "13"
+      - "14"
+      - "15"
+      - "16"
+      - "17"
+      - "18"
+      - "19"
+      - 2O
+      - "21"
+      - "22"
+      - "23"
+    Description: Specify the how frequently key rotation process will be triggered
+  InputParametersBB1A5E2A32:
+    Type: String
+    AllowedValues:
+      - "00"
+      - "01"
+      - "02"
+      - "03"
+      - "04"
+      - "05"
+      - "06"
+      - "07"
+      - "08"
+      - "09"
+      - "10"
+      - "11"
+      - "12"
+      - "13"
+      - "14"
+      - "15"
+      - "16"
+      - "17"
+      - "18"
+      - "19"
+      - 2O
+      - "21"
+      - "22"
+      - "23"
+      - "24"
+      - "25"
+      - "26"
+      - "27"
+      - "28"
+      - "29"
+      - "30"
+      - "31"
+      - "32"
+      - "33"
+      - "34"
+      - "35"
+      - "36"
+      - "37"
+      - "38"
+      - "39"
+      - "40"
+      - "41"
+      - "42"
+      - "43"
+      - "44"
+      - "45"
+      - "46"
+      - "47"
+      - "48"
+      - "49"
+      - "50"
+      - "51"
+      - "52"
+      - "53"
+      - "54"
+      - "55"
+      - "56"
+      - "57"
+      - "58"
+      - "59"
+    Description: Specify the how frequently key rotation process will be triggered
+  InputParametersCCB43018CE:
+    Type: String
+    AllowedValues:
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+      - "5"
+      - "6"
+      - "7"
+    Description: Specify the how frequently key rotation process will be triggered
+  InputParametersDDD92993FF:
+    Type: String
+    AllowedValues:
+      - "1"
+      - "2"
+      - "3"
+      - "4"
+    Description: Specify the how frequently key rotation process will be triggered
+  InputParametersEE5641638F:
+    Type: String
+    Description: Username used to authenticate demo viewer
+  InputParametersFF87AB597D:
+    Type: String
+    Description: Password used to authenticate demo viewer
+  InputParametersGG61D12B91:
+    Type: String
+    Description: Hostname used for asset delivery for DASH stream
+  InputParametersHH658A4FF3:
+    Type: String
+    Description: URL path for existing playable asset for DASH stream
+  InputParametersII2554528D:
+    Type: String
+    AllowedValues:
+      - +30m
+      - +1h
+      - +3h
+      - +6h
+      - +24h
+    Description: TTL for the token for DASH stream
+  InputParametersJJ5CCD2C5E:
+    Type: String
+    Description: Hostname used for asset delivery for HLS stream
+  InputParametersKK85FEDEAD:
+    Type: String
+    Description: URL path for existing playable asset for HLS stream
+  InputParametersLL8634FB46:
+    Type: String
+    AllowedValues:
+      - +30m
+      - +1h
+      - +3h
+      - +6h
+      - +24h
+    Description: TTL for the token for HLS stream
+  InputParametersMM2FC19C63:
+    Type: String
+    AllowedValues:
+      - nodejs
+      - python
+    Description: "Choose the programming language for API code "
+  BootstrapVersion:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cdk-bootstrap/hnb659fds/version
+    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
 Resources:
   Function76856677:
     Type: AWS::CloudFront::Function
@@ -93,7 +309,7 @@ Resources:
                 }
 
 
-                if (!_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
+                if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
                     throw new Error('Internal signature verification failed');
                 }
 
@@ -533,7 +749,7 @@ Resources:
       Code:
         S3Bucket:
           Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
-        S3Key: ccf779b46a6cb4034cfb118870e596f2af0151a3a7c76e0c67eee0fe1ee02df8.zip
+        S3Key: aa902c6c70daabdb776e1410a01ce2638162ce92ac26fc4a11a22ba8a8a0aec2.zip
       Role:
         Fn::GetAtt:
           - RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA
@@ -573,7 +789,7 @@ Resources:
       - RotateSecretsGenerateSecretUpdateCffServiceRoleA16980DA
     Metadata:
       aws:cdk:path: LIVE/RotateSecrets/GenerateSecretUpdateCff/Resource
-      aws:asset:path: asset.ccf779b46a6cb4034cfb118870e596f2af0151a3a7c76e0c67eee0fe1ee02df8
+      aws:asset:path: asset.aa902c6c70daabdb776e1410a01ce2638162ce92ac26fc4a11a22ba8a8a0aec2
       aws:asset:is-bundled: false
       aws:asset:property: Code
   RotateSecretsGenerateNewSecretLogs9DC62D0F:
@@ -1035,6 +1251,60 @@ Resources:
       - RotateSecretsRotateRole815561C0
     Metadata:
       aws:cdk:path: LIVE/RotateSecrets/Rotate/Resource
+  RotateSecretsRotateEventsRoleE432055B:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Action: sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+        Version: "2012-10-17"
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Rotate/EventsRole/Resource
+  RotateSecretsRotateEventsRoleDefaultPolicy9CCF43C7:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+          - Action: states:StartExecution
+            Effect: Allow
+            Resource:
+              Ref: RotateSecretsRotateDD9D7C2F
+        Version: "2012-10-17"
+      PolicyName: RotateSecretsRotateEventsRoleDefaultPolicy9CCF43C7
+      Roles:
+        - Ref: RotateSecretsRotateEventsRoleE432055B
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Rotate/EventsRole/DefaultPolicy/Resource
+  RotateSecretsRule151D46D52:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: Trigger StepFunction to rotate secrets
+      ScheduleExpression:
+        Fn::Join:
+          - ""
+          - - cron(
+            - Ref: InputParametersBB1A5E2A32
+            - " "
+            - Ref: InputParametersAAA7A52BE3
+            - " ? * "
+            - Ref: InputParametersCCB43018CE
+            - "#"
+            - Ref: InputParametersDDD92993FF
+            - " *)"
+      State: ENABLED
+      Targets:
+        - Arn:
+            Ref: RotateSecretsRotateDD9D7C2F
+          Id: Target0
+          RoleArn:
+            Fn::GetAtt:
+              - RotateSecretsRotateEventsRoleE432055B
+              - Arn
+    Metadata:
+      aws:cdk:path: LIVE/RotateSecrets/Rule1/Resource
   AWS679f53fac002430cb0da5b7982bd22872D164C4C:
     Type: AWS::Lambda::Function
     Properties:
@@ -1112,13 +1382,13 @@ Resources:
       Content:
         S3Bucket:
           Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
-        S3Key: eb93fd55cb53bb7d8156fabb055a373ff3ed8d6925b39dd6b4365133d16bfef5.zip
+        S3Key: ed7df510d5605fbeac176227976e9fc797e28fdb5e36d36d12b50741430be849.zip
       CompatibleRuntimes:
         - nodejs14.x
       Description: Layer used by generate new secret lambda
     Metadata:
       aws:cdk:path: LIVE/Api/RotateSecretLayer/Resource
-      aws:asset:path: asset.eb93fd55cb53bb7d8156fabb055a373ff3ed8d6925b39dd6b4365133d16bfef5
+      aws:asset:path: asset.ed7df510d5605fbeac176227976e9fc797e28fdb5e36d36d12b50741430be849
       aws:asset:is-bundled: false
       aws:asset:property: Content
   ApiHostingBucket29312F0D:
@@ -1203,13 +1473,37 @@ Resources:
           - ""
           - - '{"service":"DynamoDB","action":"batchWriteItem","parameters":{"RequestItems":{"'
             - Ref: ApiDemoTableFE9A9502
-            - '":[{"PutRequest":{"Item":{"id":{"S":"1"},"url_path":{"S":"ttt"},"endpoint_hostname":{"S":"trr"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"+3h"}}}}}},{"PutRequest":{"Item":{"id":{"S":"2"},"url_path":{"S":"yyy"},"endpoint_hostname":{"S":"ttt"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"+24h"}}}}}}]}},"physicalResourceId":{"id":"initDBData"}}'
+            - '":[{"PutRequest":{"Item":{"id":{"S":"1"},"url_path":{"S":"'
+            - Ref: InputParametersKK85FEDEAD
+            - '"},"endpoint_hostname":{"S":"'
+            - Ref: InputParametersJJ5CCD2C5E
+            - '"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"'
+            - Ref: InputParametersLL8634FB46
+            - '"}}}}}},{"PutRequest":{"Item":{"id":{"S":"2"},"url_path":{"S":"'
+            - Ref: InputParametersHH658A4FF3
+            - '"},"endpoint_hostname":{"S":"'
+            - Ref: InputParametersGG61D12B91
+            - '"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"'
+            - Ref: InputParametersII2554528D
+            - '"}}}}}}]}},"physicalResourceId":{"id":"initDBData"}}'
       Update:
         Fn::Join:
           - ""
           - - '{"service":"DynamoDB","action":"batchWriteItem","parameters":{"RequestItems":{"'
             - Ref: ApiDemoTableFE9A9502
-            - '":[{"PutRequest":{"Item":{"id":{"S":"1"},"url_path":{"S":"ttt"},"endpoint_hostname":{"S":"trr"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"+3h"}}}}}},{"PutRequest":{"Item":{"id":{"S":"2"},"url_path":{"S":"yyy"},"endpoint_hostname":{"S":"ttt"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"+24h"}}}}}}]}},"physicalResourceId":{"id":"initDBData"}}'
+            - '":[{"PutRequest":{"Item":{"id":{"S":"1"},"url_path":{"S":"'
+            - Ref: InputParametersKK85FEDEAD
+            - '"},"endpoint_hostname":{"S":"'
+            - Ref: InputParametersJJ5CCD2C5E
+            - '"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"'
+            - Ref: InputParametersLL8634FB46
+            - '"}}}}}},{"PutRequest":{"Item":{"id":{"S":"2"},"url_path":{"S":"'
+            - Ref: InputParametersHH658A4FF3
+            - '"},"endpoint_hostname":{"S":"'
+            - Ref: InputParametersGG61D12B91
+            - '"},"token_policy":{"M":{"headers":{"L":[{"S":"user-agent"},{"S":"referer"}]},"exc":{"L":[{"S":"/ads/"}]},"nbf":{"S":"1645000000"},"session_auto_generate":{"N":"12"},"cty_fallback":{"BOOL":true},"paths":{"L":[{"S":"/"}]},"ip":{"BOOL":false},"cty":{"BOOL":false},"co_fallback":{"BOOL":true},"co":{"BOOL":false},"exp":{"S":"'
+            - Ref: InputParametersII2554528D
+            - '"}}}}}}]}},"physicalResourceId":{"id":"initDBData"}}'
       InstallLatestAwsSdk: true
     DependsOn:
       - ApiAssetsTableinitDBResourceCustomResourcePolicyDAF30561
@@ -1310,7 +1604,7 @@ Resources:
       Code:
         S3Bucket:
           Fn::Sub: cdk-hnb659fds-assets-${AWS::AccountId}-${AWS::Region}
-        S3Key: e972b2cd387dd97c1edd1d00f0e289400b904aee23861f0d121cdbefc61eca96.zip
+        S3Key: 6cc22a5b84fac543b54cd11afc878694f5e77c2ccdd2ff9f71c8d3259b79cd02.zip
       Role:
         Fn::GetAtt:
           - ApiGenerateTokenServiceRoleCA28640D
@@ -1321,8 +1615,10 @@ Resources:
             Ref: AWS::StackName
           TABLE_NAME:
             Ref: ApiDemoTableFE9A9502
-          USERNAME: abcd
-          PASSWORD: abcd
+          USERNAME:
+            Ref: InputParametersEE5641638F
+          PASSWORD:
+            Ref: InputParametersFF87AB597D
       FunctionName:
         Fn::Join:
           - ""
@@ -1337,7 +1633,7 @@ Resources:
       - ApiGenerateTokenServiceRoleCA28640D
     Metadata:
       aws:cdk:path: LIVE/Api/GenerateToken/Resource
-      aws:asset:path: asset.e972b2cd387dd97c1edd1d00f0e289400b904aee23861f0d121cdbefc61eca96
+      aws:asset:path: asset.6cc22a5b84fac543b54cd11afc878694f5e77c2ccdd2ff9f71c8d3259b79cd02
       aws:asset:is-bundled: false
       aws:asset:property: Code
   ApiRevokeSessionServiceRoleA4AF7FC3:
@@ -1768,7 +2064,7 @@ Resources:
   CDKMetadata:
     Type: AWS::CDK::Metadata
     Properties:
-      Analytics: v2:deflate64:H4sIAAAAAAAA/3VTbW8aMQz+LXwPKWWa+nUUxobEtO6Yto/I5MyRkkuueQGh6P77nNxBr1P7yY9fYvuxnSm//8zjZARnNxblcazkjseNB3FkZNpGoUwo99Zoz+MyaOGl0Wy+1zf808pK6gJfAjr/ZJQUl+R/z7yQzlu5C4N3MyHQuVWJ2kufH85TwWUq+FHEME3LHAqL3tWgoUJLvWc9xXWoZWfYn6acDEVQ+M2a0LDyoqE2JVH9DTuFKTqDlimodyV8wPXribrYmGAF/oCmkbpK7nesa7ig/YPW9Rne6BuKUOiNHtZ4QltL5zIlCTWPhen6yvJ1rh0i2p+2EZwj5nyWBCuxUeZSUyv8MYgj+sXNkKJ57KyP4JB1MKXrUSdeqwx1mompHI9rU3XDS3x6TJlfyPUrYMjNZkBGj82+J+e2HtzR8XUe7EqfzBHfBvD4F6RnNDs2PxgpkC1BKrYJtHksGR2jp8GKg9S5xlBvWb7PM3hx4HEB7rAzYMt8JVelZdDIit6c4UJ3EMk3a2SfqcopV9pjZeG6i8IEj22bzzj4JnhWoMv7ZXnW6V3asgjOm3preydt4uzm2XaL/1+l5FfcXdpWpdPY0l8TSuYESuZryX/B6FJeu+pvq2WTMajmAHwy+tL/2rskhyz7iPjd+yaRTbJjm1Dml9GAOPHVpkT+7O5O9w/8gU9Hz07KsQ308WrkRSf/ATMaWeQwBAAA
+      Analytics: v2:deflate64:H4sIAAAAAAAA/3VTbW8aMQz+Lf0eUso09esojA2JaeyYto/I5MyRkkuueQGh6P77nNxBr1P7yY9fYvuxnQl/+Mzj+A7ObiTK40jJHY8bD+LIZnu9Bgs1erSM/NsolAnl3hrteVwELbw0OoXd8E8rK6kLfAno/NooKS7J/555Lp23chcG76ZCoHPLErWXPj+cpYKLVPCjiGGaljkUFr2rQUOFlohkPcV1qGVn2J8mnAxFUPjNmtCw8qKhNiXx/g07hSk6g5YpqHclfMD164m62JhgBf6AppG6Su53rCu4oP2D1vUZ3ugbilDojR7WWKOtpXOZkoSax8J0fWX5OtcOEe1P2wjOEXM+TYKV2ChzqakV/hTEEf38ZkjRPHbWJ3DIOpjS9agTr1WGOs3EVI7Hlam64SU+PabML+T6FTDkZjMgo8dm35NzWw/u6PgqD3apT+aIbwN4/AvSM5odmx2MFMgWIBXbBNo8lowu09NgxUHqXGOotwzT8ClF2i3rd9yyfLVn8OLA4xzcYWfAlvl2rkrLoJEVZTrDha4jkm/ayD5/lVMttcfKwnVDhQke2zYfd/BN8KxAl7fO8gbSu7R7EZw39db2TtrP2c2y7Rb/v0rJr7i7v61KB7OlHyiUzAmUzDeUf4jRpbx21V9cy8YjUM0B+PjuS/+x75Mcsuwj4nfvm0Q2yY5tQplfRgPixFebEvmzuz89PPJHPrl7dlKObKDvWCMvOvkPHUzduFMEAAA=
     Metadata:
       aws:cdk:path: LIVE/CDKMetadata/Default
     Condition: CDKMetadataAvailable
@@ -1985,11 +2281,6 @@ Mappings:
       states: states.us-west-1.amazonaws.com
     us-west-2:
       states: states.us-west-2.amazonaws.com
-Parameters:
-  BootstrapVersion:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /cdk-bootstrap/hnb659fds/version
-    Description: Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]
 Rules:
   CheckBootstrapVersion:
     Assertions:

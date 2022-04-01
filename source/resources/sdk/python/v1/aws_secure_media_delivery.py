@@ -7,7 +7,6 @@ import boto3
 import hmac
 import hashlib
 import base64
-#from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 from urllib.parse import urlparse, urldefrag, urlsplit
 
 

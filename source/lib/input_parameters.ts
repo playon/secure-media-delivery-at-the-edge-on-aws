@@ -190,17 +190,17 @@ export class GetInputParameters extends Construct {
       if (configuration.dash?.hostname === "H") {
         const dash_hostname = new CfnParameter(this, "GG", {
           type: "String",
-          description: "[API][DASH] Hostname used for asset delivery",
+          description: "Hostname used for asset delivery for DASH stream",
         });
 
         const dash_url_path = new CfnParameter(this, "HH", {
           type: "String",
-          description: "[API][DASH] URL path for existing playable asset",
+          description: "URL path for existing playable asset for DASH stream",
         });
 
         const dash_ttl = new CfnParameter(this, "II", {
           type: "String",
-          description: "[API][DASH] TTL for the token",
+          description: "TTL for the token for DASH stream",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
 
         });
@@ -223,17 +223,17 @@ export class GetInputParameters extends Construct {
       if (configuration.hls?.hostname === "H") {
         const hls_hostname = new CfnParameter(this, "JJ", {
           type: "String",
-          description: "[API][HLS] Hostname used for asset delivery",
+          description: "Hostname used for asset delivery for HLS stream",
         });
 
         const hls_url_path = new CfnParameter(this, "KK", {
           type: "String",
-          description: "[API][HLS] URL path for existing playable asset",
+          description: "URL path for existing playable asset for HLS stream",
         });
 
         const hls_ttl = new CfnParameter(this, "LL", {
           type: "String",
-          description: "[API][DASH] TTL for the token",
+          description: "TTL for the token for HLS stream",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
 
         });
@@ -256,7 +256,7 @@ export class GetInputParameters extends Construct {
         if (configuration.api?.language === "A") {
             const api_language = new CfnParameter(this, "MM", {
               type: "String",
-              description: "[API] Choose the programming language for API code ",
+              description: "Choose the programming language for API code ",
               allowedValues: ["nodejs", "python"]
 
             });

@@ -86,6 +86,26 @@ cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json 
 echo sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
 sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
 
+
+while IFS= read -r line
+do
+	echo "$line"
+	key="$(echo $line | cut -d'=' -f1)"
+	value="$(echo $line | cut -d'=' -f2)"
+	echo "key=$key, value=$value"
+
+	for item in `cat $staging_dist_dir/$stack_name.template.json | jq  '.Parameters' | jq -r 'keys ' | grep $key | cut -d '"' -f 2`; do
+		echo "item=$item"
+		echo "replace $item with $value in file $staging_dist_dir/$stack_name.template.json"
+		sed -i'' -e "s#$item#$value#g" $staging_dist_dir/$stack_name.template.json
+
+	done
+
+
+done < ../input_parameters_names.txt
+
+
+
 i=1
 cd $staging_dist_dir
 echo "Searching for assets..."

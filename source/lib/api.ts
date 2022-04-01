@@ -60,7 +60,6 @@ export class Api extends Construct {
       runtime = lambda.Runtime.NODEJS_14_X
       language = 'nodejs'
     }
-    console.log(props.configuration);
     const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
       compatibleRuntimes: [
         runtime

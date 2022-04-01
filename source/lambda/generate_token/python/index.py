@@ -156,7 +156,7 @@ def lambda_handler(event, context):
             token_attributes['qs'][value] = qparams[value]
 
     full_path = video_metadata['endpoint_hostname'] + video_metadata['url_path']
-    out = cftoken.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
+    out = aws_secure_media_delivery.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
     print (out)
 
     # TODO implement

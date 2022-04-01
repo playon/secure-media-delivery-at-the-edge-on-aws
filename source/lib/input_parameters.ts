@@ -54,7 +54,7 @@ export class GetInputParameters extends Construct {
           "22",
           "23",
         ],
-        description: "[Base configuration] Hours",
+        description: "Specify the how frequently key rotation process will be triggered (hours)",
       });
 
       const minutes = new CfnParameter(this, "BB", {
@@ -121,19 +121,19 @@ export class GetInputParameters extends Construct {
           "58",
           "59",
         ],
-        description: "[Base configuration] Minutes",
+        description: "Specify the how frequently key rotation process will be triggered (minutes)",
       });
 
       const day_of_week = new CfnParameter(this, "CC", {
         type: "String",
         allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
-        description: "[Base configuration] Day of the week",
+        description: "Specify the how frequently key rotation process will be triggered (day of the week)",
       });
 
       const week_of_month = new CfnParameter(this, "DD", {
         type: "String",
         allowedValues: ["1", "2", "3", "4"],
-        description: "[Base configuration] Week of the month",
+        description: "Specify the how frequently key rotation process will be triggered (week of the month)",
       });
 
       returnObject = {
@@ -165,13 +165,13 @@ export class GetInputParameters extends Construct {
             const username = new CfnParameter(this, "EE", {
               type: "String",
               description:
-                "[API][Demo website] Username used to authenticate demo viewer",
+                "Username used to authenticate demo viewer",
             });
 
             const password = new CfnParameter(this, "FF", {
               type: "String",
               description:
-                "[API][Demo website] Password used to authenticate demo viewer",
+                "Password used to authenticate demo viewer",
             });
 
             returnObject.demo = {

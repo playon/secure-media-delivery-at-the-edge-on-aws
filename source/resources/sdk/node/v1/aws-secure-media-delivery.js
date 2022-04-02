@@ -125,7 +125,7 @@ class TokenProvider{
             intsig_input += this.payloadSsn + ':';
         };
          
-        if (attributes['headers']){
+        if (attributes['headers'] && attributes['headers'].length){
             attributes['headers'].forEach((header)=>{
                 jwt_payload['headers'].push(header.key);
                 intsig_input += header.value + ':';
@@ -142,8 +142,8 @@ class TokenProvider{
 		if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
 			console.log("Input for internal signature: ", intsig_input); 
-			jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256')};
-		else {
+			jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256')
+        } else {
 			delete jwt_payload['intsig'];
 		};
 

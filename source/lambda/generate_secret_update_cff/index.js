@@ -206,7 +206,7 @@ function handler(event) {
     }
 
     //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
-    delete pathArray[1];
+    pathArray.splice(1,1);
     var newUri = pathArray.join("/")
 
     try{

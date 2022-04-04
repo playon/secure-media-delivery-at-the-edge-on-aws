@@ -19,9 +19,9 @@ table = dynamodb.Table(tableName)
 def handler(event, context):
     headers = event['headers']
     querystrings = event['queryStringParameters']
-    qparams = {k : v[0] for k, v in parse_qs(querystrings).items()}
 
     if "cloudfront-viewer-address" in headers:
+        #viewer_ip = str(headers['cloudfront-viewer-address'][0]['value'])
         viewer_ip = str(headers['cloudfront-viewer-address'])[0:str(headers['cloudfront-viewer-address']).rindex(':')]
     else:
         viewer_ip = event['requestContext']['http']['sourceIp']
@@ -29,7 +29,7 @@ def handler(event, context):
     message_bytes = message.encode('ascii')
     base64_bytes = base64.b64encode(message_bytes)
     authorized = base64_bytes.decode('ascii')
-    auth_header = str(headers['authorization'][0]['value'])
+    auth_header = str(headers['authorization'])
     auth_header = auth_header.split(' ')[1]
     print ("AUTH HEADER " + auth_header)
     print ("authorized " + authorized)
@@ -40,14 +40,18 @@ def handler(event, context):
         }
         return response
 
-    if ("id" not in qparams) or not list(qparams.keys()):
+    #qparams = {k : v[0] for k, v in parse_qs(querystrings).items()}
+
+
+    if('queryStringParameters' in event and 'id' in event['queryStringParameters']):
+        id =  event['queryStringParameters']['id']
+
+    else:
         response = {
             'status': '400',
             'body': "Bad Request"
         }
         return response
-    else:
-        id = qparams['id']
 
     print ("ID is " + str(id))
 
@@ -80,7 +84,7 @@ def handler(event, context):
 
     if 'co' in token_policy:
         if 'cloudfront-viewer-country' in headers:
-            token_attributes['co'] = headers['cloudfront-viewer-country'][0]['value']
+            token_attributes['co'] = headers['cloudfront-viewer-country']
         elif 'co_fallback' not in token_policy:
             response = {
             'status': '400',
@@ -90,7 +94,7 @@ def handler(event, context):
 
     if 'cty' in token_policy:
         if 'cloudfront-viewer-city' in headers:
-            token_attributes['cty'] = headers['cloudfront-viewer-city'][0]['value']
+            token_attributes['cty'] = headers['cloudfront-viewer-city']
         elif 'cty_fallback' not in token_policy:
             response = {
             'status': '400',
@@ -146,7 +150,7 @@ def handler(event, context):
         token_attributes['headers'] = dict()
         for value in token_policy['headers']:
             value = value.lower()
-            token_attributes['headers'][value] = headers[value][0]['value']
+            token_attributes['headers'][value] = headers[value]
 
     if 'qs' in token_policy and len(token_policy['qs']) > 0:
         token_attributes['qs'] = dict()
@@ -154,13 +158,13 @@ def handler(event, context):
             value = value.lower()
             token_attributes['qs'][value] = qparams[value]
 
-    full_path = video_metadata['endpoint_hostname'] + video_metadata['url_path']
-    out = aws_secure_media_delivery.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
-    print (out)
+    full_path = 'https://' + video_metadata['endpoint_hostname'] + video_metadata['url_path']
+    playback_url = aws_secure_media_delivery.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
+
 
     # TODO implement
     return {
         'statusCode': 200,
-        'body': json.dumps('Hello from Lambda!')
+        'body': playback_url
     }
 

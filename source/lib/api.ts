@@ -10,8 +10,6 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions
  *  and limitations under the License.
  */
-//import * as fs from 'fs';
-//import * as path from 'path';
 
 import {
   Aws,
@@ -54,12 +52,13 @@ export class Api extends Construct {
     if(props.configuration.api?.language=='nodejs'){
       runtime = lambda.Runtime.NODEJS_14_X
       language = 'nodejs'
+      console.log("BBB")
     }else{
-      //runtime = lambda.Runtime.PYTHON_3_7
-      //language = 'python'
-      runtime = lambda.Runtime.NODEJS_14_X
-      language = 'nodejs'
+      console.log("AAAAA")
+      runtime = lambda.Runtime.PYTHON_3_7
+      language = 'python'
     }
+    console.log(language);
     const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
       compatibleRuntimes: [
         runtime
@@ -92,7 +91,7 @@ export class Api extends Construct {
     const generateToken = new lambda.Function(this, 'GenerateToken',{
       functionName: Aws.STACK_NAME + '_GenerateToken',
       runtime: runtime,
-      code: lambda.Code.fromAsset('lambda/generate_token/nodejs'),
+      code: lambda.Code.fromAsset('lambda/generate_token/' + language),
       handler: 'index.handler',
           environment: {
             STACK_NAME: Aws.STACK_NAME,

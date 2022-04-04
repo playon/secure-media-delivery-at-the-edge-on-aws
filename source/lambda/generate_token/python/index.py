@@ -16,17 +16,16 @@ dynamodb = boto3.resource('dynamodb')
 table = dynamodb.Table(tableName)
 
 
-def lambda_handler(event, context):
-    request = event['Records'][0]['cf']['request']
-    headers = request['headers']
-    querystrings = request['querystring']
-    qparams = {k : v[0] for k, v in parse_qs(request['querystring']).items()}
-    
+def handler(event, context):
+    headers = event['headers']
+    querystrings = event['queryStringParameters']
+    qparams = {k : v[0] for k, v in parse_qs(querystrings).items()}
+
     if "cloudfront-viewer-address" in headers:
-        viewer_ip = str(headers['cloudfront-viewer-address'][0]['value'])
+        viewer_ip = str(headers['cloudfront-viewer-address'])[0:str(headers['cloudfront-viewer-address']).rindex(':')]
     else:
         viewer_ip = event['requestContext']['http']['sourceIp']
-    message = user + ":" + passwd  
+    message = user + ":" + passwd
     message_bytes = message.encode('ascii')
     base64_bytes = base64.b64encode(message_bytes)
     authorized = base64_bytes.decode('ascii')
@@ -39,8 +38,8 @@ def lambda_handler(event, context):
             'status': '401',
             'body': "Not authorized"
         }
-        return response       
-        
+        return response
+
     if ("id" not in qparams) or not list(qparams.keys()):
         response = {
             'status': '400',
@@ -49,7 +48,7 @@ def lambda_handler(event, context):
         return response
     else:
         id = qparams['id']
-    
+
     print ("ID is " + str(id))
 
     try:
@@ -62,8 +61,8 @@ def lambda_handler(event, context):
         }
         return response
     else:
-        print ("All good on DB") 
-    
+        print ("All good on DB")
+
     if 'Item' not in dbResponse:
         response = {
             'status': '404',
@@ -74,11 +73,11 @@ def lambda_handler(event, context):
     endpoint_hostname = video_metadata['endpoint_hostname']
     video_url = video_metadata['url_path']
     token_policy = video_metadata['token_policy']
-    
+
     token_attributes = {}
     if 'ip' in token_policy:
         token_attributes['ip'] = viewer_ip
-        
+
     if 'co' in token_policy:
         if 'cloudfront-viewer-country' in headers:
             token_attributes['co'] = headers['cloudfront-viewer-country'][0]['value']
@@ -88,7 +87,7 @@ def lambda_handler(event, context):
             'body': "Bad request"
             }
             return response
- 
+
     if 'cty' in token_policy:
         if 'cloudfront-viewer-city' in headers:
             token_attributes['cty'] = headers['cloudfront-viewer-city'][0]['value']
@@ -97,16 +96,16 @@ def lambda_handler(event, context):
             'status': '400',
             'body': "Bad request"
             }
-            return response 
+            return response
 
     if 'session_auto_generate' in token_policy:
         token_attributes['ssn'] = "generate_" + str(token_policy['session_auto_generate'])
-        
+
     print ("Session: " + token_attributes['ssn'])
-    
+
     if 'nbf' in token_policy:
         token_attributes['nbf'] = int(token_policy['nbf'])
-        
+
     if 'exp' in token_policy:
         if ('h' in token_policy['exp']):
             delay = int(token_policy['exp'][:-1])
@@ -115,7 +114,7 @@ def lambda_handler(event, context):
         elif ('m' in token_policy['exp']):
             delay = int(token_policy['exp'][:-1])
             nowint( time.time() )
-            token_attributes['exp'] = int( time.time() ) + (delay * 60)  
+            token_attributes['exp'] = int( time.time() ) + (delay * 60)
         else:
             token_attributes['exp'] = token_policy['exp']
     else:
@@ -124,7 +123,7 @@ def lambda_handler(event, context):
             'body': "Bad request"
             }
         return response
-        
+
     if 'paths' in token_policy and len(token_policy['paths']) >0:
         token_attributes['paths'] = token_policy['paths']
     else:
@@ -133,7 +132,7 @@ def lambda_handler(event, context):
             'body': "Bad request"
             }
         return response
-    
+
     if 'exc' in token_policy and len(token_policy['exc']) > 0:
         token_attributes['exc'] = token_policy['exc']
     else:
@@ -142,7 +141,7 @@ def lambda_handler(event, context):
             'body': "Bad request"
             }
         return response
-        
+
     if 'headers' in token_policy and len(token_policy['headers']) > 0:
         token_attributes['headers'] = dict()
         for value in token_policy['headers']:

@@ -6,6 +6,7 @@ node_modules
 !source/lambda/**/*.js
 source/solution.context.json
 source/lambda/layers/jsonpath/python/*
+source/lambda/layers/aws_secure_media_delivery_python/python/*
 # CDK asset staging directory
 .cdk.staging
 cdk.out

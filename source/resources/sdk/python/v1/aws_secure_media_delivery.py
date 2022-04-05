@@ -117,6 +117,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	    sessionPayload = ''.join(random.choice(string.ascii_lowercase) for _ in range(int(sessionLen)))
 	  else:
 	    sessionPayload = attributes['ssn']
+	  private_payload += sessionPayload + ":"
 
 	if "headers" in attributes:
 	  jwt_payload['headers'] = attributes['headers']
@@ -155,7 +156,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	#jwt_json=json.loads(jwt_payload)
 	
 	### Encode token
-	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": "230498151c214b788dd97f22b85410a5"},)
+	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": key},)
 	new_url = myScheme + "://" + myDomain + "/" + encoded_jwt + myPath
 	
 	return(new_url)

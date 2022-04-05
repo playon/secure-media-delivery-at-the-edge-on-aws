@@ -17,8 +17,10 @@ table = dynamodb.Table(tableName)
 
 
 def handler(event, context):
+    print (str(event))
     headers = event['headers']
     querystrings = event['queryStringParameters']
+    rawQueryString = event['rawQueryString']
 
     if "cloudfront-viewer-address" in headers:
         #viewer_ip = str(headers['cloudfront-viewer-address'][0]['value'])
@@ -160,11 +162,13 @@ def handler(event, context):
 
     full_path = 'https://' + video_metadata['endpoint_hostname'] + video_metadata['url_path']
     playback_url = aws_secure_media_delivery.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
-
+    if "=" in str(rawQueryString):
+        playback_url = playback_url + "?" + str(rawQueryString)
 
     # TODO implement
     return {
         'statusCode': 200,
         'body': playback_url
     }
+
 

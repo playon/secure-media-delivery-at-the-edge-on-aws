@@ -47,19 +47,25 @@ class Secret:
         else:
             if 'SecretString' in primary_secret_value_response:
                 secret_data = json.loads(primary_secret_value_response['SecretString'])
+                print (str(secret_data))
                 first_pair = next(iter((secret_data.items())) )
                 Secret.secret1 = first_pair[1]
+                Secret.uuid1 = first_pair[0]
 
             if 'SecretString' in secondary_secret_value_response:
                 secret_data = json.loads(secondary_secret_value_response['SecretString'])
                 first_pair = next(iter((secret_data.items())) )
-                Secret.secret2 = first_pair[1]
+                Secret.uuid2 = first_pair[0]
 
     def show(self,kind):
-        if "primary" in kind:
+        if kind == "primary":
              return(self.secret1)
-        if "secondary" in kind:
+        elif kind == "secondary":
              return(self.secret2)
+        elif kind == "primaryuuid":
+             return(self.uuid1)
+        elif kind == "secondaryuuid":
+             return(self.uuid2)
 
 
 
@@ -93,6 +99,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	Secret.secondarySecret = secrets_prefix + "_SecondarySecret"
 	keys = Secret()
 	secret = keys.show("primary")
+	uuid = keys.show("primaryuuid")
 	
 	### Encode key into UTF-8
 	key = secret.encode()
@@ -156,7 +163,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	#jwt_json=json.loads(jwt_payload)
 	
 	### Encode token
-	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": key},)
+	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": uuid},)
 	new_url = myScheme + "://" + myDomain + "/" + encoded_jwt + myPath
 	
 	return(new_url)

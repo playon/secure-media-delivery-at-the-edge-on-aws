@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 import { IConfiguration } from '../../helpers/validators/configuration';
-import { SessionRevocationModule } from './lib/session-revocation-module';
+import { AutoSessionRevocationModule } from './lib/auto-session-revocation-module';
 import { PromptComponent } from './lib/prompt-component';
 import { onCancel } from './lib/handlers';
 import { MainModule } from './lib/main-module';
@@ -22,7 +22,7 @@ const componentQuestion = {
   instructions: false,
   hint: '- Space to select. Return to submit. \'a\' to toggle all.',
   choices: [
-    { title: '[SESSION REVOCATION]', 'value': 'session-revocation' },
+    { title: 'AUTO SESSION REVOCATION]', 'value': 'session-revocation' },
     { title: '[API]', 'value': 'api' },
   ]
 };
@@ -42,7 +42,7 @@ const componentQuestion = {
  */
 const moduleMap: { [key: string]: PromptComponent } = {
   'main': new MainModule(),
-  'session-revocation': new SessionRevocationModule(),
+  'session-revocation': new AutoSessionRevocationModule(),
   'api': new ApiModule(),
 };
 

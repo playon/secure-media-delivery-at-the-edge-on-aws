@@ -12,7 +12,23 @@ export interface ISessionRevocation {
    * to the limit value.
    */
    trigger_workflow_frequency: number;
-   s3_logs_bucket_name: string;
+   db_name: string;
+   table_name: string;
+   request_ip_column: string;
+   ua_column_name: string;
+   referer_column_name: string;
+   uri_column_name: string;
+   status_column_name: string;
+   response_bytes_column_name: string;
+   date_column_name: string;
+   time_column_name: string;
+   lookback_period: string;
+   ip_penalty: number;
+   referer_penalty: number;
+   ua_penalty: number;
+   min_sessions_number: number;
+   min_session_duration: number;
+   score_threshold: number;
 }
 
 /**

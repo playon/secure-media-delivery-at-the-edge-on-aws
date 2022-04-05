@@ -33,7 +33,7 @@ export class AutoSessionRevocationStack extends Stack {
 
 
     //TODO use input parameter for the following values
-    const cloudFrontAccessLogsBucketName = configuration.sessionRevocation?.s3_logs_bucket_name || "undefined";
+    const cloudFrontAccessLogsBucketName =  "undefined";
 
     const athenaDatabaseName = "secure_media_athena_database"
     const athenaTableName = 'secure_media_athena_table'

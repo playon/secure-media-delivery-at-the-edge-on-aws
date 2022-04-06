@@ -77,7 +77,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	jwt_payload['ssn'] = "false"
 	jwt_payload['nbf'] = ''
 	jwt_payload['exp'] = ''
-	jwt_payload['headers'] = {}
+	jwt_payload['headers'] = []
 	jwt_payload['qs'] = []
 	jwt_payload['intsig'] = ''
 	jwt_payload['paths'] = []

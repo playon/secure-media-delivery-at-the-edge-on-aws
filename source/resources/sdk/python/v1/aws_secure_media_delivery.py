@@ -71,10 +71,10 @@ class Secret:
 
 def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	jwt_payload = {}
-	jwt_payload['ip'] = "false"
-	jwt_payload['co'] = "false"
-	jwt_payload['cty'] = "false"
-	jwt_payload['ssn'] = "false"
+	jwt_payload['ip'] = false
+	jwt_payload['co'] = false
+	jwt_payload['cty'] = false
+	jwt_payload['ssn'] = false
 	jwt_payload['nbf'] = ''
 	jwt_payload['exp'] = ''
 	jwt_payload['headers'] = []

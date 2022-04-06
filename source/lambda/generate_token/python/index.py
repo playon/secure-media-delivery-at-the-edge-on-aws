@@ -86,7 +86,7 @@ def handler(event, context):
     if 'ip' in token_policy:
         token_attributes['ip'] = viewer_ip
 
-    if 'co' in token_policy:
+    if 'co' in token_policy and token_policy['co']:
         if 'cloudfront-viewer-country' in headers:
             token_attributes['co'] = headers['cloudfront-viewer-country']
         elif 'co_fallback' not in token_policy:
@@ -96,7 +96,7 @@ def handler(event, context):
             }
             return response
 
-    if 'cty' in token_policy:
+    if 'cty' in token_policy and token_policy['cty']:
         if 'cloudfront-viewer-city' in headers:
             token_attributes['cty'] = headers['cloudfront-viewer-city']
         elif 'cty_fallback' not in token_policy:

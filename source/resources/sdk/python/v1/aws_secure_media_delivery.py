@@ -115,6 +115,10 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	if "cty" in attributes:
 	  jwt_payload['cty'] = True
 	  private_payload += attributes['cty'] + ":"
+
+	if "paths" in attributes:
+	  for path in attributes['paths']:
+	    jwt_payload['paths'].append(path + "*")
 	
 	if "ssn" in attributes:
 	  jwt_payload['ssn'] = True
@@ -126,15 +130,19 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	    sessionPayload = attributes['ssn']
 	  private_payload += sessionPayload + ":"
 
-	if "headers" in attributes:
-	  jwt_payload['headers'] = attributes['headers']
-	  headerString = ":".join(attributes['headers'])
-	  private_payload += headerString + ":"
-	
-	if "qs" in attributes:
-	  jwt_payload['qs'] = attributes['qs']
-	  queryString = ":".join(attributes['qs'])
-	  private_payload += queryString + ":"
+        if "headers" in attributes:
+          token_attributes['headers'] = []
+          for key,value in token_policy['headers']:
+            LCkey = key.lower()
+            jwt_payload['headers'].append(LCkey)
+            private_payload += value + ":"
+
+        if "qs" in attributes:
+          token_attributes['qs'] = []
+          for key,value in token_policy['qs']:
+            LCkey = key.lower()
+            jwt_payload['qs'].append(LCkey)
+            private_payload += value + ":"
 
 	if "exc" in attributes:
 	  jwt_payload['exc'] = attributes['exc']
@@ -164,6 +172,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	### Encode token
 	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": uuid},)
-	new_url = myScheme + "://" + myDomain + "/" + encoded_jwt + myPath
+	new_url = myScheme + "://" + myDomain + "/" + sessionPayload + "." + encoded_jwt + myPath
 	
 	return(new_url)

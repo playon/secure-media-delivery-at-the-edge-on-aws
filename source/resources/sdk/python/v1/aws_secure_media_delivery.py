@@ -122,7 +122,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	if "paths" in attributes:
 	  for path in attributes['paths']:
 	    print ("PATH IS: " + path)
-	    jwt_payload['paths'].append(path + "*")
+	    jwt_payload['paths'].append(path)
 	
 	if "ssn" in attributes:
 	  jwt_payload['ssn'] = True

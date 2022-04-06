@@ -78,10 +78,10 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	jwt_payload['nbf'] = ''
 	jwt_payload['exp'] = ''
 	jwt_payload['headers'] = {}
-	jwt_payload['qs'] = {}
+	jwt_payload['qs'] = []
 	jwt_payload['intsig'] = ''
 	jwt_payload['paths'] = []
-	jwt_payload['exc'] = {}
+	jwt_payload['exc'] = []
 	private_payload = ""
 
 	if "secrets_prefix" not in kwargs:

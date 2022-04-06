@@ -47,6 +47,8 @@ def handler(event, context):
 
     if('queryStringParameters' in event and 'id' in event['queryStringParameters']):
         id =  event['queryStringParameters']['id']
+	del event['queryStringParameters']['id']
+    newQueryString = urlencode(event['queryStringParameters']
 
     else:
         response = {
@@ -159,11 +161,11 @@ def handler(event, context):
         for value in token_policy['qs']:
             value = value.lower()
             token_attributes['qs'][value] = qparams[value]
+    if "=" in newQueryString:
+	newQueryString = "?" + newQueryString
 
-    full_path = 'https://' + video_metadata['endpoint_hostname'] + video_metadata['url_path']
+    full_path = 'https://' + video_metadata['endpoint_hostname'] + video_metadata['url_path'] + newQueryString
     playback_url = aws_secure_media_delivery.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
-    if "=" in str(rawQueryString):
-        playback_url = playback_url + "?" + str(rawQueryString)
 
     # TODO implement
     return {

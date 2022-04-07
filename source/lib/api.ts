@@ -52,13 +52,10 @@ export class Api extends Construct {
     if(props.configuration.api?.language=='nodejs'){
       runtime = lambda.Runtime.NODEJS_14_X
       language = 'nodejs'
-      console.log("BBB")
     }else{
-      console.log("AAAAA")
       runtime = lambda.Runtime.PYTHON_3_7
       language = 'python'
     }
-    console.log(language);
     const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
       compatibleRuntimes: [
         runtime
@@ -74,7 +71,7 @@ export class Api extends Construct {
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       partitionKey: {name: "id", type: ddb.AttributeType.STRING},
       removalPolicy: RemovalPolicy.DESTROY
-    })
+    });
 
     new LoadAssetsTable(this, "AssetsTable", {
       table: demoAssetsTable,

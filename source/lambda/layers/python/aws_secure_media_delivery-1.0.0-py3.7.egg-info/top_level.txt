@@ -1,1 +1,0 @@
-aws_secure_media_delivery

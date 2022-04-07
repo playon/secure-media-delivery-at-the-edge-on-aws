@@ -29,9 +29,6 @@ import {
 } from "aws-cdk-lib";
 import { JsonPath } from "aws-cdk-lib/aws-stepfunctions";
 
-//import * as fs from 'fs';
-//import * as path from 'path';
-
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { InitSecrets } from "./init_secrets";

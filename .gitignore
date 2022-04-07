@@ -7,6 +7,8 @@ node_modules
 source/solution.context.json
 source/lambda/layers/jsonpath/python/*
 source/lambda/layers/aws_secure_media_delivery_python/python/*
+!source/lambda/layers/aws_secure_media_delivery_python/python/requirements.txt
+
 # CDK asset staging directory
 .cdk.staging
 cdk.out

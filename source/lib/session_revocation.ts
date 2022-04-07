@@ -13,7 +13,6 @@
  */
 
  import {
-    aws_secretsmanager as secretsmanager,
     Stack,
     Aws,
     RemovalPolicy,
@@ -61,9 +60,10 @@
     this.sessionsTable = ddbTable;
 
     //Revoke an active session
-    const readDbStream = new lambda.Function(this, 'ReadStream',{
+    const readDbStream = new lambda.Function(this, 'UpdateRuleGroup',{
         runtime: lambda.Runtime.PYTHON_3_7,
-        code: lambda.Code.fromAsset('lambda/read_stream'),
+        functionName: Aws.STACK_NAME + "_UpdateRuleGroup",
+        code: lambda.Code.fromAsset('lambda/update_rulegroup'),
         handler: 'index.lambda_handler',
         environment: {
             'RULE_GROUP_ID' : cfnRuleGroup.attrId,

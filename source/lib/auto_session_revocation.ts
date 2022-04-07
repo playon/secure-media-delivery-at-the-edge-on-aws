@@ -17,54 +17,100 @@ import {
   CfnOutput,
   Aws,
   aws_dynamodb as ddb,
+  aws_s3_deployment as s3deploy,
+  aws_s3 as s3,
+  aws_lambda as lambda,
+  aws_logs as logs,
+  aws_sqs as sqs,
+  aws_lambda_event_sources as event_source,
+} from "aws-cdk-lib";
 
-} from 'aws-cdk-lib';
+import { Construct } from "constructs";
+import { IConfiguration } from "../helpers/validators/configuration";
+import { AutoRevokeSessionsWorkflow } from "./auto_revoke_sessions_workflow";
+import { LoadSqlParams } from "./load_athena_config_table";
 
-
-import { Construct } from 'constructs';
-import { IConfiguration } from '../helpers/validators/configuration';
-import { GetSessionsWorkflow } from './get_sessions_workflow';
 
 export class AutoSessionRevocationStack extends Stack {
+
+  private readonly params_filename = 'athena_query_params.json';
+
+
 
   constructor(scope: Construct, id: string, configuration: IConfiguration) {
     super(scope, id);
 
 
+    const sqlQueryBucket = new s3.Bucket(this, "SqlQuery");
 
-    //TODO use input parameter for the following values
-    const cloudFrontAccessLogsBucketName =  "undefined";
-
-    const athenaDatabaseName = "secure_media_athena_database"
-    const athenaTableName = 'secure_media_athena_table'
-
-    const accountId = Stack.of(this).account
-
-    const ddbTable = new ddb.Table(this, "CompromisedSessions",{
+    const sqlConfigTable = new ddb.Table(this, "SqlConfigTable", {
+      tableName: Aws.STACK_NAME + "_athenaconfig",
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-      partitionKey: {name: "sessionid", type: ddb.AttributeType.STRING},
+      partitionKey: { name: "table_name", type: ddb.AttributeType.STRING },
+      removalPolicy: RemovalPolicy.DESTROY,
+      stream: ddb.StreamViewType.NEW_IMAGE
+    });
+
+    new LoadSqlParams(this, "SqlConfig", {
+      table: sqlConfigTable,
+      configuration: configuration,
+    });
+
+    //Revoke an active session
+    const updateSql = new lambda.Function(this, "ExportParams", {
+      runtime: lambda.Runtime.PYTHON_3_7,
+      functionName: Aws.STACK_NAME + "_ExportParams",
+      code: lambda.Code.fromAsset("lambda/export_params"),
+      handler: "index.lambda_handler",
+      environment: {
+        TABLE_NAME: sqlConfigTable.tableName,
+        BUCKET_NAME: sqlQueryBucket.bucketName,
+        PARAMS_FILENAME : this.params_filename
+      },
+    });
+
+    sqlQueryBucket.grantReadWrite(updateSql);
+
+    // Set Lambda Logs Retention and Removal Policy
+    new logs.LogGroup(this, "ReadStreamLogs", {
+      logGroupName: "/aws/lambda/" + updateSql.functionName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue");
+
+    updateSql.addEventSource(
+      new event_source.DynamoEventSource(sqlConfigTable, {
+        startingPosition: lambda.StartingPosition.TRIM_HORIZON,
+        batchSize: 5,
+        bisectBatchOnError: true,
+        onFailure: new event_source.SqsDlq(deadLetterQueue),
+        retryAttempts: 10,
+      })
+    );
+
+    //TODO to get this table from core module
+    const ddbTable = new ddb.Table(this, "CompromisedSessions", {
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      partitionKey: { name: "sessionid", type: ddb.AttributeType.STRING },
       stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
-      removalPolicy: RemovalPolicy.DESTROY
-    })
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
 
-
-    new GetSessionsWorkflow(this, 'GetSessions',{
-      accountId: accountId,
-      athenaDatabaseName: athenaDatabaseName,
-      athenaTableName: athenaTableName,
-      logsBucketName: cloudFrontAccessLogsBucketName,
+    new AutoRevokeSessionsWorkflow(this, "GetSessions", {
+      bucket: sqlQueryBucket,
       dynamodbTable: ddbTable,
-      configuration: configuration
+      configuration: configuration,
+      },
+      this.params_filename
+    );
 
-    })
-
-    new CfnOutput(this, "TableName",{
+    new CfnOutput(this, "TableName", {
       value: ddbTable.tableName,
-      exportName: Aws.STACK_NAME + 'TableName',
-      description: 'DynamoDB table name used to keep sessions to be invalidated'
-    })
-
-
-
+      exportName: Aws.STACK_NAME + "TableName",
+      description:
+        "DynamoDB table name used to keep sessions to be invalidated",
+    });
   }
 }

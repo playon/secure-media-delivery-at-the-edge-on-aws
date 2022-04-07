@@ -4,7 +4,8 @@ import * as prompts from 'prompts';
 import { PromptComponent } from './prompt-component';
 import { onCancel } from './handlers';
 import { IConfiguration } from '../../../helpers/validators/configuration';
-import { ISessionRevocation } from '../../../helpers/validators/session-revocation';
+import { ISessionRevocation } from '../../../helpers/validators/auto_session_revocation';
+
 
 /**
  * A question prompting the user for the session invalidation
@@ -115,6 +116,16 @@ const sessionRevocationQuestions = [{
 },
 {
   type: 'select',
+  name: 'ip_rate',
+  message: '[AUTO SESSION REVOCATION] --> IP rate',
+  choices: [
+    { title: 'true', value: 1 },
+    { title: 'false', value: 0  },
+  ],
+
+},
+{
+  type: 'select',
   name: 'referer_penalty',
   message: '[AUTO SESSION REVOCATION] --> Referer penalty',
   choices: [
@@ -154,6 +165,16 @@ const sessionRevocationQuestions = [{
   message: '[AUTO SESSION REVOCATION] --> Score threshold',
   validate: (value: number) => Joi.number().required().validate(value).error ?
     'Score threshold is mandatory' : true
+},
+{
+  type: 'select',
+  name: 'partitioned',
+  message: '[AUTO SESSION REVOCATION] --> Are your access logs partitioned',
+  choices: [
+    { title: 'false', value: 0  },
+    { title: 'true', value: 1 },
+  ],
+  intial: 1
 }];
 
 export class AutoSessionRevocationModule implements PromptComponent {

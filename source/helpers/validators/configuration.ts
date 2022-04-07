@@ -5,7 +5,7 @@ import { demoSchema, IDemo } from './demo';
 import { hostingSchema, IHosting } from './hosting';
 
 
-import { sessionRevocationSchema, ISessionRevocation } from './session-revocation';
+import { sessionRevocationSchema, ISessionRevocation } from './auto_session_revocation';
 
 /**
  * Describes a configuration associated with the
@@ -32,3 +32,4 @@ export const schema = Joi.object().keys({
   demo: demoSchema.optional(),
 
 }).unknown().required();
+

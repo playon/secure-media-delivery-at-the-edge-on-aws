@@ -45,8 +45,10 @@ def handler(event, context):
     #qparams = {k : v[0] for k, v in parse_qs(querystrings).items()}
 
 
-    if('queryStringParameters' in event and 'id' in event['queryStringParameters']):
+    if ('queryStringParameters' in event and 'id' in event['queryStringParameters']):
         id =  event['queryStringParameters']['id']
+        del event['queryStringParameters']['id']
+        newQueryString = urlencode(event['queryStringParameters'])
 
     else:
         response = {
@@ -84,7 +86,7 @@ def handler(event, context):
     if 'ip' in token_policy:
         token_attributes['ip'] = viewer_ip
 
-    if 'co' in token_policy:
+    if 'co' in token_policy and token_policy['co']:
         if 'cloudfront-viewer-country' in headers:
             token_attributes['co'] = headers['cloudfront-viewer-country']
         elif 'co_fallback' not in token_policy:
@@ -94,7 +96,7 @@ def handler(event, context):
             }
             return response
 
-    if 'cty' in token_policy:
+    if 'cty' in token_policy and token_policy['cty']:
         if 'cloudfront-viewer-city' in headers:
             token_attributes['cty'] = headers['cloudfront-viewer-city']
         elif 'cty_fallback' not in token_policy:
@@ -159,16 +161,17 @@ def handler(event, context):
         for value in token_policy['qs']:
             value = value.lower()
             token_attributes['qs'][value] = qparams[value]
+    if "=" in newQueryString:
+        newQueryString = "?" + newQueryString
 
-    full_path = 'https://' + video_metadata['endpoint_hostname'] + video_metadata['url_path']
+    full_path = 'https://' + video_metadata['endpoint_hostname'] + video_metadata['url_path'] + newQueryString
     playback_url = aws_secure_media_delivery.createtoken(token_attributes,"primary",full_path,secrets_prefix=stackName)
-    if "=" in str(rawQueryString):
-        playback_url = playback_url + "?" + str(rawQueryString)
 
     # TODO implement
     return {
         'statusCode': 200,
         'body': playback_url
     }
+
 
 

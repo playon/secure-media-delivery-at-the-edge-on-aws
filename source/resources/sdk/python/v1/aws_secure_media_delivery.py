@@ -71,17 +71,17 @@ class Secret:
 
 def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	jwt_payload = {}
-	jwt_payload['ip'] = "false"
-	jwt_payload['co'] = "false"
-	jwt_payload['cty'] = "false"
-	jwt_payload['ssn'] = "false"
+	jwt_payload['ip'] = False
+	jwt_payload['co'] = False
+	jwt_payload['cty'] = False
+	jwt_payload['ssn'] = False
 	jwt_payload['nbf'] = ''
 	jwt_payload['exp'] = ''
-	jwt_payload['headers'] = {}
-	jwt_payload['qs'] = {}
+	jwt_payload['headers'] = []
+	jwt_payload['qs'] = []
 	jwt_payload['intsig'] = ''
-	jwt_payload['paths'] = {}
-	jwt_payload['exc'] = {}
+	jwt_payload['paths'] = []
+	jwt_payload['exc'] = []
 	private_payload = ""
 
 	if "secrets_prefix" not in kwargs:
@@ -93,6 +93,9 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	myScheme = p.scheme
 	myDomain = p.netloc
 	myPath = p.path
+	myQuery = p.query
+	if "=" in myQuery:
+	  myQuery = "?" + myQuery
 		
 	Secret.Secret = secret_alias
 	Secret.primarySecret = secrets_prefix + "_PrimarySecret"
@@ -115,6 +118,11 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	if "cty" in attributes:
 	  jwt_payload['cty'] = True
 	  private_payload += attributes['cty'] + ":"
+
+	if "paths" in attributes:
+	  for path in attributes['paths']:
+	    print ("PATH IS: " + path)
+	    jwt_payload['paths'].append(path)
 	
 	if "ssn" in attributes:
 	  jwt_payload['ssn'] = True
@@ -127,14 +135,20 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	  private_payload += sessionPayload + ":"
 
 	if "headers" in attributes:
-	  jwt_payload['headers'] = attributes['headers']
-	  headerString = ":".join(attributes['headers'])
-	  private_payload += headerString + ":"
-	
+	  jwt_payload['headers'] = []
+	  print ("HEADERS: " + str(attributes['headers']))
+	  for mykey,myvalue in attributes['headers'].items():
+	    LCkey = mykey.lower()
+	    jwt_payload['headers'].append(LCkey)
+	    private_payload += myvalue + ":"
+
 	if "qs" in attributes:
-	  jwt_payload['qs'] = attributes['qs']
-	  queryString = ":".join(attributes['qs'])
-	  private_payload += queryString + ":"
+	  jwt_payload['qs'] = []
+	  print (str(attributes['qs']))
+	  for mykey,myvalue in attributes['qs'].items():
+	    LCkey = mykey.lower()
+	    jwt_payload['qs'].append(LCkey)
+	    private_payload += myvalue + ":"
 
 	if "exc" in attributes:
 	  jwt_payload['exc'] = attributes['exc']
@@ -164,6 +178,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	### Encode token
 	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": uuid},)
-	new_url = myScheme + "://" + myDomain + "/" + encoded_jwt + myPath
+	new_url = myScheme + "://" + myDomain + "/" + sessionPayload + "." + encoded_jwt + myPath + myQuery
 	
 	return(new_url)

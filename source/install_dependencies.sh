@@ -3,7 +3,7 @@
 echo "Install node dependencies"
 npm install
 
-echo "Install NodeJs dependencies for AWS Lambda"
+echo "Install aws_secure_media_delivery NodeJs dependencies for AWS Lambda"
 npm install --prefix lambda/layers/aws_secure_media_delivery_nodejs/nodejs
 
 echo "Create create a virtualenv"

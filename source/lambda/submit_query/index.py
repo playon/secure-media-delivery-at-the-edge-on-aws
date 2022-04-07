@@ -120,7 +120,6 @@ def generate_athena_query(query_param):
       query_string_second_part = ''
       third_part_preamble = 'WHERE '
 
-   build_second_part_query_string(120)
 
    query_string_third_part = f"""
       {third_part_preamble}CAST({query_param['status_column_name']} AS INTEGER) IN (200, 206)
@@ -190,6 +189,5 @@ def lambda_handler(event, context):
     f.close()
 
     params = json.loads(data)
-    print(params)
-    query = generate_athena_query(params)
+    query = generate_athena_query(params).replace('\n', '')
     return query

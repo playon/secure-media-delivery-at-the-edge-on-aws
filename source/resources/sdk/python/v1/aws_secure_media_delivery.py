@@ -166,7 +166,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	print ("PRIVATE PAYLOAD" + private_payload)
 	private_payload_utf = private_payload.encode()
 	dig = hmac.new(key, msg=private_payload_utf, digestmod=hashlib.sha256).digest()
-	intsig = base64.urlsafe_b64encode(dig).decode()
+	intsig = base64.urlsafe_b64encode(dig).decode().rstrip('=')
 	jwt_payload['intsig'] = intsig
 	
 	

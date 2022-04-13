@@ -100,11 +100,34 @@ export class AutoRevokeSessionsWorkflow extends Construct {
     const sendToDdb = new tasks.DynamoPutItem(this, "Save to DynamoDB", {
       item: {
         sessionid: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$")
+          sfn.JsonPath.stringAt("$.Data[0].VarCharValue")
         ),
+        type: tasks.DynamoAttributeValue.fromString('AUTO'),
+        score: tasks.DynamoAttributeValue.fromString(
+          sfn.JsonPath.stringAt("$.Data[1].VarCharValue")
+        ),
+        ip_rate: tasks.DynamoAttributeValue.fromString(
+          sfn.JsonPath.stringAt("$.Data[2].VarCharValue")
+        ),
+        ip_penalty: tasks.DynamoAttributeValue.fromString(
+          sfn.JsonPath.stringAt("$.Data[3].VarCharValue")
+        ),
+        referer_penalty: tasks.DynamoAttributeValue.fromString(
+          sfn.JsonPath.stringAt("$.Data[4].VarCharValue")
+        ),
+        ua_penalty: tasks.DynamoAttributeValue.fromString(
+          sfn.JsonPath.stringAt("$.Data[5].VarCharValue")
+        ),
+        //last_update: tasks.DynamoAttributeValue.fromString(
+        //  sfn.JsonPath.stringAt("$.Data[5].VarCharValue")
+        //),
+        //TTL: tasks.DynamoAttributeValue.fromString(
+        //  sfn.JsonPath.stringAt("$.Data[5].VarCharValue")
+        //),
       },
       table: props.dynamodbTable,
-      inputPath: sfn.JsonPath.stringAt("$.Data[0].VarCharValue"),
+
+      //inputPath: sfn.JsonPath.stringAt("$.Data[0].VarCharValue"),
     });
 
     const prepareNextParams = new sfn.Pass(this, "Prepare Next Query Params", {

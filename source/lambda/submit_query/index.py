@@ -99,7 +99,7 @@ def generate_athena_query(query_param):
    query_string_first_part = f"""
       WITH Q1 AS (
          SELECT
-               split_part(split_part(uri, '/',2),'.',1) AS session_id,
+               split(split_part(uri, '/',2),'.') AS path_first_part_array,
                {query_param['uri_column_name']} AS uri,
                {query_param['referer_column_name']} AS referer,
                {query_param['ua_column_name']} AS user_agent,
@@ -128,7 +128,7 @@ def generate_athena_query(query_param):
    ),
    Q2 AS (
       SELECT
-         session_id,
+         path_first_part_array[1] as session_id,
          COUNT(*) AS request_cnt,
          date_diff(
                'second',
@@ -142,6 +142,7 @@ def generate_athena_query(query_param):
       FROM Q1
       WHERE
          time_point >= (now() - interval '{query_param['lookback_period']}' minute)
+         AND cardinality(path_first_part_array) = 4
       GROUP BY 1
    ),
    Q3 AS (

@@ -24,6 +24,7 @@ import {
   aws_sqs as sqs,
   aws_lambda_event_sources as event_source,
 } from "aws-cdk-lib";
+import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
@@ -37,7 +38,7 @@ export class AutoSessionRevocationStack extends Stack {
 
 
 
-  constructor(scope: Construct, id: string, configuration: IConfiguration) {
+  constructor(scope: Construct, id: string, configuration: IConfiguration, sessionsTable : ITable) {
     super(scope, id);
 
 
@@ -90,27 +91,13 @@ export class AutoSessionRevocationStack extends Stack {
       })
     );
 
-    //TODO to get this table from core module
-    const ddbTable = new ddb.Table(this, "CompromisedSessions", {
-      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-      partitionKey: { name: "sessionid", type: ddb.AttributeType.STRING },
-      stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
-      removalPolicy: RemovalPolicy.DESTROY,
-    });
-
     new AutoRevokeSessionsWorkflow(this, "GetSessions", {
       bucket: sqlQueryBucket,
-      dynamodbTable: ddbTable,
+      dynamodbTable: sessionsTable,
       configuration: configuration,
       },
       this.params_filename
     );
 
-    new CfnOutput(this, "TableName", {
-      value: ddbTable.tableName,
-      exportName: Aws.STACK_NAME + "TableName",
-      description:
-        "DynamoDB table name used to keep sessions to be invalidated",
-    });
   }
 }

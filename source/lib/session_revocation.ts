@@ -24,6 +24,7 @@
     aws_sqs as sqs,
     aws_lambda_event_sources as event_source,
   } from 'aws-cdk-lib';
+import { ITable } from 'aws-cdk-lib/aws-dynamodb';
   import { Construct } from 'constructs';
 
 
@@ -31,7 +32,7 @@
 
     public readonly sessionsTable: ddb.ITable;
 
-    constructor(scope: Construct, id: string) {
+    constructor(scope: Construct, id: string, sessionToRevoke: ITable) {
     super(scope, id);
 
     //TODO rule name as parameter
@@ -50,14 +51,7 @@
         rules: []
     })
 
-    const ddbTable = new ddb.Table(this, "CompromisedSessions",{
-        billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-        partitionKey: {name: "sessionid", type: ddb.AttributeType.STRING},
-        stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
-        removalPolicy: RemovalPolicy.DESTROY
-    });
 
-    this.sessionsTable = ddbTable;
 
     //Revoke an active session
     const readDbStream = new lambda.Function(this, 'UpdateRuleGroup',{
@@ -92,7 +86,7 @@
     //Event Source Mapping DynamoDB -> Lambda
     const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue")
 
-    readDbStream.addEventSource(new event_source.DynamoEventSource(ddbTable, {
+    readDbStream.addEventSource(new event_source.DynamoEventSource(sessionToRevoke, {
         startingPosition: lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 5,
         bisectBatchOnError: true,

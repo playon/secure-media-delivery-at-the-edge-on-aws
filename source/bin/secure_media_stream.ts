@@ -17,9 +17,10 @@ const app = new cdk.App();
     // The stack configuration.
     const config = await getOpts();
 
-    new SecureMediaStreamingStack(app, config.main?.stack_name!, config);
+    const coreStack = new SecureMediaStreamingStack(app, config.main?.stack_name!, config);
+
     if(config.sessionRevocation){
-        new AutoSessionRevocationStack(app, config.main?.stack_name! + 'AutoSessionRevocation', config);
+        new AutoSessionRevocationStack(app, config.main?.stack_name! + 'AutoSessionRevocation', config, coreStack.sessionToRevoke);
     }
 
 

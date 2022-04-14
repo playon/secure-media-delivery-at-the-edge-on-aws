@@ -15,7 +15,9 @@ import {
   Stack,
   StackProps,
   Aws,
-  aws_cloudfront as cloudfront
+  RemovalPolicy,
+  aws_cloudfront as cloudfront,
+  aws_dynamodb as ddb,
 } from 'aws-cdk-lib';
 
 
@@ -31,6 +33,11 @@ import { SessionRevocation } from './session_revocation';
 
 
 export class SecureMediaStreamingStack extends Stack {
+
+
+  public readonly sessionToRevoke: ddb.ITable;
+
+
   constructor(scope: Construct, id: string, wizardConfiguration: IConfiguration, props?: StackProps) {
     super(scope, id, props);
 
@@ -50,7 +57,16 @@ export class SecureMediaStreamingStack extends Stack {
 
     const secrets = new Secrets(this, 'Secrets')
 
-    const sessionRevocation = new SessionRevocation(this, "SessionRevocation");
+    const sessionToRevoke = new ddb.Table(this, "SessionToRevoke",{
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      partitionKey: {name: "sessionid", type: ddb.AttributeType.STRING},
+      stream: ddb.StreamViewType.NEW_AND_OLD_IMAGES,
+      removalPolicy: RemovalPolicy.DESTROY
+  });
+
+    this.sessionToRevoke = sessionToRevoke;
+
+    new SessionRevocation(this, "SessionRevocation", sessionToRevoke);
 
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
       secrets: secrets,
@@ -69,7 +85,7 @@ export class SecureMediaStreamingStack extends Stack {
         configuration: parameters.customInputParameters,
         secrets: secrets,
         dashboard: dashboard,
-        sessionsTable: sessionRevocation.sessionsTable
+        sessionsTable: sessionToRevoke
       });
     }
 

@@ -99,20 +99,21 @@ export class Api extends Construct {
       layers: [cloudfrontTokenLayer],
     })
 
-    const revokeSession = new lambda.Function(this, 'RevokeSession',{
-      functionName: Aws.STACK_NAME + '_RevokeSession',
+    const saveSessionToDdb = new lambda.Function(this, 'SaveManualSession',{
+      functionName: Aws.STACK_NAME + '_SaveManualSession',
       runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset('lambda/revoke_session/python'),
+      code: lambda.Code.fromAsset('lambda/save_manual_session/python'),
       handler: 'index.handler',
           environment: {
-            TABLE_NAME: props.sessionsTable.tableName
+            TABLE_NAME: props.sessionsTable.tableName,
+            TTL : '7' //days
       }
     })
 
 
 
     demoAssetsTable.grantReadData(generateToken);
-    props.sessionsTable.grantReadWriteData(revokeSession);
+    props.sessionsTable.grantReadWriteData(saveSessionToDdb);
 
     props.secrets.primarySecret.grantRead(generateToken)
     props.secrets.secondarySecret.grantRead(generateToken)
@@ -128,7 +129,7 @@ export class Api extends Construct {
     httpApi.addRoutes({
       path: '/sessionrevoke',
       methods: [ apigwv2.HttpMethod.POST ],
-      integration: new HttpLambdaIntegration('RevokeSessionIntegration', revokeSession)
+      integration: new HttpLambdaIntegration('RevokeSessionIntegration', saveSessionToDdb)
     });
 
 

@@ -160,7 +160,7 @@ export class RotateSecretsWorkflow extends Construct {
       functionName: Aws.STACK_NAME + "_SwapSecrets",
       runtime: lambda.Runtime.PYTHON_3_7,
       code: lambda.Code.fromAsset("lambda/swap_secrets"),
-      handler: "index.lambda_handler",
+      handler: "index.handler",
       environment: {
         TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
         PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,

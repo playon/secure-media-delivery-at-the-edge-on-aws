@@ -8,7 +8,7 @@ waf_client = boto3.client('wafv2')
 rule_group_id = os.environ['RULE_GROUP_ID']
 rule_group_name = os.environ['RULE_GROUP_NAME']
 
-def lambda_handler(event, context):
+def handler(event, context):
 
    tokenidlist = ""
 

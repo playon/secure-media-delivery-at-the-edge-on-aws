@@ -228,7 +228,7 @@ $('#sessionrevoke').on('click', function () {
 
   const playback_url = $("#playback_url_value").text();
   var l = getLocation(playback_url);
-  const session_id=l.pathname.split(".")[0];
+  const session_id=l.pathname.split(".")[0].substring(1);
   console.log("session_id="+session_id);
   const urlToGet = `${location.protocol}\/\/${location.hostname}/sessionrevoke?sessionid=` + session_id;
 

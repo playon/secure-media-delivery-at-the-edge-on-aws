@@ -36,12 +36,16 @@ export class SecureMediaStreamingStack extends Stack {
 
     const parameters = new GetInputParameters(this, 'InputParameters', wizardConfiguration);
 
-
-    // Create the Cloudfront Function used to check the JWT token
     const checkToken = new cloudfront.Function(this, 'Function', {
       code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/generate_secret_update_cff/index.js" }),
       functionName: Aws.STACK_NAME + '_checkJWTToken',
       comment: 'CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery'
+    })
+
+    const mediatailorRedirect = new cloudfront.Function(this, 'RedirectMediaTailorFunction', {
+      code: cloudfront.FunctionCode.fromFile({ filePath: "cff/mediatailor_redirect/index.js" }),
+      functionName: Aws.STACK_NAME + '_mediaTailorRedirect',
+      comment: 'CloudFront Function used to handle the redirect for MediaTailor'
     })
 
     const secrets = new Secrets(this, 'Secrets')

@@ -64,7 +64,7 @@
         runtime: lambda.Runtime.PYTHON_3_7,
         functionName: Aws.STACK_NAME + "_UpdateRuleGroup",
         code: lambda.Code.fromAsset('lambda/update_rulegroup'),
-        handler: 'index.lambda_handler',
+        handler: 'index.handler',
         environment: {
             'RULE_GROUP_ID' : cfnRuleGroup.attrId,
             'RULE_GROUP_NAME'

@@ -61,7 +61,7 @@ export class AutoSessionRevocationStack extends Stack {
       runtime: lambda.Runtime.PYTHON_3_7,
       functionName: Aws.STACK_NAME + "_ExportParams",
       code: lambda.Code.fromAsset("lambda/export_params"),
-      handler: "index.lambda_handler",
+      handler: "index.handler",
       environment: {
         TABLE_NAME: sqlConfigTable.tableName,
         BUCKET_NAME: sqlQueryBucket.bucketName,

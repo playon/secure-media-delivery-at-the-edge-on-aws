@@ -24,6 +24,7 @@ import {
   aws_events_targets as targets,
   aws_lambda as lambda,
   aws_iam as iam,
+  aws_logs as logs,
 
 
 } from "aws-cdk-lib";
@@ -48,11 +49,36 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       functionName: Aws.STACK_NAME + "_SubmitQuery",
       runtime: lambda.Runtime.PYTHON_3_7,
       code: lambda.Code.fromAsset("lambda/submit_query"),
-      handler: "index.lambda_handler",
+      handler: "index.handler",
       environment: {
         BUCKET_NAME : props.bucket.bucketName,
         PARAMS_FILENAME : params_filename
       },
+    });
+
+    new logs.LogGroup(this, "SubmitQueryLogs", {
+      logGroupName: "/aws/lambda/" + submitAthenaQuery.functionName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    const saveSessionsToDdb = new lambda.Function(this, "SaveAutoSession", {
+      functionName: Aws.STACK_NAME + "_SaveAutoSession",
+      runtime: lambda.Runtime.PYTHON_3_7,
+      code: lambda.Code.fromAsset("lambda/save_auto_session"),
+      handler: "index.handler",
+      environment: {
+        TABLE_NAME : props.dynamodbTable.tableName,
+        TTL : '7' //days
+      },
+    });
+
+    props.dynamodbTable.grantReadWriteData(saveSessionsToDdb)
+
+    new logs.LogGroup(this, "SaveSessionsLogs", {
+      logGroupName: "/aws/lambda/" + saveSessionsToDdb.functionName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
     });
 
     submitAthenaQuery.addToRolePolicy(
@@ -71,6 +97,11 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       lambdaFunction: submitAthenaQuery,
     });
 
+    const saveSessionsJob = new tasks.LambdaInvoke(this, "Save to DynamoDB", {
+      lambdaFunction: saveSessionsToDdb,
+      inputPath: sfn.JsonPath.stringAt("$.GetQueryResults.ResultSet.Rows")
+    });
+
     const startQueryExecutionJob = new tasks.AthenaStartQueryExecution(
       this,
       "Start Athena Query",
@@ -86,9 +117,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       }
     );
 
-    const getQueryResultsJob = new tasks.AthenaGetQueryResults(
-      this,
-      "Get Query Results",
+    const getQueryResultsJob = new tasks.AthenaGetQueryResults(this, "Get Query Results",
       {
         queryExecutionId: sfn.JsonPath.stringAt(
           "$.QueryExecution.QueryExecutionId"
@@ -97,38 +126,6 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       }
     );
 
-    const sendToDdb = new tasks.DynamoPutItem(this, "Save to DynamoDB", {
-      item: {
-        sessionid: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$.Data[0].VarCharValue")
-        ),
-        type: tasks.DynamoAttributeValue.fromString('AUTO'),
-        score: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$.Data[1].VarCharValue")
-        ),
-        ip_rate: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$.Data[2].VarCharValue")
-        ),
-        ip_penalty: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$.Data[3].VarCharValue")
-        ),
-        referer_penalty: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$.Data[4].VarCharValue")
-        ),
-        ua_penalty: tasks.DynamoAttributeValue.fromString(
-          sfn.JsonPath.stringAt("$.Data[5].VarCharValue")
-        ),
-        //last_update: tasks.DynamoAttributeValue.fromString(
-        //  sfn.JsonPath.stringAt("$.Data[5].VarCharValue")
-        //),
-        //TTL: tasks.DynamoAttributeValue.fromString(
-        //  sfn.JsonPath.stringAt("$.Data[5].VarCharValue")
-        //),
-      },
-      table: props.dynamodbTable,
-
-      //inputPath: sfn.JsonPath.stringAt("$.Data[0].VarCharValue"),
-    });
 
     const prepareNextParams = new sfn.Pass(this, "Prepare Next Query Params", {
       parameters: {
@@ -137,21 +134,23 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       },
       resultPath: sfn.JsonPath.stringAt("$.StartQueryParams"),
     });
+    const done = new sfn.Succeed(this, "Done")
+
 
     const hasMoreResults = new sfn.Choice(this, "Has More Results?")
       .when(
         sfn.Condition.isPresent("$.GetQueryResults.NextToken"),
         prepareNextParams.next(getQueryResultsJob)
       )
-      .otherwise(new sfn.Succeed(this, "Done"));
+      .otherwise(done);
 
-    //Save_to_dynamodb
-    const map = new sfn.Map(this, "Map State", {
-      maxConcurrency: 1,
-      inputPath: sfn.JsonPath.stringAt("$.GetQueryResults.ResultSet.Rows[1:]"),
-      resultPath: sfn.JsonPath.DISCARD,
-    });
-    map.iterator(sendToDdb);
+    const hasResults = new sfn.Choice(this, "Has Results?")
+    .when(
+      sfn.Condition.isPresent("$.GetQueryResults.ResultSet.Rows[1]"),
+      saveSessionsJob.next(hasMoreResults)
+    )
+    .otherwise(done);
+
 
     // Step function to orchestrate Athena query and retrieving the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {
@@ -159,8 +158,8 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       definition: prepareQueryJob
         .next(startQueryExecutionJob)
         .next(getQueryResultsJob)
-        .next(map)
-        .next(hasMoreResults),
+        .next(hasResults),
+        //.next(hasMoreResults),
       timeout: Duration.minutes(60),
     });
 

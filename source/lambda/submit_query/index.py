@@ -176,7 +176,7 @@ def generate_athena_query(query_param):
 
 
 
-def lambda_handler(event, context):
+def handler(event, context):
 
 
     local_params_filename = '/tmp/' + params_filename

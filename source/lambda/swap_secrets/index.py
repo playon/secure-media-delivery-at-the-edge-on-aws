@@ -8,7 +8,7 @@ temporary_key_name = os.environ['TEMPORARY_KEY_NAME']
 primary_key_name = os.environ['PRIMARY_KEY_NAME']
 secondary_key_name = os.environ['SECONDARY_KEY_NAME']
 
-def lambda_handler(event, context):
+def handler(event, context):
     print("Received event: " + json.dumps(event, indent=2))
 
     #get temporary secret

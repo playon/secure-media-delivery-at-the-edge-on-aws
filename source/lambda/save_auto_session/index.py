@@ -21,8 +21,9 @@ def handler(event, context):
         ddb_client.put_item(
             TableName = table_name,
             Item= {
-                    'sessionid': { 'S': item['Data'][0]['VarCharValue']},
+                    'session_id': { 'S': item['Data'][0]['VarCharValue']},
                     'type': { 'S': 'AUTO' },
+                    'reason': { 'S': 'COMPROMISED' },
                     'score' : { 'N': item['Data'][1]['VarCharValue']},
                     'ip_rate' : { 'N': item['Data'][2]['VarCharValue']},
                     'ip_penalty' : { 'N': item['Data'][3]['VarCharValue']},

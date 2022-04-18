@@ -106,7 +106,7 @@ export class Api extends Construct {
       handler: 'index.handler',
           environment: {
             TABLE_NAME: props.sessionsTable.tableName,
-            TTL : '7' //days
+            TTL : '7'
       }
     })
 

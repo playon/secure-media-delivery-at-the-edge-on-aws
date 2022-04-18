@@ -25,21 +25,27 @@
     aws_lambda_event_sources as event_source,
   } from 'aws-cdk-lib';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
-  import { Construct } from 'constructs';
+import { Construct } from 'constructs';
 
+export interface IConfigProps {
+    sessionToRevoke: ITable;
+    gsi_index_name: string;
+    wcu: number;
+    retention: number
+  }
 
   export class SessionRevocation extends Construct {
 
     public readonly sessionsTable: ddb.ITable;
 
-    constructor(scope: Construct, id: string, sessionToRevoke: ITable) {
+    constructor(scope: Construct, id: string, config: IConfigProps) {
     super(scope, id);
 
     //TODO rule name as parameter
     //TODO add stack name
     const ruleGroupName = Aws.STACK_NAME + "_RevokedSessions"
     const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup",{
-        capacity: 99,
+        capacity: config.wcu,
         scope: "CLOUDFRONT",
         visibilityConfig: {
             cloudWatchMetricsEnabled: false,
@@ -54,30 +60,33 @@ import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 
 
     //Revoke an active session
-    const readDbStream = new lambda.Function(this, 'UpdateRuleGroup',{
+    const updateRuleGroupFunction = new lambda.Function(this, 'UpdateRuleGroup',{
         runtime: lambda.Runtime.PYTHON_3_7,
         functionName: Aws.STACK_NAME + "_UpdateRuleGroup",
         code: lambda.Code.fromAsset('lambda/update_rulegroup'),
         handler: 'index.handler',
         environment: {
             'RULE_GROUP_ID' : cfnRuleGroup.attrId,
-            'RULE_GROUP_NAME'
-            : ruleGroupName
+            'RULE_GROUP_NAME' : ruleGroupName,
+            'RETENTION' : config.retention.toString(),
+            'TABLE_NAME' : config.sessionToRevoke.tableName,
+            'MAX_SESSIONS': (config.wcu/2).toString(),
+            'GSI_INDEX_NAME': config.gsi_index_name
         },
         }
     )
 
     // Set Lambda Logs Retention and Removal Policy
     new logs.LogGroup(this,'ReadStreamLogs',{
-        logGroupName: "/aws/lambda/"+readDbStream.functionName,
+        logGroupName: "/aws/lambda/"+updateRuleGroupFunction.functionName,
         removalPolicy: RemovalPolicy.DESTROY,
         retention: logs.RetentionDays.ONE_MONTH
     })
 
     const region = Stack.of(this).region;
-    const accountId = Stack.of(this).account
+    const accountId = Stack.of(this).account;
 
-    readDbStream.addToRolePolicy(new iam.PolicyStatement({
+    updateRuleGroupFunction.addToRolePolicy(new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: ["wafv2:GetRuleGroup","wafv2:UpdateRuleGroup", "wafv2:ListRuleGroups"],
         resources: [`arn:aws:wafv2:${region}:${accountId}:*`]
@@ -86,13 +95,15 @@ import { ITable } from 'aws-cdk-lib/aws-dynamodb';
     //Event Source Mapping DynamoDB -> Lambda
     const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue")
 
-    readDbStream.addEventSource(new event_source.DynamoEventSource(sessionToRevoke, {
+    updateRuleGroupFunction.addEventSource(new event_source.DynamoEventSource(config.sessionToRevoke, {
         startingPosition: lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 5,
         bisectBatchOnError: true,
         onFailure: new event_source.SqsDlq(deadLetterQueue),
         retryAttempts: 10
     }));
+
+    config.sessionToRevoke.grantReadData(updateRuleGroupFunction);
 
 
     }

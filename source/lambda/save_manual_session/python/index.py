@@ -11,9 +11,9 @@ ttl = os.environ['TTL']
 def handler(event, context):
     print("Received event: " + json.dumps(event))
 
-    week = datetime.datetime.today() + datetime.timedelta(days=int(ttl))
-    expiryDateTime = int(time.mktime(week.timetuple()))
-    current_timestamp = calendar.timegm(time.gmtime())
+    expiryDateTime = datetime.datetime.today() + datetime.timedelta(days=int(ttl))
+    expiryEpochTimestamp = int(time.mktime(expiryDateTime.timetuple()))
+    currentEpochTimestamp = calendar.timegm(time.gmtime())
 
     if 'queryStringParameters' in event and 'sessionid' in event['queryStringParameters']:
 
@@ -21,10 +21,11 @@ def handler(event, context):
         ddb_client.put_item(
             TableName = table_name,
             Item= {
-                    'sessionid': { 'S': session_id},
+                    'session_id': { 'S': session_id},
                     'type': { 'S': 'MANUAL' },
-                    'last_updated' : { 'N': str(current_timestamp) },
-                    'ttl': { 'N': str(expiryDateTime)}
+                    'reason': { 'S': 'COMPROMISED' },
+                    'last_updated' : { 'N': str(currentEpochTimestamp) },
+                    'ttl': { 'N': str(expiryEpochTimestamp)}
                 }
             )
         print("Session ID={} inserted in dynamodb ".format(session_id))

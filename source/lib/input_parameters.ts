@@ -187,6 +187,8 @@ export class GetInputParameters extends Construct {
             "#" +
             week_of_month.valueAsString +
             " *",
+          wcu: 100,
+          retention: 60
         },
       };
     } else {
@@ -194,6 +196,8 @@ export class GetInputParameters extends Construct {
         main: {
           rotate_secrets_frequency: "1m",
           rotate_secrets_pattern: configuration.main?.rotate_secrets_pattern!,
+          wcu: configuration.main?.wcu!,
+          retention: configuration.main?.retention!
         },
       };
     }

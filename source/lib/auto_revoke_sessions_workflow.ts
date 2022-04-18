@@ -18,7 +18,6 @@ import {
   RemovalPolicy,
   aws_stepfunctions as sfn,
   aws_stepfunctions_tasks as tasks,
-  aws_s3 as s3,
   aws_dynamodb as ddb,
   aws_events as events,
   aws_events_targets as targets,

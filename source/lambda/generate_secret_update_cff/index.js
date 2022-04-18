@@ -87,8 +87,21 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
             throw new Error('URI path doesn\'t match any path in the token');
         }
 
+        var full_ip;
+        if(payload['ip']){
+            if(!payload['ip_ver']) throw "Missing ip_ver claim required when ip claim is set to true";
+            if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw "Incorrect ip_ver claim value. Must be either 4 or 6"
+            if(ip.includes('.')){
+                if(payload['ip_ver'] != 4) throw "Viewer's IP version (4) doesn't match ip_ver claim";
+                full_ip = ip;
+            } else if(ip.includes(':')){
+                if(payload['ip_ver'] != 6) throw "Viewer's IP version (6) doesn't match ip_ver claim";
+                hextets = ip.split('.').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
+                full_ip = hextets.join(':');
+            }
+        }
 
-        if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
+        if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, full_ip)) {
             throw new Error('Internal signature verification failed');
         }
 

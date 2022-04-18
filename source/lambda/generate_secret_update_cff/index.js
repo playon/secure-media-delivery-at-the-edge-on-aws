@@ -96,8 +96,10 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
                 full_ip = ip;
             } else if(ip.includes(':')){
                 if(payload['ip_ver'] != 6) throw "Viewer's IP version (6) doesn't match ip_ver claim";
-                hextets = ip.split('.').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
+                var hextets = ip.split(':').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
                 full_ip = hextets.join(':');
+            } else {
+                throw "Viewer's IP version not recognized";
             }
         }
 

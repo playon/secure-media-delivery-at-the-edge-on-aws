@@ -16,8 +16,11 @@ import {
   StackProps,
   Aws,
   RemovalPolicy,
+  aws_iam as iam,
   aws_cloudfront as cloudfront,
   aws_dynamodb as ddb,
+  Duration,
+  CfnOutput,
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -76,6 +79,39 @@ export class SecureMediaStreamingStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+
+    const customPolicy = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          resources: [secrets.primarySecret.secretArn, secrets.secondarySecret.secretArn],
+          actions: [
+            "secretsmanager:GetResourcePolicy",
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:ListSecretVersionIds"
+          ],
+        }),
+        new iam.PolicyStatement({
+          resources: [sessionToRevoke.tableArn],
+          actions: [
+            "dynamodb:PutItem",
+            "dynamodb:BatchWrite*"
+          ],
+        }),
+      ],
+    });
+
+    const role4sdk = new iam.Role(this, 'Role4SDK', {
+      description: 'A role to be assumed by the SDK',
+      assumedBy: new iam.AccountPrincipal(Stack.of(this).account),
+      inlinePolicies: {
+        policy: customPolicy,
+      },
+      maxSessionDuration: Duration.hours(12)
+    });
+
+
+
     // 👇 add global secondary index
     sessionToRevoke.addGlobalSecondaryIndex({
       indexName: this.gsi_name,
@@ -120,5 +156,12 @@ export class SecureMediaStreamingStack extends Stack {
         sessionsTable: sessionToRevoke,
       });
     }
+
+
+    new CfnOutput(this, 'RoleArn', {
+      description: 'The ARN of the role to be assumed by SDK',
+      value: role4sdk.roleArn
+    });
+
   }
 }

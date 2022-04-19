@@ -16,7 +16,7 @@
     Stack,
     Aws,
     RemovalPolicy,
-    aws_wafv2 as wafv2,
+    custom_resources,
     aws_dynamodb as ddb,
     aws_lambda as lambda,
     aws_logs as logs,
@@ -31,33 +31,52 @@ export interface IConfigProps {
     sessionToRevoke: ITable;
     gsi_index_name: string;
     wcu: number;
-    retention: number
+    retention: number,
+    ruleGroupParamName: string,
+    ruleGroupParamId: string,
   }
 
   export class SessionRevocation extends Construct {
 
     public readonly sessionsTable: ddb.ITable;
-
+    private readonly ruleGroupRegion = "us-east-1";
     constructor(scope: Construct, id: string, config: IConfigProps) {
     super(scope, id);
 
-    //TODO rule name as parameter
-    //TODO add stack name
-    const ruleGroupName = Aws.STACK_NAME + "_RevokedSessions"
-    const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup",{
-        capacity: config.wcu,
-        scope: "CLOUDFRONT",
-        visibilityConfig: {
-            cloudWatchMetricsEnabled: false,
-            metricName: "metricName",
-            sampledRequestsEnabled: false
-        },
-        description: "Revoked sessions",
-        name: ruleGroupName,
-        rules: []
-    })
+
+    const role = new iam.Role(this, "RoleSsmCustomResource", {
+        assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
+      });
+      role.addToPolicy(
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ["lambda:InvokeFunction"],
+          resources: ['*'],
+        })
+      );
+
+    const ssmRuleGroupParameterId = new custom_resources.AwsCustomResource(
+        this,
+        "SSMParameter",
+        {
+            onUpdate:  {
+                service: "SSM",
+                action: "getParameter",
+                parameters: { Name: `${config.ruleGroupParamId}` },
+                region: this.ruleGroupRegion,
+                physicalResourceId: custom_resources.PhysicalResourceId.of(
+                    `${config.ruleGroupParamId}-${this.ruleGroupRegion}`
+                ),
+            },
+            policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
+                resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE,
+            }),
+            role: role
+        }
+    );
 
 
+    const ssmRuleGroupId = ssmRuleGroupParameterId.getResponseField("Parameter.Value");
 
     //Revoke an active session
     const updateRuleGroupFunction = new lambda.Function(this, 'UpdateRuleGroup',{
@@ -66,8 +85,8 @@ export interface IConfigProps {
         code: lambda.Code.fromAsset('lambda/update_rulegroup'),
         handler: 'index.handler',
         environment: {
-            'RULE_GROUP_ID' : cfnRuleGroup.attrId,
-            'RULE_GROUP_NAME' : ruleGroupName,
+            'RULE_GROUP_ID' : ssmRuleGroupId,
+            'RULE_GROUP_NAME' : config.ruleGroupParamName,
             'RETENTION' : config.retention.toString(),
             'TABLE_NAME' : config.sessionToRevoke.tableName,
             'MAX_SESSIONS': (config.wcu/2).toString(),

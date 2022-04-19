@@ -30,25 +30,22 @@ export class LoadAssetsTable extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    const loadItem = {
-      service: "DynamoDB",
-      action: "batchWriteItem",
-      parameters: {
-        RequestItems: {
-          [props.table.tableName]: this.loadItems(props.configuration),
-        },
-      },
-      physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
-    }
-
     new custom_resources.AwsCustomResource(this, "initDBResource", {
-      onCreate: loadItem,
-      onUpdate: loadItem,
+      onCreate: {
+        service: "DynamoDB",
+        action: "batchWriteItem",
+        parameters: {
+          RequestItems: {
+            [props.table.tableName]: this.loadItems(props.configuration),
+          },
+        },
+        physicalResourceId: custom_resources.PhysicalResourceId.of("initDBData"),
+      },
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: [props.table.tableArn],
+        //resources: [props.table.tableArn],
+        resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE,
       }),
     });
-
 
   }
 

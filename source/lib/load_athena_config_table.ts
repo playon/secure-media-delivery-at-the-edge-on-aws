@@ -28,21 +28,20 @@ export class LoadSqlParams extends Construct {
 
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
-    const loadConfigItem = {
-      service: 'DynamoDB',
-        action: 'putItem',
-        parameters: {
-          TableName: props.table.tableName,
-          Item: this.loadItems(props),
-        },
-        physicalResourceId: custom_resources.PhysicalResourceId.of("loadSqlParams"),
-    }
 
     new custom_resources.AwsCustomResource(this, "initDBResource", {
-      onCreate: loadConfigItem,
-      onUpdate: loadConfigItem,
+      onCreate: {
+        service: 'DynamoDB',
+          action: 'putItem',
+          parameters: {
+            TableName: props.table.tableName,
+            Item: this.loadItems(props),
+          },
+          physicalResourceId: custom_resources.PhysicalResourceId.of("loadSqlParams"),
+      },
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: [props.table.tableArn],
+        //resources: [props.table.tableArn],
+        resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE,
       }),
     });
 

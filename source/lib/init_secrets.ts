@@ -29,17 +29,17 @@ export class InitSecrets extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    const role = new iam.Role(this, "Role1", {
+  /*  const role = new iam.Role(this, "RoleCustomResource", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
     });
     role.addToPolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ["lambda:InvokeFunction"],
-        resources: [props.functionArn],
+        actions: ["lambda:InvokeFunction", "lambda:Invoke"],
+        resources: ['*'],
       })
     );
-
+*/
     new custom_resources.AwsCustomResource(this, "rotateSecrets", {
       onCreate: {
         service: "Lambda",
@@ -48,24 +48,14 @@ export class InitSecrets extends Construct {
           FunctionName: props.functionName,
           Payload: `{"initialize": true}`,
         },
-
-        physicalResourceId: custom_resources.PhysicalResourceId.of("myResource1"),
+        physicalResourceId: custom_resources.PhysicalResourceId.of("initSecretsResourceId")
       },
-      onUpdate: {
-        service: "Lambda",
-        action: "invoke",
-        parameters: {
-          FunctionName: props.functionName,
-          Payload: `{"initialize": true}`,
-        },
-
-        physicalResourceId: custom_resources.PhysicalResourceId.of("myResource2"),
-      },
-      functionName: Aws.STACK_NAME + '_InitSecretsSm',
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: [props.functionArn]
+        //resources: [props.functionArn]
+        resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE
       }),
-      role: role
+
+      //role: role
     });
 
 

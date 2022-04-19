@@ -23,6 +23,7 @@ import {
   aws_logs as logs,
   aws_sqs as sqs,
   aws_lambda_event_sources as event_source,
+  StackProps,
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
@@ -38,8 +39,8 @@ export class AutoSessionRevocationStack extends Stack {
 
 
 
-  constructor(scope: Construct, id: string, configuration: IConfiguration, sessionsTable : ITable) {
-    super(scope, id);
+  constructor(scope: Construct, id: string, configuration: IConfiguration, sessionsTable : ITable, props: StackProps) {
+    super(scope, id, props);
 
 
     const sqlQueryBucket = new s3.Bucket(this, "SqlQuery");

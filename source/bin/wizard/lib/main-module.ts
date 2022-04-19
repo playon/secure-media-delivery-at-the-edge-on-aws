@@ -19,14 +19,14 @@ const coreQuestions = [{
     'The name of the stack is mandatory' : true
 },
 {
-  type: 'text',
+  type: 'number',
   name: 'wcu',
   message: '[Base configuration] --> Set the capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500)',
   validate: (value: number) => Joi.number().min(2).required().validate(value).error && Joi.number().max(1500).required().validate(value).error ?
   'Capacity is mandatory and must be a number between 2 and 1500' : true
 },
 {
-  type: 'text',
+  type: 'number',
   name: 'retention',
   message: '[Base configuration] --> Set the retention time for compromised sessions (in minutes)',
   validate: (value: number) =>  Joi.number().min(1).required().validate(value).error ?
@@ -38,7 +38,7 @@ const coreQuestions = [{
   name: 'rotate_secrets_frequency',
   message: '[Base configuration] --> At what frequency do you want to rotate the secrets?',
   choices: [
-    { title: 'Manual', value: '0' },
+    { title: 'Manual', value: 'm' },
     { title: 'Every day', value: '24h'  },
     { title: 'Every week', value: '1w'  },
     { title: 'Monthly', value: '1m'  },
@@ -104,7 +104,7 @@ export class MainModule implements PromptComponent {
     console.log("\n--------------------- Base configuration -------------------\n")
     configuration.main = <IMain> await prompts.prompt(coreQuestions, { onCancel });
 
-    if(configuration.main.rotate_secrets_frequency!=='0'){
+    if(configuration.main.rotate_secrets_frequency!=='m'){
       //Minutes	Hours	Day_of_month	Month	Day_of_week	Year
       //MIN HOUR * * DAY *
       var day_of_the_week = '*';

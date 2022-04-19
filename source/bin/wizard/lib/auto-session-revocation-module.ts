@@ -12,10 +12,10 @@ import { ISessionRevocation } from '../../../helpers/validators/auto_session_rev
  * to allocate to a prototype.
  */
 const sessionRevocationQuestions = [{
-  type: 'text',
+  type: 'number',
   name: 'trigger_workflow_frequency',
   message: '[AUTO SESSION REVOCATION] --> At what frequency do you want to trigger the workflow to detect session to invalidate?\n (in minutes between 1 and 15, type 0 for MANUAL trigger) ',
-  validate: (value: string) => Joi.number().min(0).required().validate(value).error && Joi.number().max(15).required().validate(value).error ?
+  validate: (value: number) => Joi.number().min(0).required().validate(value).error && Joi.number().max(15).required().validate(value).error ?
     'The value must be a number superior or equal to 0 and lower or equal to 15' : true
 },
 {

@@ -29,17 +29,6 @@ export class InitSecrets extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-  /*  const role = new iam.Role(this, "RoleCustomResource", {
-      assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
-    });
-    role.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ["lambda:InvokeFunction", "lambda:Invoke"],
-        resources: ['*'],
-      })
-    );
-*/
     new custom_resources.AwsCustomResource(this, "rotateSecrets", {
       onCreate: {
         service: "Lambda",

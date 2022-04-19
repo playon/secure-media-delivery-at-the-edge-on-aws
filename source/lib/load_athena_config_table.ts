@@ -49,7 +49,7 @@ export class LoadSqlParams extends Construct {
 
   private loadItems = (props: IConfigProps) => {
     return {
-      trigger_workflow_frequency: { S: props.configuration.sessionRevocation?.trigger_workflow_frequency },
+      trigger_workflow_frequency: { N: props.configuration.sessionRevocation?.trigger_workflow_frequency },
       db_name: { S: props.configuration.sessionRevocation?.db_name },
       table_name: { S: props.configuration.sessionRevocation?.table_name },
       request_ip_column: { S: props.configuration.sessionRevocation?.request_ip_column },

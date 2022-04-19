@@ -158,7 +158,6 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         .next(startQueryExecutionJob)
         .next(getQueryResultsJob)
         .next(hasResults),
-        //.next(hasMoreResults),
       timeout: Duration.minutes(60),
     });
 

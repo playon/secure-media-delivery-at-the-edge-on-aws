@@ -80,7 +80,9 @@ stack_name=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]
 echo "cd "$source_dir""
 cd "$source_dir"
 
-ls
+chmod +x ./install_dependencies.sh && ./install_dependencies.sh
+
+echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 

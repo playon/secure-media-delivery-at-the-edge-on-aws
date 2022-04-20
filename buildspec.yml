@@ -12,7 +12,6 @@ phases:
       - echo Update npm to latest
       - npm install -g npm@latest
       - cd source
-      - chmod +x ./run-all-tests.sh && ./run-all-tests.sh
       - echo "Installing dependencies and executing unit tests completed `date`"
   build:
     commands:

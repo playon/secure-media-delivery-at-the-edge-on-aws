@@ -8,7 +8,7 @@ RulesToSuppress:
 - id: W74
   reason: DynamoDB table has encryption enabled owned by Amazon
 - id: W12
-  reason: star resources cannot be fixed, some needs to be like this
+  reason: star resources cannot be fixed, some we are satisfied with the current state.
 - id: W35
   reason: It is a log bucket, not need to have access logging enabled
 - id: W51

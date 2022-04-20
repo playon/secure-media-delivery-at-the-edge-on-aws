@@ -3,6 +3,8 @@
     "stack_name": "LIVE",
     "rotate_secrets_frequency": "1m",
     "rotate_secrets_pattern": "P"
+    "wcu": 100,
+    "retention": 5,
   },
   "api": {
     "language": "A"

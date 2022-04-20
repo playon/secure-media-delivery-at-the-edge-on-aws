@@ -23,8 +23,8 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 
 export class RuleGroupStack extends Stack {
-  public readonly ruleGroupParamName: string;
-  public readonly ruleGroupParamId: string;
+  public readonly ruleGroup: string;
+  //public readonly ruleGroupParamId: string;
 
   constructor(
     scope: Construct,
@@ -34,8 +34,7 @@ export class RuleGroupStack extends Stack {
   ) {
     super(scope, id, props);
 
-    this.ruleGroupParamName = id + "_Name_RS";
-    this.ruleGroupParamId = id + "_ID_RS";
+    this.ruleGroup = id + "_BlockSessions";
 
     const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup", {
       capacity: config.main?.wcu!,
@@ -46,14 +45,18 @@ export class RuleGroupStack extends Stack {
         sampledRequestsEnabled: false,
       },
       description: "Revoked sessions",
-      name: this.ruleGroupParamName,
+      name: this.ruleGroup,
       rules: [],
     });
 
+
     new ssm.StringParameter(this, "RuleGroupId", {
-      parameterName: this.ruleGroupParamId,
-      description: "Rule Group Id",
+      parameterName: this.ruleGroup,
+      description: "Parameter that with the Rule Group ID",
       stringValue: cfnRuleGroup.attrId,
     });
+
+
   }
+
 }

@@ -5,4 +5,8 @@ RulesToSuppress:
   reason: All Lambdas have CloudWatch permissions by using service role AWSLambdaBasicExecutionRole
 - id: W89
   reason: We don't have any VPC in the stack, we only use serverless services
+- id: W74
+  reason: DynamoDB table has encryption enabled owned by Amazon
+- id: W12
+  reason: '*' resource
 

@@ -32,7 +32,6 @@ export interface IConfigProps {
   wcu: number;
   retention: number;
   ruleGroupParamName: string;
-  ruleGroupParamId: string;
 }
 
 export class SessionRevocation extends Construct {
@@ -41,6 +40,7 @@ export class SessionRevocation extends Construct {
   constructor(scope: Construct, id: string, config: IConfigProps) {
     super(scope, id);
 
+    const accountId = Stack.of(this).account;
     const role = new iam.Role(this, "RoleSsmCustomResource", {
       assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
     });
@@ -52,6 +52,7 @@ export class SessionRevocation extends Construct {
       })
     );
 
+    console.log(config.ruleGroupParamName)
     const ssmRuleGroupParameterId = new custom_resources.AwsCustomResource(
       this,
       "SSMParameter",
@@ -59,21 +60,22 @@ export class SessionRevocation extends Construct {
         onUpdate: {
           service: "SSM",
           action: "getParameter",
-          parameters: { Name: `${config.ruleGroupParamId}` },
+          parameters: { Name: `${config.ruleGroupParamName}` },
           region: this.ruleGroupRegion,
           physicalResourceId: custom_resources.PhysicalResourceId.of(
-            `${config.ruleGroupParamId}-${this.ruleGroupRegion}`
+            `${config.ruleGroupParamName}-${this.ruleGroupRegion}`
           ),
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-          resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE,
+          resources: [`arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`]
         }),
         role: role,
       }
     );
 
-    const ssmRuleGroupId =
-      ssmRuleGroupParameterId.getResponseField("Parameter.Value");
+
+
+    const ssmRuleGroupId = ssmRuleGroupParameterId.getResponseField("Parameter.Value");
 
     //Revoke an active session
     const updateRuleGroupFunction = new lambda.Function(
@@ -102,7 +104,7 @@ export class SessionRevocation extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    const accountId = Stack.of(this).account;
+
 
     updateRuleGroupFunction.addToRolePolicy(
       new iam.PolicyStatement({

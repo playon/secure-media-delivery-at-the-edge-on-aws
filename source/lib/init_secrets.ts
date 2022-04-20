@@ -38,7 +38,6 @@ export class InitSecrets extends Construct {
       },
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [props.functionArn],
-        //resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE
       }),
 
       //role: role

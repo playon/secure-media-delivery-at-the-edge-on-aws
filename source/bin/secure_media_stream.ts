@@ -41,8 +41,7 @@ const app = new cdk.App();
     app,
     config.main?.stack_name!,
     config,
-    ruleGroupStack.ruleGroupParamName,
-    ruleGroupStack.ruleGroupParamId,
+    ruleGroupStack.ruleGroup,
     {
       env: {
         account: account,

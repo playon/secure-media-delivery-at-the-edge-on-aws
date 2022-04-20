@@ -41,7 +41,6 @@ export class SecureMediaStreamingStack extends Stack {
     id: string,
     config: IConfiguration,
     ruleGroupParamName: string,
-    ruleGroupParamId: string,
     props: StackProps
   ) {
     super(scope, id, props);
@@ -126,8 +125,7 @@ export class SecureMediaStreamingStack extends Stack {
       gsi_index_name: this.gsi_name,
       wcu: config.main?.wcu!,
       retention: config.main?.retention!,
-      ruleGroupParamName: ruleGroupParamName,
-      ruleGroupParamId: ruleGroupParamId,
+      ruleGroupParamName: ruleGroupParamName
     });
 
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(

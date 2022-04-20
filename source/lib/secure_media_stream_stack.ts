@@ -15,61 +15,147 @@ import {
   Stack,
   StackProps,
   Aws,
-  aws_cloudfront as cloudfront
-} from 'aws-cdk-lib';
+  RemovalPolicy,
+  aws_iam as iam,
+  aws_cloudfront as cloudfront,
+  aws_dynamodb as ddb,
+  Duration,
+  CfnOutput,
+} from "aws-cdk-lib";
 
-
-import { Construct } from 'constructs';
-import { IConfiguration } from '../helpers/validators/configuration';
-import { Api } from './api';
-import { CWDashboard } from './dashboard';
-import { GetInputParameters } from './input_parameters';
-import { RotateSecretsWorkflow } from './rotate_secrets_workflow';
-import { Secrets } from './secrets';
-import { SessionRevocation } from './session_revocation';
-
-
+import { Construct } from "constructs";
+import { IConfiguration } from "../helpers/validators/configuration";
+import { Api } from "./api";
+import { CWDashboard } from "./dashboard";
+import { GetInputParameters } from "./input_parameters";
+import { RotateSecretsWorkflow } from "./rotate_secrets_workflow";
+import { Secrets } from "./secrets";
+import { SessionRevocation } from "./session_revocation";
 
 export class SecureMediaStreamingStack extends Stack {
-  constructor(scope: Construct, id: string, wizardConfiguration: IConfiguration, props?: StackProps) {
+  public readonly sessionToRevoke: ddb.ITable;
+  private readonly gsi_name = "last_updated_index";
+
+  constructor(
+    scope: Construct,
+    id: string,
+    config: IConfiguration,
+    ruleGroupParamName: string,
+    props: StackProps
+  ) {
     super(scope, id, props);
 
-    const parameters = new GetInputParameters(this, 'InputParameters', wizardConfiguration, this);
+    const parameters = new GetInputParameters(this, "InputParameters", config);
 
-
-    // Create the Cloudfront Function used to check the JWT token
-    const checkToken = new cloudfront.Function(this, 'Function', {
-      code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/generate_secret_update_cff/index.js" }),
-      functionName: Aws.STACK_NAME + '_checkJWTToken',
-      comment: 'CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery'
-    })
-
-    const secrets = new Secrets(this, 'Secrets')
-
-    const sessionRevocation = new SessionRevocation(this, "SessionRevocation");
-
-    const rotateSecretsWorkflow = new RotateSecretsWorkflow(this, 'RotateSecrets', {
-      secrets: secrets,
-      checkTokenFunction: checkToken,
-      configuration: parameters.customInputParameters
-    } )
-
-    const dashboard = new CWDashboard(this, 'CoreDashboard')
-    dashboard.buildCoreDashboard({
-      cfFunctionName: checkToken.functionName,
-      rotateSecretsWorkflowArn: rotateSecretsWorkflow.workflowArn
+    const checkToken = new cloudfront.Function(this, "CheckJWTTokenFunction", {
+      code: cloudfront.FunctionCode.fromFile({
+        filePath: "lambda/generate_secret_update_cff/index.js",
+      }),
+      functionName: Aws.STACK_NAME + "_checkJWTToken",
+      comment:
+        "CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery",
     });
 
-    if(parameters.customInputParameters.api){
-      new Api(this, 'Api', {
+    const mediatailorRedirect = new cloudfront.Function(
+      this,
+      "RedirectMediaTailorFunction",
+      {
+        code: cloudfront.FunctionCode.fromFile({
+          filePath: "cff/mediatailor_redirect/index.js",
+        }),
+        functionName: Aws.STACK_NAME + "_mediaTailorRedirect",
+        comment:
+          "CloudFront Function used to handle the redirect for MediaTailor",
+      }
+    );
+
+    const secrets = new Secrets(this, "Secrets");
+
+    const sessionToRevoke = new ddb.Table(this, "SessionToRevoke", {
+      billingMode: ddb.BillingMode.PAY_PER_REQUEST,
+      partitionKey: { name: "session_id", type: ddb.AttributeType.STRING },
+      stream: ddb.StreamViewType.KEYS_ONLY,
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecovery: true,
+    });
+
+    const customPolicy = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          resources: [
+            secrets.primarySecret.secretArn,
+            secrets.secondarySecret.secretArn,
+          ],
+          actions: [
+            "secretsmanager:GetResourcePolicy",
+            "secretsmanager:GetSecretValue",
+            "secretsmanager:DescribeSecret",
+            "secretsmanager:ListSecretVersionIds",
+          ],
+        }),
+        new iam.PolicyStatement({
+          resources: [sessionToRevoke.tableArn],
+          actions: ["dynamodb:PutItem", "dynamodb:BatchWrite*"],
+        }),
+      ],
+    });
+
+    const role4sdk = new iam.Role(this, "Role4SDK", {
+      description: "A role to be assumed by the SDK",
+      assumedBy: new iam.AccountPrincipal(Stack.of(this).account),
+      inlinePolicies: {
+        policy: customPolicy,
+      },
+      maxSessionDuration: Duration.hours(12),
+    });
+
+    // 👇 add global secondary index
+    sessionToRevoke.addGlobalSecondaryIndex({
+      indexName: this.gsi_name,
+      partitionKey: { name: "reason", type: ddb.AttributeType.STRING },
+      sortKey: { name: "last_updated", type: ddb.AttributeType.NUMBER },
+      projectionType: ddb.ProjectionType.INCLUDE,
+      nonKeyAttributes: ["score", "type"],
+    });
+
+    this.sessionToRevoke = sessionToRevoke;
+
+    new SessionRevocation(this, "SessionRevocation", {
+      sessionToRevoke: sessionToRevoke,
+      gsi_index_name: this.gsi_name,
+      wcu: config.main?.wcu!,
+      retention: config.main?.retention!,
+      ruleGroupParamName: ruleGroupParamName
+    });
+
+    const rotateSecretsWorkflow = new RotateSecretsWorkflow(
+      this,
+      "RotateSecrets",
+      {
+        secrets: secrets,
+        checkTokenFunction: checkToken,
+        configuration: parameters.customInputParameters,
+      }
+    );
+
+    const dashboard = new CWDashboard(this, "CoreDashboard");
+    dashboard.buildCoreDashboard({
+      cfFunctionName: checkToken.functionName,
+      rotateSecretsWorkflowArn: rotateSecretsWorkflow.workflowArn,
+    });
+
+    if (parameters.customInputParameters.api) {
+      new Api(this, "Api", {
         configuration: parameters.customInputParameters,
         secrets: secrets,
         dashboard: dashboard,
-        sessionsTable: sessionRevocation.sessionsTable
+        sessionsTable: sessionToRevoke,
       });
     }
 
-
-    }
-
+    new CfnOutput(this, "RoleArn", {
+      description: "The ARN of the role to be assumed by SDK",
+      value: role4sdk.roleArn,
+    });
+  }
 }

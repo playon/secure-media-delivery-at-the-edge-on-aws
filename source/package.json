@@ -37,6 +37,6 @@
     "joi": "^17.6.0",
     "prompts": "^2.4.2",
     "source-map-support": "^0.5.16",
-    "watch": "^1.0.2"
+    "watch": "^0.13.0"
   }
 }

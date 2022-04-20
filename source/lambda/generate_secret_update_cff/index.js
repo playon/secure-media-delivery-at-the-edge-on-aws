@@ -2,6 +2,9 @@
 var secrets = { "secret1_key_to_replace": "secret1_value_to_replace", "secret2_key_to_replace": "secret2_value_to_replace"};
 // END
 
+//DEBUG FLAG
+var DEBUG = true;
+
 var crypto = require('crypto');
 
 //Response when JWT is not valid.
@@ -50,14 +53,16 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
         var signingInput = [headerSeg, payloadSeg].join('.');
 
         if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {
-            throw new Error('Signature verification failed');
+            throw new Error('JWT signature verification failed');
         }
 
         if (payload.exp && Date.now() > payload.exp*1000) {
+            if(DEBUG) console.log(`JWT expiry: ${payload.exp}, current time: ${Date.now}`);
             throw new Error('Token expired');
         }
 
         if (payload.nbf && Date.now() < payload.nbf*1000) {
+            if(DEBUG) console.log(`JWT nbf: ${payload.nbf}, current time: ${Date.now}`);
             throw new Error('Token not yet valid');
         }
 
@@ -78,11 +83,27 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
             }
         }
         if (!uri_match) {
+            if(DEBUG) console.log(`request uri: ${uri}`)
             throw new Error('URI path doesn\'t match any path in the token');
         }
 
+        var full_ip;
+        if(payload['ip']){
+            if(!payload['ip_ver']) throw "Missing ip_ver claim required when ip claim is set to true";
+            if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw "Incorrect ip_ver claim value. Must be either 4 or 6"
+            if(ip.includes('.')){
+                if(payload['ip_ver'] != 4) throw "Viewer's IP version (4) doesn't match ip_ver claim";
+                full_ip = ip;
+            } else if(ip.includes(':')){
+                if(payload['ip_ver'] != 6) throw "Viewer's IP version (6) doesn't match ip_ver claim";
+                var hextets = ip.split(':').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
+                full_ip = hextets.join(':');
+            } else {
+                throw "Viewer's IP version not recognized";
+            }
+        }
 
-        if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, ip)) {
+        if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, full_ip)) {
             throw new Error('Internal signature verification failed');
         }
 
@@ -143,7 +164,8 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
     indirect_attr = indirect_attr.slice(0,-1);
 
     if (indirect_attr && !_verify_signature(indirect_attr, intsig_key, method, type, payload_jwt['intsig'])) {
-        throw new Error('Internal signature verification failed');
+        if(DEBUG) console.log("Indirect attributes input string:" + indirect_attr);
+        return false;
     } else {
         return true;
     }
@@ -177,39 +199,36 @@ function handler(event) {
     var querystrings = request.querystring;
     var uri = request.uri;
     var viewer_ip = event.viewer.ip;
-
-    //Secret key used to verify JWT token.
-    //Update with your own key.
-
-
-    // If no JWT token, then generate HTTP redirect 401 response.
     var sessionId;
     var pathArray = uri.split('/');
 
-    // Inputs grooming and setting internal variables
+    //initial checks if token is present
     var auth_sequence = pathArray[1];
+    if(!auth_sequence || pathArray.length < 3){
+        if(DEBUG) console.log("Error: No token is present");
+        return response401;
+    }
+
+    //inputs grooming and setting internal variables
     var auth_sequence_array = auth_sequence.split('.');
     if(auth_sequence_array.length == 4) sessionId=auth_sequence_array.shift();
     var jwtToken = auth_sequence_array.join('.');
 
-    //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
-    delete pathArray[1];
-    var newUri = pathArray.join("/")
-    newUri = newUri.replace(/\/\/+/g, '/')
-
     //sanity check of the JWT token length
     if (jwtToken.length < 60) {
-        console.log("Error: No JWT in the path");
+        if(DEBUG) console.log("Error: No JWT in the path");
         return response401;
     }
 
+    //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
+    pathArray.splice(1,1);
+    var newUri = pathArray.join("/")
+
     try{
         jwt_verify(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
-        console.log("X_JWT_CHECK VALID")
     }
     catch(e) {
-        console.log(e);
-        console.log("X_JWT_CHECK INVALID")
+        if(DEBUG) console.log(e);
         return response401;
     }
 

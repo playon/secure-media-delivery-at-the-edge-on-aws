@@ -2,7 +2,7 @@
 const videoHls = document.getElementById('videoPlayer');
 const hls = new Hls();
 const playerDash = dashjs.MediaPlayer().create();
-
+var currentStream = "hls";
 var dash_initialized = false;
 
 var getLocation = function (href) {
@@ -200,14 +200,26 @@ function loadingRevokeSessionButton() {
 }
 
 $('#hls').on('change', function () {
+  currentStream = "hls";
   load('hls');
 
 });
 
 $('#dash').on('change', function () {
-  load('dash')
+  currentStream = "dash";
+  load('dash');
 
 });
+
+$('#refreshtoken').on('click', function () {
+
+  if(currentStream =='hls'){
+    load('hls');
+  }else{
+    load('dash');
+  }
+});
+
 
 $('#sessionrevoke').on('click', function () {
 
@@ -215,9 +227,8 @@ $('#sessionrevoke').on('click', function () {
   loadingRevokeSessionButton();
 
   const playback_url = $("#playback_url_value").text();
-  console.log(playback_url);
   var l = getLocation(playback_url);
-  const session_id=l.pathname.split(".")[0];
+  const session_id=l.pathname.split(".")[0].substring(1);
   console.log("session_id="+session_id);
   const urlToGet = `${location.protocol}\/\/${location.hostname}/sessionrevoke?sessionid=` + session_id;
 

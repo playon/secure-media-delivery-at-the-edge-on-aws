@@ -11,23 +11,20 @@
  *  and limitations under the License.
  */
 
-import {
-  CfnParameter, Stack,
-} from "aws-cdk-lib";
+import { CfnParameter, Stack } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
-import { addParameterToInterface } from "./cfn_parameters";
+import { addParametersToInterface } from "./cfn_parameters";
 
 export class GetInputParameters extends Construct {
   public readonly customInputParameters = {} as IConfiguration;
 
-  constructor(scope: Construct, id: string, configuration: IConfiguration, mystack: Stack) {
+  constructor(scope: Construct, id: string, configuration: IConfiguration) {
     super(scope, id);
 
     var returnObject: IConfiguration;
 
     if (configuration.main?.rotate_secrets_pattern === "P") {
-
       const hours = new CfnParameter(this, "AA", {
         type: "String",
         allowedValues: [
@@ -56,14 +53,8 @@ export class GetInputParameters extends Construct {
           "22",
           "23",
         ],
-        description: "Specify the how frequently key rotation process will be triggered",
-      });
-
-      addParameterToInterface( {
-        scope: this,
-        parameter: hours,
-        groupLabel: "Key rotation frequency",
-        parameterLabel: "Hours"
+        description:
+          "Specify the how frequently key rotation process will be triggered",
       });
 
       const minutes = new CfnParameter(this, "BB", {
@@ -130,40 +121,51 @@ export class GetInputParameters extends Construct {
           "58",
           "59",
         ],
-        description: "Specify the how frequently key rotation process will be triggered",
-      });
-
-      addParameterToInterface( {
-        scope: this,
-        parameter: minutes,
-        groupLabel: "Key rotation frequency",
-        parameterLabel: "Minutes"
+        description:
+          "Specify the how frequently key rotation process will be triggered",
       });
 
       const day_of_week = new CfnParameter(this, "CC", {
         type: "String",
         allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
-        description: "Specify the how frequently key rotation process will be triggered",
-      });
-
-      addParameterToInterface( {
-        scope: this,
-        parameter: day_of_week,
-        groupLabel: "Key rotation frequency",
-        parameterLabel: "Day of the week"
+        description:
+          "Specify the how frequently key rotation process will be triggered",
       });
 
       const week_of_month = new CfnParameter(this, "DD", {
         type: "String",
         allowedValues: ["1", "2", "3", "4"],
-        description: "Specify the how frequently key rotation process will be triggered",
+        description:
+          "Specify the how frequently key rotation process will be triggered",
       });
 
-      addParameterToInterface( {
-        scope: this,
-        parameter: week_of_month,
-        groupLabel: "Key rotation frequency",
-        parameterLabel: "Week of the month"
+      addParametersToInterface({
+        params: [
+          {
+            scope: this,
+            parameter: week_of_month,
+            groupLabel: "Key rotation frequency",
+            parameterLabel: "Week of the month",
+          },
+          {
+            scope: this,
+            parameter: day_of_week,
+            groupLabel: "Key rotation frequency",
+            parameterLabel: "Day of the week",
+          },
+          {
+            scope: this,
+            parameter: minutes,
+            groupLabel: "Key rotation frequency",
+            parameterLabel: "Minutes",
+          },
+          {
+            scope: this,
+            parameter: hours,
+            groupLabel: "Key rotation frequency",
+            parameterLabel: "Hours",
+          },
+        ],
       });
 
       returnObject = {
@@ -178,6 +180,8 @@ export class GetInputParameters extends Construct {
             "#" +
             week_of_month.valueAsString +
             " *",
+          wcu: 100,
+          retention: 60,
         },
       };
     } else {
@@ -185,52 +189,51 @@ export class GetInputParameters extends Construct {
         main: {
           rotate_secrets_frequency: "1m",
           rotate_secrets_pattern: configuration.main?.rotate_secrets_pattern!,
+          wcu: configuration.main?.wcu!,
+          retention: configuration.main?.retention!,
         },
       };
     }
 
-    if(configuration.demo){
+    if (configuration.demo) {
+      if (configuration.demo?.username === "U") {
+        const username = new CfnParameter(this, "EE", {
+          type: "String",
+          description: "Username used to authenticate demo viewer",
+        });
 
-        if (configuration.demo?.username === "U") {
+        const password = new CfnParameter(this, "FF", {
+          type: "String",
+          description: "Password used to authenticate demo viewer",
+        });
 
-            const username = new CfnParameter(this, "EE", {
-              type: "String",
-              description:
-                "Username used to authenticate demo viewer",
-            });
-
-            const password = new CfnParameter(this, "FF", {
-              type: "String",
-              description:
-                "Password used to authenticate demo viewer",
-            });
-
-            addParameterToInterface( {
+        addParametersToInterface({
+          params: [
+            {
               scope: this,
               parameter: username,
               groupLabel: "Demo website",
-              parameterLabel: "Username"
-            });
-
-            addParameterToInterface( {
+              parameterLabel: "Username",
+            },
+            {
               scope: this,
               parameter: password,
               groupLabel: "Demo website",
-              parameterLabel: "Password"
-            });
+              parameterLabel: "Password",
+            },
+          ],
+        });
 
-            returnObject.demo = {
-              username: username.valueAsString,
-              password: password.valueAsString,
-            };
-
-
-          } else {
-            returnObject.demo = {
-              username: configuration.demo?.username!,
-              password: configuration.demo?.password!,
-            };
-          }
+        returnObject.demo = {
+          username: username.valueAsString,
+          password: password.valueAsString,
+        };
+      } else {
+        returnObject.demo = {
+          username: configuration.demo?.username!,
+          password: configuration.demo?.password!,
+        };
+      }
     }
 
     if (configuration.dash) {
@@ -249,28 +252,29 @@ export class GetInputParameters extends Construct {
           type: "String",
           description: "TTL for the token for DASH stream",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-
         });
 
-        addParameterToInterface( {
-          scope: this,
-          parameter: dash_hostname,
-          groupLabel: "DASH stream",
-          parameterLabel: "Hostname for asset delivery"
-        });
-
-        addParameterToInterface( {
-          scope: this,
-          parameter: dash_url_path,
-          groupLabel: "DASH stream",
-          parameterLabel: "Url path for asset delivery"
-        });
-
-        addParameterToInterface( {
-          scope: this,
-          parameter: dash_ttl,
-          groupLabel: "DASH stream",
-          parameterLabel: "TTL for token"
+        addParametersToInterface({
+          params: [
+            {
+              scope: this,
+              parameter: dash_hostname,
+              groupLabel: "DASH stream",
+              parameterLabel: "Hostname for asset delivery",
+            },
+            {
+              scope: this,
+              parameter: dash_url_path,
+              groupLabel: "DASH stream",
+              parameterLabel: "Url path for asset delivery",
+            },
+            {
+              scope: this,
+              parameter: dash_ttl,
+              groupLabel: "DASH stream",
+              parameterLabel: "TTL for token",
+            },
+          ],
         });
 
         returnObject.dash = {
@@ -278,7 +282,6 @@ export class GetInputParameters extends Construct {
           url_path: dash_url_path.valueAsString,
           ttl: dash_ttl.valueAsString,
         };
-
       } else {
         returnObject.dash = {
           hostname: configuration.dash?.hostname!,
@@ -304,28 +307,29 @@ export class GetInputParameters extends Construct {
           type: "String",
           description: "TTL for the token for HLS stream",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-
         });
 
-        addParameterToInterface( {
-          scope: this,
-          parameter: hls_hostname,
-          groupLabel: "HLS stream",
-          parameterLabel: "Hostname for asset delivery"
-        });
-
-        addParameterToInterface( {
-          scope: this,
-          parameter: hls_url_path,
-          groupLabel: "HLS stream",
-          parameterLabel: "Url path for asset delivery"
-        });
-
-        addParameterToInterface( {
-          scope: this,
-          parameter: hls_ttl,
-          groupLabel: "HLS stream",
-          parameterLabel: "TTL for token"
+        addParametersToInterface({
+          params: [
+            {
+              scope: this,
+              parameter: hls_hostname,
+              groupLabel: "HLS stream",
+              parameterLabel: "Hostname for asset delivery",
+            },
+            {
+              scope: this,
+              parameter: hls_url_path,
+              groupLabel: "HLS stream",
+              parameterLabel: "Url path for asset delivery",
+            },
+            {
+              scope: this,
+              parameter: hls_ttl,
+              groupLabel: "HLS stream",
+              parameterLabel: "TTL for token",
+            },
+          ],
         });
 
         returnObject.hls = {
@@ -341,36 +345,34 @@ export class GetInputParameters extends Construct {
         };
       }
     }
-    if(configuration.api){
+    if (configuration.api) {
+      if (configuration.api?.language === "A") {
+        const api_language = new CfnParameter(this, "MM", {
+          type: "String",
+          description: "Choose the programming language for API code ",
+          allowedValues: ["nodejs", "python"],
+        });
 
-        if (configuration.api?.language === "A") {
-            const api_language = new CfnParameter(this, "MM", {
-              type: "String",
-              description: "Choose the programming language for API code ",
-              allowedValues: ["nodejs", "python"]
-
-            });
-
-            addParameterToInterface( {
+        addParametersToInterface({
+          params: [
+            {
               scope: this,
               parameter: api_language,
               groupLabel: "APIs",
-              parameterLabel: "Choose the programming language for the Lambdas"
-            });
+              parameterLabel: "Choose the programming language for the Lambdas",
+            },
+          ],
+        });
 
-            returnObject.api = {
-              language: api_language.valueAsString,
-            };
-          } else {
-            returnObject.api = {
-              language: configuration.api?.language!,
-            };
-          }
-
-
+        returnObject.api = {
+          language: api_language.valueAsString,
+        };
+      } else {
+        returnObject.api = {
+          language: configuration.api?.language!,
+        };
+      }
     }
-
-
 
     this.customInputParameters = returnObject;
   }

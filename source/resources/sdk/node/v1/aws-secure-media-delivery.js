@@ -3,6 +3,47 @@ const b64url = require('base64url');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
+function validateIPv4(address){
+    var ipv4_regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipv4_regex.test(address);
+}
+
+function validateIPv6(address){
+    var ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
+    address_parts = address.split('::');
+    if(address_parts.length>2) return false;
+    var parts_groups_sum = 0;
+    for (part of address_parts){
+        var part_groups = part.split(':');
+        parts_groups_sum += part_groups.length;
+        if(part_groups.length == 1 && part_groups[0] == ''){
+            continue;
+        } else {
+            if(!ipv6_parts_regex.test(part)) return false;
+        }
+
+    }
+    if(parts_groups_sum > 8) return false;
+    if(address_parts.length == 1 && parts_groups_sum != 8) return false;
+    return true;
+}
+
+function expandIPv6(address){
+    var hextets_abbrev = address.split(':');
+    if (hextets_abbrev.slice(-1) == '') {
+        hextets_abbrev.pop();  //when prefix ends with :: this creates two empty elements in an array
+    }
+    if (hextets_abbrev[0] == '') {
+        hextets_abbrev.shift();  //when prefix starts with :: this creates two empty elements in an array
+    }
+    //add leading zeros in extets and expand two-collon (::) notation
+    hextets = hextets_abbrev.map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
+    if(hextets.indexOf('')>-1) {
+        hextets.splice.apply(hextets,[hextets.indexOf(''),1].concat(Array(9-hextets.length).fill('0000')));
+    }
+    return hextets.join(':');
+}
+
 class TokenProvider{
     static _secrets = {};
     static _secrets_prefix = '';
@@ -101,8 +142,18 @@ class TokenProvider{
         let intsig_input = '';
 
         if (attributes['ip']) {
+            var fullIP;
+            if(attributes['ip'].includes('.') && validateIPv4(attributes['ip'])){
+                jwt_payload['ip_ver']=4;
+                fullIP = attributes['ip'];
+            } else if(validateIPv6(attributes['ip'])){
+                jwt_payload['ip_ver']=6;
+                fullIP = expandIPv6(attributes['ip']);
+            } else {
+                throw "Invalid viewer's IP format";
+            }
             jwt_payload['ip']=true;
-            intsig_input += attributes['ip'] + ':';
+            intsig_input += fullIP + ':';
         };
         if (attributes['co']){
             jwt_payload['co']=true;
@@ -125,7 +176,7 @@ class TokenProvider{
             intsig_input += this.payloadSsn + ':';
         };
          
-        if (attributes['headers']){
+        if (attributes['headers'] && attributes['headers'].length){
             attributes['headers'].forEach((header)=>{
                 jwt_payload['headers'].push(header.key);
                 intsig_input += header.value + ':';
@@ -142,8 +193,8 @@ class TokenProvider{
 		if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
 			console.log("Input for internal signature: ", intsig_input); 
-			jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256')};
-		else {
+			jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256')
+        } else {
 			delete jwt_payload['intsig'];
 		};
 

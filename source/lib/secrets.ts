@@ -14,13 +14,13 @@
 import {
   Aws,
   CfnOutput,
-  aws_secretsmanager as secretsmanager
-} from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-
+  aws_secretsmanager as secretsmanager,
+  Stack,
+  Duration,
+} from "aws-cdk-lib";
+import { Construct } from "constructs";
 
 export class Secrets extends Construct {
-
   public readonly primarySecret: secretsmanager.ISecret;
   public readonly secondarySecret: secretsmanager.ISecret;
   public readonly temporarySecret: secretsmanager.ISecret;
@@ -32,31 +32,28 @@ export class Secrets extends Construct {
       secretName: Aws.STACK_NAME + "_PrimarySecret",
       description: "Primary secret for Secure Media Stream Delivery",
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ "MY_PRIMARY_KEY": "" }),
-        generateStringKey: "MY_PRIMARY_KEY"
-      }
-    })
+        secretStringTemplate: JSON.stringify({ MY_PRIMARY_KEY: "" }),
+        generateStringKey: "MY_PRIMARY_KEY",
+      },
+    });
 
     const secondarySecret = new secretsmanager.Secret(this, "Secondary", {
       secretName: Aws.STACK_NAME + "_SecondarySecret",
       description: "Secondary secret for Secure Media Stream Delivery",
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ "MY_SECONDARY_KEY": "" }),
-        generateStringKey: "MY_SECONDARY_KEY"
-      }
-    })
+        secretStringTemplate: JSON.stringify({ MY_SECONDARY_KEY: "" }),
+        generateStringKey: "MY_SECONDARY_KEY",
+      },
+    });
 
     const temporarySecret = new secretsmanager.Secret(this, "Temporary", {
       secretName: Aws.STACK_NAME + "_TemporarySecret",
       description: "Temporary secret for Secure Media Stream Delivery",
       generateSecretString: {
-        secretStringTemplate: JSON.stringify({ "MY_TEMPORARY_KEY": "" }),
-        generateStringKey: "MY_TEMPORARY_KEY"
-      }
-    })
-
-
-
+        secretStringTemplate: JSON.stringify({ MY_TEMPORARY_KEY: "" }),
+        generateStringKey: "MY_TEMPORARY_KEY",
+      },
+    });
 
     this.primarySecret = primarySecret;
     this.secondarySecret = secondarySecret;
@@ -64,18 +61,14 @@ export class Secrets extends Construct {
 
     new CfnOutput(this, "PrimarySecret", {
       value: primarySecret.secretName,
-      exportName: Aws.STACK_NAME + 'PrimarySecret',
-      description: 'The name of the PrimarySecret'
-    })
+      exportName: Aws.STACK_NAME + "PrimarySecret",
+      description: "The name of the PrimarySecret",
+    });
 
     new CfnOutput(this, "SecondarySecret", {
       value: secondarySecret.secretName,
-      exportName: Aws.STACK_NAME + 'SecondarySecret',
-      description: 'The name of the SecondarySecret'
-    })
-
-
-
-
+      exportName: Aws.STACK_NAME + "SecondarySecret",
+      description: "The name of the SecondarySecret",
+    });
   }
 }

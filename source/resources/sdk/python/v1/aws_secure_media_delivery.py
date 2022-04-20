@@ -8,6 +8,7 @@ import boto3
 import hmac
 import hashlib
 import base64
+import ipaddress
 #from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 from urllib.parse import urlparse, urldefrag, urlsplit
 
@@ -109,7 +110,15 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 
 	if "ip" in attributes:
 	  jwt_payload['ip'] = True
-	  private_payload += attributes['ip'] + ":"
+	  try:
+		addr = ipaddress.ip_address(attributes('ip'))
+	  except ValueError:
+		return("Error: Invalid IP address")
+		raise
+	  jwt_payload['ip_ver'] = int(addr.version)
+	  jwt_payload['ip'] = True
+	  full_ip = addr.exploded
+	  private_payload += attributes['full_ip'] + ":"
 	
 	if "co" in attributes:
 	  jwt_payload['co'] = True
@@ -119,6 +128,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	  jwt_payload['cty'] = True
 	  private_payload += attributes['cty'] + ":"
 
+	
 	if "paths" in attributes:
 	  for path in attributes['paths']:
 	    print ("PATH IS: " + path)

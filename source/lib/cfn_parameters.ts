@@ -15,27 +15,42 @@ interface CloudFormationInterface {
   ParameterLabels: ParameterLabels;
 }
 
-const getStackMetadata = (scope: Construct): { [key: string]: any } => Stack.of(scope).templateOptions.metadata || {};
+const getStackMetadata = (scope: Construct): { [key: string]: any } =>
+  Stack.of(scope).templateOptions.metadata || {};
 
-const CFN_INTERFACE_KEY = 'AWS::CloudFormation::Interface';
+const CFN_INTERFACE_KEY = "AWS::CloudFormation::Interface";
 
-const createEmptyCfnInterface = (): CloudFormationInterface => ({ ParameterGroups: [], ParameterLabels: {} });
+const createEmptyCfnInterface = (): CloudFormationInterface => ({
+  ParameterGroups: [],
+  ParameterLabels: {},
+});
 
 const getCfnInterface = (scope: Construct): CloudFormationInterface => {
   const metadata = getStackMetadata(scope);
-  return metadata[CFN_INTERFACE_KEY] ? metadata[CFN_INTERFACE_KEY] : createEmptyCfnInterface();
+  return metadata[CFN_INTERFACE_KEY]
+    ? metadata[CFN_INTERFACE_KEY]
+    : createEmptyCfnInterface();
 };
 
-const updateCfnInterface = (cfnInterface: CloudFormationInterface, scope: Construct): void => {
+const updateCfnInterface = (
+  cfnInterface: CloudFormationInterface,
+  scope: Construct
+): void => {
   const metadata = getStackMetadata(scope);
   metadata[CFN_INTERFACE_KEY] = cfnInterface;
   Stack.of(scope).templateOptions.metadata = metadata;
 };
 
-const getGroupFromInterface = (label: string, cfnInterface: CloudFormationInterface): ParameterGroup | undefined =>
+const getGroupFromInterface = (
+  label: string,
+  cfnInterface: CloudFormationInterface
+): ParameterGroup | undefined =>
   cfnInterface.ParameterGroups.find((group) => group.Label.default === label);
 
-const addGroupToInterface = (label: string, cfnInterface: CloudFormationInterface): ParameterGroup => {
+const addGroupToInterface = (
+  label: string,
+  cfnInterface: CloudFormationInterface
+): ParameterGroup => {
   const existingGroup = getGroupFromInterface(label, cfnInterface);
   if (existingGroup) {
     return existingGroup;
@@ -46,7 +61,10 @@ const addGroupToInterface = (label: string, cfnInterface: CloudFormationInterfac
   }
 };
 
-const addParameterToGroup = (parameter: CfnParameter, group: ParameterGroup): void => {
+const addParameterToGroup = (
+  parameter: CfnParameter,
+  group: ParameterGroup
+): void => {
   if (group.Parameters.find((logicalId) => logicalId === parameter.logicalId)) {
     return;
   } else {
@@ -62,11 +80,12 @@ export interface ParameterInterfaceProps {
 }
 
 export interface ParametersInterfaceProps {
-    params: ParameterInterfaceProps[]
+  params: ParameterInterfaceProps[];
 }
 
-
-const addParameterToInterface = (props: ParameterInterfaceProps): CfnParameter => {
+const addParameterToInterface = (
+  props: ParameterInterfaceProps
+): CfnParameter => {
   const { scope, groupLabel, parameter, parameterLabel } = props;
   const cfnInterface = getCfnInterface(scope);
 
@@ -76,7 +95,9 @@ const addParameterToInterface = (props: ParameterInterfaceProps): CfnParameter =
   }
 
   if (parameterLabel) {
-    cfnInterface.ParameterLabels[parameter.logicalId] = { default: parameterLabel };
+    cfnInterface.ParameterLabels[parameter.logicalId] = {
+      default: parameterLabel,
+    };
   }
 
   updateCfnInterface(cfnInterface, scope);
@@ -84,7 +105,7 @@ const addParameterToInterface = (props: ParameterInterfaceProps): CfnParameter =
 };
 
 export const addParametersToInterface = (props: ParametersInterfaceProps) => {
-    props.params.forEach(item => {
-        addParameterToInterface(item);
-    })
-}
+  props.params.forEach((item) => {
+    addParameterToInterface(item);
+  });
+};

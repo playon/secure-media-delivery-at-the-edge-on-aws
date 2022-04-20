@@ -25,7 +25,6 @@ import {
   aws_stepfunctions_tasks as tasks,
   aws_events as events,
   aws_events_targets as targets,
-
 } from "aws-cdk-lib";
 import { JsonPath } from "aws-cdk-lib/aws-stepfunctions";
 
@@ -44,7 +43,6 @@ export interface IConfigProps {
 }
 
 export class RotateSecretsWorkflow extends Construct {
-
   public readonly workflowArn: string;
 
   constructor(scope: Construct, id: string, props: IConfigProps) {
@@ -59,20 +57,23 @@ export class RotateSecretsWorkflow extends Construct {
 
     const accountId = Stack.of(this).account;
 
-    const generateSecretUpdateCff = new lambda.Function(this, "GenerateSecretUpdateCff", {
-      functionName: Aws.STACK_NAME + "_GenerateSecretUpdateCff",
-      runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/generate_secret_update_cff"),
-      timeout: Duration.seconds(300),
-      handler: "index.handler",
-      environment: {
-        TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
-        PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
-        SECONDARY_KEY_NAME: props.secrets.secondarySecret.secretName,
-        CFF_NAME: props.checkTokenFunction.functionName,
-
+    const generateSecretUpdateCff = new lambda.Function(
+      this,
+      "GenerateSecretUpdateCff",
+      {
+        functionName: Aws.STACK_NAME + "_GenerateSecretUpdateCff",
+        runtime: lambda.Runtime.PYTHON_3_7,
+        code: lambda.Code.fromAsset("lambda/generate_secret_update_cff"),
+        timeout: Duration.seconds(300),
+        handler: "index.handler",
+        environment: {
+          TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
+          PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
+          SECONDARY_KEY_NAME: props.secrets.secondarySecret.secretName,
+          CFF_NAME: props.checkTokenFunction.functionName,
+        },
       }
-    });
+    );
 
     generateSecretUpdateCff.addToRolePolicy(
       new iam.PolicyStatement({
@@ -93,15 +94,19 @@ export class RotateSecretsWorkflow extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    const getLastModifiedTime = new lambda.Function(this, "GetLastModifiedTime", {
-      functionName: Aws.STACK_NAME + "_GetLastModifiedTime",
-      runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/get_last_modified_time"),
-      handler: "index.handler",
-      environment: {
-        MAX_ITERATIONS: "5"
+    const getLastModifiedTime = new lambda.Function(
+      this,
+      "GetLastModifiedTime",
+      {
+        functionName: Aws.STACK_NAME + "_GetLastModifiedTime",
+        runtime: lambda.Runtime.PYTHON_3_7,
+        code: lambda.Code.fromAsset("lambda/get_last_modified_time"),
+        handler: "index.handler",
+        environment: {
+          MAX_ITERATIONS: "5",
+        },
       }
-    });
+    );
 
     getLastModifiedTime.addToRolePolicy(
       new iam.PolicyStatement({
@@ -119,19 +124,22 @@ export class RotateSecretsWorkflow extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    const getDistributionsForCff = new lambda.Function(this, "getDistributionsList", {
-      functionName: Aws.STACK_NAME + "_GetDistributionsForCff",
-      runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/get_distributions_for_cff"),
-      handler: "index.handler",
-      timeout: Duration.seconds(300),
-      environment: {
-        CFF_NAME: props.checkTokenFunction.functionName,
-        ACCOUNT_ID: accountId,
-      },
-      layers: [jsonPathLayer],
-    });
-
+    const getDistributionsForCff = new lambda.Function(
+      this,
+      "getDistributionsList",
+      {
+        functionName: Aws.STACK_NAME + "_GetDistributionsForCff",
+        runtime: lambda.Runtime.PYTHON_3_7,
+        code: lambda.Code.fromAsset("lambda/get_distributions_for_cff"),
+        handler: "index.handler",
+        timeout: Duration.seconds(300),
+        environment: {
+          CFF_NAME: props.checkTokenFunction.functionName,
+          ACCOUNT_ID: accountId,
+        },
+        layers: [jsonPathLayer],
+      }
+    );
 
     getDistributionsForCff.addToRolePolicy(
       new iam.PolicyStatement({
@@ -149,10 +157,9 @@ export class RotateSecretsWorkflow extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-
     new InitSecrets(this, "Init", {
       functionArn: generateSecretUpdateCff.functionArn,
-      functionName: generateSecretUpdateCff.functionName
+      functionName: generateSecretUpdateCff.functionName,
     });
 
     //Generate token
@@ -183,7 +190,6 @@ export class RotateSecretsWorkflow extends Construct {
     props.secrets.secondarySecret.grantWrite(generateSecretUpdateCff);
     props.secrets.primarySecret.grantRead(generateSecretUpdateCff);
 
-
     //swapSecrets
     props.secrets.temporarySecret.grantRead(swapSecrets);
     props.secrets.temporarySecret.grantWrite(swapSecrets);
@@ -193,7 +199,6 @@ export class RotateSecretsWorkflow extends Construct {
 
     props.secrets.secondarySecret.grantWrite(swapSecrets);
     props.secrets.secondarySecret.grantRead(swapSecrets);
-
 
     const generateNewSecretJob = new tasks.LambdaInvoke(
       this,
@@ -235,7 +240,7 @@ export class RotateSecretsWorkflow extends Construct {
       lambdaFunction: swapSecrets,
     });
 
-    const wait = new sfn.Wait(this, 'Wait 1 minute', {
+    const wait = new sfn.Wait(this, "Wait 1 minute", {
       time: sfn.WaitTime.duration(Duration.minutes(1)),
     });
 
@@ -246,20 +251,25 @@ export class RotateSecretsWorkflow extends Construct {
     });
 
     const checkConditions = new sfn.Choice(this, "Keep waiting?")
-    .when(sfn.Condition.booleanEquals("$.continue", false), new sfn.Fail(this, "Fail propagating"))
-    .otherwise(wait.next(getLastModifiedTimeJob))
+      .when(
+        sfn.Condition.booleanEquals("$.continue", false),
+        new sfn.Fail(this, "Fail propagating")
+      )
+      .otherwise(wait.next(getLastModifiedTimeJob));
 
     const updatePropagated = new sfn.Choice(this, "Update propagated?")
-    .when(sfn.Condition.booleanEquals("$.propagated", false), checkConditions)
-    .otherwise(new sfn.Succeed(this, "Propagation OK"))
-
+      .when(sfn.Condition.booleanEquals("$.propagated", false), checkConditions)
+      .otherwise(new sfn.Succeed(this, "Propagation OK"));
 
     map.iterator(getLastModifiedTimeJob.next(updatePropagated));
     // Step function to orchestrate generating a new secret
 
     const workflow = new sfn.StateMachine(this, "Rotate", {
       stateMachineName: Aws.STACK_NAME + "_RotateSecret",
-      definition: generateNewSecretJob.next(updateCloudFrontFunctionJob).next(map).next(swapSecretsJob),
+      definition: generateNewSecretJob
+        .next(updateCloudFrontFunctionJob)
+        .next(map)
+        .next(swapSecretsJob),
       timeout: Duration.minutes(60),
       //logs: {
       //  destination: new logs.LogGroup(this, "SFLogGroup"),
@@ -267,12 +277,14 @@ export class RotateSecretsWorkflow extends Construct {
       //},
     });
 
-    const schedule_expression = props.configuration.main?.rotate_secrets_pattern || 'm';
-    if (schedule_expression!=='m') {
-
+    const schedule_expression =
+      props.configuration.main?.rotate_secrets_pattern || "m";
+    if (schedule_expression !== "m") {
       // Trigger Sfn to rotate the secrets every X minutes
       const rule = new events.Rule(this, "Rule1", {
-        schedule: events.Schedule.expression('cron(' + schedule_expression + ')'),
+        schedule: events.Schedule.expression(
+          "cron(" + schedule_expression + ")"
+        ),
         description: "Trigger StepFunction to rotate secrets",
         enabled: true,
       });

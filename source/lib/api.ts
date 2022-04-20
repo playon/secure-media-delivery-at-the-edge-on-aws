@@ -22,17 +22,16 @@ import {
   aws_cloudfront as cloudfront,
   aws_s3 as s3,
   aws_cloudfront_origins as origins,
+  aws_logs as logs,
+} from "aws-cdk-lib";
 
-
-} from 'aws-cdk-lib';
-
-import * as apigwv2 from '@aws-cdk/aws-apigatewayv2-alpha';
-import { HttpLambdaIntegration } from '@aws-cdk/aws-apigatewayv2-integrations-alpha';
-import { Construct } from 'constructs';
-import { IConfiguration } from '../helpers/validators/configuration';
-import { Secrets } from './secrets';
-import { LoadAssetsTable } from './load_assets_table';
-import { CWDashboard } from './dashboard';
+import * as apigwv2 from "@aws-cdk/aws-apigatewayv2-alpha";
+import { HttpLambdaIntegration } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
+import { Construct } from "constructs";
+import { IConfiguration } from "../helpers/validators/configuration";
+import { Secrets } from "./secrets";
+import { LoadAssetsTable } from "./load_assets_table";
+import { CWDashboard } from "./dashboard";
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -42,162 +41,196 @@ export interface IConfigProps {
 }
 
 export class Api extends Construct {
-
-  constructor(scope: Construct, id: string,props: IConfigProps ) {
+  constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
     var runtime: lambda.Runtime;
-    var language : string;
+    var language: string;
 
-    if(props.configuration.api?.language=='nodejs'){
-      runtime = lambda.Runtime.NODEJS_14_X
-      language = 'nodejs'
-    }else{
-      runtime = lambda.Runtime.PYTHON_3_7
-      language = 'python'
+    if (props.configuration.api?.language == "nodejs") {
+      runtime = lambda.Runtime.NODEJS_14_X;
+      language = "nodejs";
+    } else {
+      runtime = lambda.Runtime.PYTHON_3_7;
+      language = "python";
     }
-    const cloudfrontTokenLayer = new lambda.LayerVersion(this, 'RotateSecretLayer', {
-      compatibleRuntimes: [
-        runtime
-      ],
-      code: lambda.Code.fromAsset('lambda/layers/aws_secure_media_delivery_'+language),
-      description: 'Layer used by generate new secret lambda',
+    const cloudfrontTokenLayer = new lambda.LayerVersion(
+      this,
+      "RotateSecretLayer",
+      {
+        compatibleRuntimes: [runtime],
+        code: lambda.Code.fromAsset(
+          "lambda/layers/aws_secure_media_delivery_" + language
+        ),
+        description: "Layer used by generate new secret lambda",
+      }
+    );
+
+    const s3Logs = new s3.Bucket(this, "LogsBucket", {
+      encryption: s3.BucketEncryption.S3_MANAGED,
     });
 
-    const hostingBucket = new s3.Bucket(this, 'HostingBucket');
+    const hostingBucket = new s3.Bucket(this, "HostingBucket", {
+      serverAccessLogsBucket: s3Logs,
+      encryption: s3.BucketEncryption.S3_MANAGED,
+    });
 
-    const demoAssetsTable = new ddb.Table(this, "DemoTable",{
-      tableName : Aws.STACK_NAME + "_videoassets",
+    const demoAssetsTable = new ddb.Table(this, "DemoTable", {
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
-      partitionKey: {name: "id", type: ddb.AttributeType.STRING},
-      removalPolicy: RemovalPolicy.DESTROY
+      partitionKey: { name: "id", type: ddb.AttributeType.STRING },
+      removalPolicy: RemovalPolicy.DESTROY,
+      pointInTimeRecovery: true,
     });
 
     new LoadAssetsTable(this, "AssetsTable", {
       table: demoAssetsTable,
-      configuration: props.configuration
+      configuration: props.configuration,
     });
 
-    const folder = props.configuration.demo ? "demo_website" : "empty_demo_website";
+    const folder = props.configuration.demo
+      ? "demo_website"
+      : "empty_demo_website";
 
-    new s3deploy.BucketDeployment(this, 'DeployWebsite', {
-      sources: [s3deploy.Source.asset('resources/' + folder)],
+    new s3deploy.BucketDeployment(this, "DeployWebsite", {
+      sources: [s3deploy.Source.asset("resources/" + folder)],
       destinationBucket: hostingBucket,
     });
 
-    const generateToken = new lambda.Function(this, 'GenerateToken',{
-      functionName: Aws.STACK_NAME + '_GenerateToken',
+    const generateToken = new lambda.Function(this, "GenerateToken", {
+      functionName: Aws.STACK_NAME + "_GenerateToken",
       runtime: runtime,
-      code: lambda.Code.fromAsset('lambda/generate_token/' + language),
-      handler: 'index.handler',
-          environment: {
-            STACK_NAME: Aws.STACK_NAME,
-            TABLE_NAME: demoAssetsTable.tableName,
-            USERNAME: props.configuration.demo?.username!,
-            PASSWORD: props.configuration.demo?.password!
+      code: lambda.Code.fromAsset("lambda/generate_token/" + language),
+      handler: "index.handler",
+      environment: {
+        STACK_NAME: Aws.STACK_NAME,
+        TABLE_NAME: demoAssetsTable.tableName,
+        USERNAME: props.configuration.demo?.username!,
+        PASSWORD: props.configuration.demo?.password!,
       },
       layers: [cloudfrontTokenLayer],
-    })
+    });
 
-    const saveSessionToDdb = new lambda.Function(this, 'SaveManualSession',{
-      functionName: Aws.STACK_NAME + '_SaveManualSession',
+    const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
+      functionName: Aws.STACK_NAME + "_SaveManualSession",
       runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset('lambda/save_manual_session/python'),
-      handler: 'index.handler',
-          environment: {
-            TABLE_NAME: props.sessionsTable.tableName,
-            TTL : '7'
-      }
-    })
-
-
+      code: lambda.Code.fromAsset("lambda/save_manual_session/python"),
+      handler: "index.handler",
+      environment: {
+        TABLE_NAME: props.sessionsTable.tableName,
+        TTL: "7",
+      },
+    });
 
     demoAssetsTable.grantReadData(generateToken);
     props.sessionsTable.grantReadWriteData(saveSessionToDdb);
 
-    props.secrets.primarySecret.grantRead(generateToken)
-    props.secrets.secondarySecret.grantRead(generateToken)
+    props.secrets.primarySecret.grantRead(generateToken);
+    props.secrets.secondarySecret.grantRead(generateToken);
 
-    const httpApi = new apigwv2.HttpApi(this, 'HttpApi');
+    const httpApi = new apigwv2.HttpApi(this, "HttpApi");
 
     httpApi.addRoutes({
-      path: '/tokengenerate',
-      methods: [ apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST ],
-      integration: new HttpLambdaIntegration('GenerateTokenIntegration', generateToken)
+      path: "/tokengenerate",
+      methods: [apigwv2.HttpMethod.GET, apigwv2.HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        "GenerateTokenIntegration",
+        generateToken
+      ),
     });
 
     httpApi.addRoutes({
-      path: '/sessionrevoke',
-      methods: [ apigwv2.HttpMethod.POST ],
-      integration: new HttpLambdaIntegration('RevokeSessionIntegration', saveSessionToDdb)
+      path: "/sessionrevoke",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        "RevokeSessionIntegration",
+        saveSessionToDdb
+      ),
     });
-
 
     const region = Stack.of(this).region;
-    // Creates a distribution from an S3 bucket.
 
+    const myOriginRequestPolicy = new cloudfront.OriginRequestPolicy(
+      this,
+      "OriginRequestPolicy",
+      {
+        originRequestPolicyName: Aws.STACK_NAME + "CMS",
+        comment: "A default policy",
+        headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
+          "CloudFront-Viewer-Address",
+          "CloudFront-Viewer-Country",
+          "CloudFront-Viewer-City",
+          "Referer",
+          "User-Agent"
+        ),
+        queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
+      }
+    );
 
-
-    const myOriginRequestPolicy = new cloudfront.OriginRequestPolicy(this, 'OriginRequestPolicy', {
-      originRequestPolicyName: Aws.STACK_NAME + 'CMS',
-      comment: 'A default policy',
-      headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList('CloudFront-Viewer-Address', 'CloudFront-Viewer-Country', 'CloudFront-Viewer-City', 'Referer', 'User-Agent'),
-      queryStringBehavior: cloudfront.OriginRequestQueryStringBehavior.all(),
-    });
-
-    const distribution = new cloudfront.Distribution(this, 'Distribution', {
-      comment : Aws.STACK_NAME + " - Demo website Secure Media Delivery",
+    const distribution = new cloudfront.Distribution(this, "Distribution", {
+      comment: Aws.STACK_NAME + " - Demo website Secure Media Delivery",
       defaultRootObject: "index.html",
+      enableLogging: true,
+      logBucket: s3Logs,
+      logFilePrefix: "distribution-access-logs/",
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2016,
       defaultBehavior: {
         origin: new origins.S3Origin(hostingBucket),
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
       },
       additionalBehaviors: {
-        '/tokengenerate': {
-
-          origin: new origins.HttpOrigin(`${httpApi.apiId}.execute-api.${region}.amazonaws.com`, {
-          }),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        "/tokengenerate": {
+          origin: new origins.HttpOrigin(
+            `${httpApi.apiId}.execute-api.${region}.amazonaws.com`,
+            {}
+          ),
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: myOriginRequestPolicy,
-          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
+          responseHeadersPolicy:
+            cloudfront.ResponseHeadersPolicy
+              .CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         },
-        '/sessionrevoke': {
-
-          origin: new origins.HttpOrigin(`${httpApi.apiId}.execute-api.${region}.amazonaws.com`, {
-          }),
-          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+        "/sessionrevoke": {
+          origin: new origins.HttpOrigin(
+            `${httpApi.apiId}.execute-api.${region}.amazonaws.com`,
+            {}
+          ),
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
           originRequestPolicy: myOriginRequestPolicy,
-          responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
+          responseHeadersPolicy:
+            cloudfront.ResponseHeadersPolicy
+              .CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         },
       },
     });
 
-    new CfnOutput(this, "DistributionDomainName",{
-      value: 'https://' + distribution.domainName,
-      exportName: Aws.STACK_NAME + 'DomainName',
-      description: 'Demo Website'
-    })
+    new CfnOutput(this, "DistributionDomainName", {
+      value: "https://" + distribution.domainName,
+      exportName: Aws.STACK_NAME + "DomainName",
+      description: "Demo Website",
+    });
 
     props.dashboard.buildApiDashboard({
-        lambdaFunctionName: generateToken.functionName,
-        region: region
-    })
+      lambdaFunctionName: generateToken.functionName,
+      region: region,
+    });
 
-    new CfnOutput(this, "ApiEndpoint",{
+    new CfnOutput(this, "ApiEndpoint", {
       value: `${httpApi.apiId}.execute-api.${region}.amazonaws.com`,
-      exportName: Aws.STACK_NAME + 'ApiEndpoint',
-      description: 'Endpoint'
-    })
+      exportName: Aws.STACK_NAME + "ApiEndpoint",
+      description: "Endpoint",
+    });
 
-    new CfnOutput(this, "HostingBucketName",{
+    new CfnOutput(this, "HostingBucketName", {
       value: hostingBucket.bucketName,
-      exportName: Aws.STACK_NAME + 'HostingBucket',
-      description: 'Hosting bucket name'
-    })
+      exportName: Aws.STACK_NAME + "HostingBucket",
+      description: "Hosting bucket name",
+    });
   }
 }

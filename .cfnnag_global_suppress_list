@@ -1,32 +1,8 @@
 RulesToSuppress:
-- id: W46
-  reason: W46 is something we never care about at enterprise X
-- id: W10
-  reason: W10 is something we never care about at enterprise X
 - id: W70
-  reason: W70 is something we never care about at enterprise X
-- id: W78
-  reason: W78 is something we never care about at enterprise X
-- id: W74
-  reason: W74 is something we never care about at enterprise X
-- id: W12
-  reason: W12 is something we never care about at enterprise X
+  reason: CloudFront has the setting to use minimum TLS version 1.2
 - id: W58
-  reason: W58 is something we never care about at enterprise X
+  reason: All Lambdas have CloudWatch permissions by using service role AWSLambdaBasicExecutionRole
 - id: W89
-  reason: W89 is something we never care about at enterprise X
-- id: W92
-  reason: W92 is something we never care about at enterprise X
-- id: W84
-  reason: W84 is something we never care about at enterprise X
-- id: W28
-  reason: W28 is something we never care about at enterprise X
-- id: W35
-  reason: W35 is something we never care about at enterprise X
-- id: W41
-  reason: W41 is something we never care about at enterprise X
-- id: W77
-  reason: W41 is something we never care about at enterprise X
-- id: W48
-  reason: W48 is something we never care about at enterprise X
+  reason: We don't have any VPC in the stack, we only use serverless services
 

@@ -24,24 +24,25 @@ import {
   aws_lambda as lambda,
   aws_iam as iam,
   aws_logs as logs,
-
-
 } from "aws-cdk-lib";
 import { Bucket, IBucket } from "aws-cdk-lib/aws-s3";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 
-
 export interface IConfigProps {
-
   bucket: IBucket;
   dynamodbTable: ddb.ITable;
   configuration: IConfiguration;
 }
 
 export class AutoRevokeSessionsWorkflow extends Construct {
-  constructor(scope: Construct, id: string, props: IConfigProps, params_filename: string) {
+  constructor(
+    scope: Construct,
+    id: string,
+    props: IConfigProps,
+    params_filename: string
+  ) {
     super(scope, id);
 
     const submitAthenaQuery = new lambda.Function(this, "SubmitQuery", {
@@ -50,8 +51,8 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       code: lambda.Code.fromAsset("lambda/submit_query"),
       handler: "index.handler",
       environment: {
-        BUCKET_NAME : props.bucket.bucketName,
-        PARAMS_FILENAME : params_filename
+        BUCKET_NAME: props.bucket.bucketName,
+        PARAMS_FILENAME: params_filename,
       },
     });
 
@@ -67,12 +68,12 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       code: lambda.Code.fromAsset("lambda/save_auto_session"),
       handler: "index.handler",
       environment: {
-        TABLE_NAME : props.dynamodbTable.tableName,
-        TTL : '7' //days
+        TABLE_NAME: props.dynamodbTable.tableName,
+        TTL: "7", //days
       },
     });
 
-    props.dynamodbTable.grantReadWriteData(saveSessionsToDdb)
+    props.dynamodbTable.grantReadWriteData(saveSessionsToDdb);
 
     new logs.LogGroup(this, "SaveSessionsLogs", {
       logGroupName: "/aws/lambda/" + saveSessionsToDdb.functionName,
@@ -86,26 +87,30 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         actions: ["athena:StartQueryExecution"],
         resources: [
           "arn:aws:athena:*:*:workgroup/*",
-          "arn:aws:athena:*:*:datacatalog/*"
+          "arn:aws:athena:*:*:datacatalog/*",
         ],
       })
     );
     props.bucket.grantRead(submitAthenaQuery);
 
-    const prepareQueryJob = new tasks.LambdaInvoke(this, "Prepare Athena Query", {
-      lambdaFunction: submitAthenaQuery,
-    });
+    const prepareQueryJob = new tasks.LambdaInvoke(
+      this,
+      "Prepare Athena Query",
+      {
+        lambdaFunction: submitAthenaQuery,
+      }
+    );
 
     const saveSessionsJob = new tasks.LambdaInvoke(this, "Save to DynamoDB", {
       lambdaFunction: saveSessionsToDdb,
-      inputPath: sfn.JsonPath.stringAt("$.GetQueryResults.ResultSet.Rows")
+      inputPath: sfn.JsonPath.stringAt("$.GetQueryResults.ResultSet.Rows"),
     });
 
     const startQueryExecutionJob = new tasks.AthenaStartQueryExecution(
       this,
       "Start Athena Query",
       {
-        queryString:  sfn.JsonPath.stringAt("$.Payload"),
+        queryString: sfn.JsonPath.stringAt("$.Payload"),
         integrationPattern: sfn.IntegrationPattern.RUN_JOB,
         resultConfiguration: {
           outputLocation: {
@@ -116,7 +121,9 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       }
     );
 
-    const getQueryResultsJob = new tasks.AthenaGetQueryResults(this, "Get Query Results",
+    const getQueryResultsJob = new tasks.AthenaGetQueryResults(
+      this,
+      "Get Query Results",
       {
         queryExecutionId: sfn.JsonPath.stringAt(
           "$.QueryExecution.QueryExecutionId"
@@ -125,7 +132,6 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       }
     );
 
-
     const prepareNextParams = new sfn.Pass(this, "Prepare Next Query Params", {
       parameters: {
         "QueryExecutionId.$": "$.StartQueryParams.QueryExecutionId",
@@ -133,8 +139,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       },
       resultPath: sfn.JsonPath.stringAt("$.StartQueryParams"),
     });
-    const done = new sfn.Succeed(this, "Done")
-
+    const done = new sfn.Succeed(this, "Done");
 
     const hasMoreResults = new sfn.Choice(this, "Has More Results?")
       .when(
@@ -144,12 +149,11 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       .otherwise(done);
 
     const hasResults = new sfn.Choice(this, "Has Results?")
-    .when(
-      sfn.Condition.isPresent("$.GetQueryResults.ResultSet.Rows[1]"),
-      saveSessionsJob.next(hasMoreResults)
-    )
-    .otherwise(done);
-
+      .when(
+        sfn.Condition.isPresent("$.GetQueryResults.ResultSet.Rows[1]"),
+        saveSessionsJob.next(hasMoreResults)
+      )
+      .otherwise(done);
 
     // Step function to orchestrate Athena query and retrieving the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {

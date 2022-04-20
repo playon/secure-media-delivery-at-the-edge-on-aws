@@ -32,16 +32,17 @@ import { IConfiguration } from "../helpers/validators/configuration";
 import { AutoRevokeSessionsWorkflow } from "./auto_revoke_sessions_workflow";
 import { LoadSqlParams } from "./load_athena_config_table";
 
-
 export class AutoSessionRevocationStack extends Stack {
+  private readonly params_filename = "athena_query_params.json";
 
-  private readonly params_filename = 'athena_query_params.json';
-
-
-
-  constructor(scope: Construct, id: string, configuration: IConfiguration, sessionsTable : ITable, props: StackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    configuration: IConfiguration,
+    sessionsTable: ITable,
+    props: StackProps
+  ) {
     super(scope, id, props);
-
 
     const sqlQueryBucket = new s3.Bucket(this, "SqlQuery");
 
@@ -50,7 +51,7 @@ export class AutoSessionRevocationStack extends Stack {
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "table_name", type: ddb.AttributeType.STRING },
       removalPolicy: RemovalPolicy.DESTROY,
-      stream: ddb.StreamViewType.NEW_IMAGE
+      stream: ddb.StreamViewType.NEW_IMAGE,
     });
 
     new LoadSqlParams(this, "SqlConfig", {
@@ -67,7 +68,7 @@ export class AutoSessionRevocationStack extends Stack {
       environment: {
         TABLE_NAME: sqlConfigTable.tableName,
         BUCKET_NAME: sqlQueryBucket.bucketName,
-        PARAMS_FILENAME : this.params_filename
+        PARAMS_FILENAME: this.params_filename,
       },
     });
 
@@ -92,13 +93,15 @@ export class AutoSessionRevocationStack extends Stack {
       })
     );
 
-    new AutoRevokeSessionsWorkflow(this, "GetSessions", {
-      bucket: sqlQueryBucket,
-      dynamodbTable: sessionsTable,
-      configuration: configuration,
+    new AutoRevokeSessionsWorkflow(
+      this,
+      "GetSessions",
+      {
+        bucket: sqlQueryBucket,
+        dynamodbTable: sessionsTable,
+        configuration: configuration,
       },
       this.params_filename
     );
-
   }
 }

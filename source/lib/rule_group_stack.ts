@@ -16,34 +16,38 @@ import {
   Aws,
   aws_wafv2 as wafv2,
   aws_ssm as ssm,
-  StackProps
+  StackProps,
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 
 export class RuleGroupStack extends Stack {
-
   public readonly ruleGroupParamName: string;
   public readonly ruleGroupParamId: string;
 
-  constructor(scope: Construct, id: string, config: IConfiguration, props: StackProps) {
+  constructor(
+    scope: Construct,
+    id: string,
+    config: IConfiguration,
+    props: StackProps
+  ) {
     super(scope, id, props);
 
     this.ruleGroupParamName = id + "_Name_RS";
     this.ruleGroupParamId = id + "_ID_RS";
 
-    const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup",{
-        capacity: config.main?.wcu!,
-        scope: "CLOUDFRONT",
-        visibilityConfig: {
-            cloudWatchMetricsEnabled: false,
-            metricName: "metricName",
-            sampledRequestsEnabled: false
-        },
-        description: "Revoked sessions",
-        name: this.ruleGroupParamName,
-        rules: []
+    const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup", {
+      capacity: config.main?.wcu!,
+      scope: "CLOUDFRONT",
+      visibilityConfig: {
+        cloudWatchMetricsEnabled: false,
+        metricName: "metricName",
+        sampledRequestsEnabled: false,
+      },
+      description: "Revoked sessions",
+      name: this.ruleGroupParamName,
+      rules: [],
     });
 
     new ssm.StringParameter(this, "RuleGroupId", {
@@ -51,6 +55,5 @@ export class RuleGroupStack extends Stack {
       description: "Rule Group Id",
       stringValue: cfnRuleGroup.attrId,
     });
-
   }
 }

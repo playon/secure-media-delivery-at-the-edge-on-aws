@@ -11,21 +11,16 @@
  *  and limitations under the License.
  */
 
-import {
-    Aws,
-    custom_resources,
-    aws_iam as iam,
-} from "aws-cdk-lib";
+import { Aws, custom_resources, aws_iam as iam } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
 
 export interface IConfigProps {
-  functionArn : string;
+  functionArn: string;
   functionName: string;
- }
+}
 
 export class InitSecrets extends Construct {
-
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
@@ -37,17 +32,16 @@ export class InitSecrets extends Construct {
           FunctionName: props.functionName,
           Payload: `{"initialize": true}`,
         },
-        physicalResourceId: custom_resources.PhysicalResourceId.of("initSecretsResourceId")
+        physicalResourceId: custom_resources.PhysicalResourceId.of(
+          "initSecretsResourceId"
+        ),
       },
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-        //resources: [props.functionArn]
-        resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE
+        resources: [props.functionArn],
+        //resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE
       }),
 
       //role: role
     });
-
-
   }
-
 }

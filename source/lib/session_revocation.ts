@@ -102,7 +102,6 @@ export class SessionRevocation extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    const region = Stack.of(this).region;
     const accountId = Stack.of(this).account;
 
     updateRuleGroupFunction.addToRolePolicy(
@@ -113,11 +112,10 @@ export class SessionRevocation extends Construct {
           "wafv2:UpdateRuleGroup",
           "wafv2:ListRuleGroups",
         ],
-        resources: [`arn:aws:wafv2:${region}:${accountId}:*`],
+        resources: [`arn:aws:wafv2:${this.ruleGroupRegion}:${accountId}:global/rulegroup/${config.ruleGroupParamName}/${ssmRuleGroupId}`],
       })
     );
 
-    //Event Source Mapping DynamoDB -> Lambda
     const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue", {
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });

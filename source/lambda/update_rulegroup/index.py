@@ -5,9 +5,14 @@ import string
 import os
 import time, calendar, datetime
 from boto3.dynamodb.conditions import Key
+from botocore.config import Config
 
+my_config = Config(
+    region_name = 'us-east-1',
+)
 
-waf_client = boto3.client('wafv2')
+waf_client = boto3.client('wafv2', config=my_config)
+
 dynamodb = boto3.resource('dynamodb')
 
 rule_group_id = os.environ['RULE_GROUP_ID']

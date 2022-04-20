@@ -8,5 +8,19 @@ RulesToSuppress:
 - id: W74
   reason: DynamoDB table has encryption enabled owned by Amazon
 - id: W12
-  reason: '*' resource
+  reason: star resources cannot be fixed, some needs to be like this
+- id: W35
+  reason: It is a log bucket, not need to have access logging enabled
+- id: W51
+  reason: It is a log bucket, not need for a bucket policy
+- id: W46
+  reason: Http API v2 logging is not implemented in CDK. It is used for demo purposes, so it is not critical.
+- id: W92
+  reason: No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.
+- id: W77
+  reason: By default CDK provisions this secret using a default encryption key sourced from AWS Key Management Service. We are satisified with default KMS encryption on secrets.
+- id: W84
+  reason: We are satisified with default KMS encryption on CloudWatchLogs LogGroup.
+
+
 

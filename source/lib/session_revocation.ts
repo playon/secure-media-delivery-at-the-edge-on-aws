@@ -52,7 +52,6 @@ export class SessionRevocation extends Construct {
       })
     );
 
-    console.log(config.ruleGroupParamName)
     const ssmRuleGroupParameterId = new custom_resources.AwsCustomResource(
       this,
       "SSMParameter",

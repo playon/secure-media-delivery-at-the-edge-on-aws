@@ -177,6 +177,8 @@ export class Api extends Construct {
         origin: new origins.S3Origin(hostingBucket),
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       additionalBehaviors: {
         "/tokengenerate": {

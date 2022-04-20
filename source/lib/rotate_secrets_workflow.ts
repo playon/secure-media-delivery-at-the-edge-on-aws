@@ -271,10 +271,6 @@ export class RotateSecretsWorkflow extends Construct {
         .next(map)
         .next(swapSecretsJob),
       timeout: Duration.minutes(60),
-      //logs: {
-      //  destination: new logs.LogGroup(this, "SFLogGroup"),
-      //  level: sfn.LogLevel.ALL,
-      //},
     });
 
     const schedule_expression =

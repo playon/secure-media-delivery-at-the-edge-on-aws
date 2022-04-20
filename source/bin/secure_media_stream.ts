@@ -34,9 +34,6 @@ const app = new cdk.App();
     }
   );
 
-  console.log(account);
-  console.log(region);
-
   const coreStack = new SecureMediaStreamingStack(
     app,
     config.main?.stack_name!,

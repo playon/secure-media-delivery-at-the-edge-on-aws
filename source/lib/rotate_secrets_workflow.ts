@@ -264,6 +264,9 @@ export class RotateSecretsWorkflow extends Construct {
     map.iterator(getLastModifiedTimeJob.next(updatePropagated));
     // Step function to orchestrate generating a new secret
 
+    const logGroup = new logs.LogGroup(this, 'RotateSecretsGroup');
+
+
     const workflow = new sfn.StateMachine(this, "Rotate", {
       stateMachineName: Aws.STACK_NAME + "_RotateSecret",
       definition: generateNewSecretJob
@@ -271,6 +274,10 @@ export class RotateSecretsWorkflow extends Construct {
         .next(map)
         .next(swapSecretsJob),
       timeout: Duration.minutes(60),
+      logs: {
+        destination: logGroup,
+        level: sfn.LogLevel.ALL,
+      },
     });
 
     const schedule_expression =

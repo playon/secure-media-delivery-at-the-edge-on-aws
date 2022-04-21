@@ -32,6 +32,11 @@ import { IConfiguration } from "../helpers/validators/configuration";
 import { Secrets } from "./secrets";
 import { LoadAssetsTable } from "./load_assets_table";
 import { CWDashboard } from "./dashboard";
+import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
+import { LogGroup } from "aws-cdk-lib/aws-logs";
+
+const API_GATEWAY_LOG_FORMAT = '{"requestId":"$context.requestId","ip": "$context.identity.sourceIp","requestTime":"$context.requestTime","requestTimeEpoch":"$context.requestTimeEpoch","httpMethod":"$context.httpMethod","routeKey":"$context.routeKey","status":"$context.status","protocol":"$context.protocol","responseLength":"$context.responseLength","integration error":"$context.integrationErrorMessage"}';
+
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -110,6 +115,13 @@ export class Api extends Construct {
       layers: [cloudfrontTokenLayer],
     });
 
+    // Set Lambda Logs Retention and Removal Policy
+    new logs.LogGroup(this, "ReadStreamLogs", {
+      logGroupName: "/aws/lambda/" + generateToken.functionName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
+
     const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
       functionName: Aws.STACK_NAME + "_SaveManualSession",
       runtime: lambda.Runtime.PYTHON_3_7,
@@ -127,7 +139,23 @@ export class Api extends Construct {
     props.secrets.primarySecret.grantRead(generateToken);
     props.secrets.secondarySecret.grantRead(generateToken);
 
-    const httpApi = new apigwv2.HttpApi(this, "HttpApi");
+    const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
+      apiName: 'SecureMediaStreamDemoAPI',
+      description: 'Secure Media Stream Demo API',
+    });
+
+    //const stage = httpApi.defaultStage!.node.defaultChild as apigwv2.CfnStage;
+    const log = new LogGroup(this, "HttpApiLogGroup", {
+      logGroupName: "/aws/apigw/" + httpApi.httpApiName,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
+
+    const stage = <CfnStage>httpApi.defaultStage!.node.defaultChild;
+    stage.accessLogSettings = {
+        destinationArn: log.logGroupArn,
+        format: API_GATEWAY_LOG_FORMAT,
+    };
 
     httpApi.addRoutes({
       path: "/tokengenerate",
@@ -177,6 +205,8 @@ export class Api extends Construct {
         origin: new origins.S3Origin(hostingBucket),
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+        viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       additionalBehaviors: {
         "/tokengenerate": {

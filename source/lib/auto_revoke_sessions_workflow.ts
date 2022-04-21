@@ -155,6 +155,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       )
       .otherwise(done);
 
+    const logGroup = new logs.LogGroup(this, 'AthenaQueryGroup');
     // Step function to orchestrate Athena query and retrieving the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {
       stateMachineName: Aws.STACK_NAME + "_DetectSessions",
@@ -163,6 +164,10 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         .next(getQueryResultsJob)
         .next(hasResults),
       timeout: Duration.minutes(60),
+      logs: {
+        destination: logGroup,
+        level: sfn.LogLevel.ALL,
+      },
     });
 
     const triggerFrequency =

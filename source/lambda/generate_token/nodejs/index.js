@@ -1,6 +1,6 @@
 const aws = require('aws-sdk');
 const qs = require('querystring');
-const cfToken = require("aws-secure-media-delivery");
+const awsSMD = require("aws-secure-media-delivery");
 
 const docClient = new aws.DynamoDB.DocumentClient();
 const stackName = process.env.STACK_NAME;
@@ -9,7 +9,10 @@ const tableName = process.env.TABLE_NAME;
 const user = process.env.USERNAME;
 const pass = process.env.PASSWORD;
 
+const cfToken = awsSMD.TokenProvider;
 const smClient = new aws.SecretsManager();
+
+awsSMD.DEBUG = true;
 
 cfToken.SecretsConfigure({secrets_manager_client: smClient, secrets_prefix: stackName});
 var tokenGenerator = new cfToken(10);

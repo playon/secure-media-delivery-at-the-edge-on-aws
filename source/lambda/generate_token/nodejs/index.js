@@ -12,7 +12,7 @@ const pass = process.env.PASSWORD;
 const cfToken = awsSMD.TokenProvider;
 const smClient = new aws.SecretsManager();
 
-awsSMD.DEBUG = true;
+awsSMD.setDEBUG(true);
 
 cfToken.SecretsConfigure({secrets_manager_client: smClient, secrets_prefix: stackName});
 var tokenGenerator = new cfToken(10);

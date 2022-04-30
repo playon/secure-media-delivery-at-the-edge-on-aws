@@ -5,25 +5,29 @@ const crypto = require('crypto');
 
 let DEBUG = false;
 
+function setDEBUG(val){
+    DEBUG = val
+}
+
 function logger(message){
     if(DEBUG) console.log("[DEBUG] " + message);
 }
 
 function validateIPv4(address){
     //validate if input address matches with IPv4 regex pattern, with single regex statement
-    var ipv4_regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    let ipv4_regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipv4_regex.test(address);
 }
 
 function validateIPv6(address){
     //validate if input address matches with expected IPv6 format. 
-    var ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
+    let ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
     //Input is splitt into two parts assuming two-colon separator can exist then each side of the address is validated against regex
     address_parts = address.split('::');
     if(address_parts.length>2) return false; //only a single two-colon seperator is allowed
-    var parts_groups_sum = 0;
+    let parts_groups_sum = 0;
     for (part of address_parts){
-        var part_groups = part.split(':');
+        let part_groups = part.split(':');
         parts_groups_sum += part_groups.length;
         if(part_groups.length == 1 && part_groups[0] == ''){
             //skip when address starts or ends with two-colon
@@ -40,7 +44,7 @@ function validateIPv6(address){
 }
 
 function expandIPv6(address){
-    var hextets_abbrev = address.split(':');
+    let hextets_abbrev = address.split(':');
     if (hextets_abbrev.slice(-1) == '') {
         hextets_abbrev.pop();  //when prefix ends with :: this creates two empty elements in an array
     }
@@ -177,7 +181,7 @@ class TokenProvider{
         let intsig_input = '';
 
         if (attributes['ip']) {
-            var fullIP;
+            let fullIP;
             if(attributes['ip'].includes('.') && validateIPv4(attributes['ip'])){
                 jwt_payload['ip_ver']=4;
                 fullIP = attributes['ip'];
@@ -254,4 +258,4 @@ class TokenProvider{
 }
 
 exports.TokenProvider = TokenProvider;
-exports.DEBUG = DEBUG;
+exports.setDEBUG = setDEBUG;

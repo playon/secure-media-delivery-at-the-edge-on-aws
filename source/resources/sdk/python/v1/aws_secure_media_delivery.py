@@ -1,5 +1,6 @@
 import jwt
 import random
+import os
 import string
 import base64
 import cachetools.func
@@ -15,13 +16,47 @@ from urllib.parse import urlparse, urldefrag, urlsplit
 
 class Secret:
     Secret = "cloudfront/tokenauth/key"
+    Profile = ""
+    Role = ""
+    Region_Name = "us-east-1"
+    Region_Override = 0
+
 
     @classmethod
     @cachetools.func.ttl_cache(ttl=4)
     def __init__(self):
-        print ("Fetching Secret...")
-        session = boto3.session.Session()
-        client = session.client(
+        #print ("Fetching Secret...")
+        #session = boto3.session.Session()
+
+        if Secret.Profile:
+             boto3.DEFAULT_SESSION = boto3.session.Session(profile_name=Secret.Profile)
+
+        elif not Secret.Profile:
+             boto3.DEFAULT_SESSION = boto3.session.Session()
+             if Secret.Role:
+                  sts_connection = boto3.client('sts')
+                  assume_role_object = sts_connection.assume_role(
+                          RoleArn=Secret.Role, RoleSessionName='TEST',
+                          DurationSeconds=3600)
+                  credentials = assume_role_object['Credentials']
+                  boto3.DEFAULT_SESSION = boto3.session.Session(aws_access_key_id=credentials['AccessKeyId'],aws_secret_access_key=credentials['SecretAccessKey'],aws_session_token=credentials['SessionToken'])                 
+
+
+        if boto3.DEFAULT_SESSION.region_name is None:
+            boto3.setup_default_session(region_name=Secret.Region_Name)
+            print ("Cannot determine region. Using " + Secret.Region_Name + " for region")
+
+        if Secret.Region_Override == 1:
+            boto3.setup_default_session(region_name=Secret.Region_Name)
+               
+        print ("Region: " + boto3.DEFAULT_SESSION.region_name)
+
+        #client = boto3.client(
+        #        service_name='secretsmanager',
+        #        region_name=Secret.Region_Name
+        #)
+
+        client = boto3.client(
                 service_name='secretsmanager'
         )
 
@@ -48,7 +83,7 @@ class Secret:
         else:
             if 'SecretString' in primary_secret_value_response:
                 secret_data = json.loads(primary_secret_value_response['SecretString'])
-                print (str(secret_data))
+                #print (str(secret_data))
                 first_pair = next(iter((secret_data.items())) )
                 Secret.secret1 = first_pair[1]
                 Secret.uuid1 = first_pair[0]
@@ -97,7 +132,17 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	myQuery = p.query
 	if "=" in myQuery:
 	  myQuery = "?" + myQuery
-		
+
+	if "Role" in kwargs:
+	  Secret.Role = kwargs['Role']
+	
+	if "Profile" in kwargs:
+	  Secret.Profile = kwargs['Profile']
+	
+	if "Region" in kwargs:
+	  Secret.Region_Name = kwargs['Region']
+	  Secret.Region_Override = 1 
+	
 	Secret.Secret = secret_alias
 	Secret.primarySecret = secrets_prefix + "_PrimarySecret"
 	Secret.secondarySecret = secrets_prefix + "_SecondarySecret"
@@ -111,14 +156,18 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	if "ip" in attributes:
 	  jwt_payload['ip'] = True
 	  try:
-		addr = ipaddress.ip_address(attributes('ip'))
+	      #print ("Get IP")
+	      #addr = ipaddress.ip_address("24.214.5.1")
+	      addr = ipaddress.ip_address(attributes['ip'])
+	      #print ("IP: " + str(addr))
 	  except ValueError:
-		return("Error: Invalid IP address")
-		raise
+	      return("Error: Invalid IP address")
+	      raise
 	  jwt_payload['ip_ver'] = int(addr.version)
 	  jwt_payload['ip'] = True
 	  full_ip = addr.exploded
-	  private_payload += attributes['full_ip'] + ":"
+	  #print ("Full IP: " + str(full_ip))
+	  private_payload += full_ip + ":"
 	
 	if "co" in attributes:
 	  jwt_payload['co'] = True
@@ -131,7 +180,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	if "paths" in attributes:
 	  for path in attributes['paths']:
-	    print ("PATH IS: " + path)
+	    #print ("PATH IS: " + path)
 	    jwt_payload['paths'].append(path)
 	
 	if "ssn" in attributes:
@@ -146,7 +195,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 
 	if "headers" in attributes:
 	  jwt_payload['headers'] = []
-	  print ("HEADERS: " + str(attributes['headers']))
+	  #print ("HEADERS: " + str(attributes['headers']))
 	  for mykey,myvalue in attributes['headers'].items():
 	    LCkey = mykey.lower()
 	    jwt_payload['headers'].append(LCkey)
@@ -154,7 +203,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 
 	if "qs" in attributes:
 	  jwt_payload['qs'] = []
-	  print (str(attributes['qs']))
+	  #print (str(attributes['qs']))
 	  for mykey,myvalue in attributes['qs'].items():
 	    LCkey = mykey.lower()
 	    jwt_payload['qs'].append(LCkey)
@@ -173,7 +222,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	### Generate private payload
 	private_payload = private_payload.rstrip(":")
-	print ("PRIVATE PAYLOAD" + private_payload)
+	#print ("PRIVATE PAYLOAD" + private_payload)
 	private_payload_utf = private_payload.encode()
 	dig = hmac.new(key, msg=private_payload_utf, digestmod=hashlib.sha256).digest()
 	intsig = base64.urlsafe_b64encode(dig).decode().rstrip('=')

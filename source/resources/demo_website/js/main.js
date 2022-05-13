@@ -65,19 +65,12 @@ function load(type) {
   const idAsset = type == 'hls' ? 1 : 2;
   const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
 
-  const user = $("#inputUsername").val();
-  const pass = $("#inputPassword").val();
-
   $.ajax({
     type: 'POST',
     url: urlToGet,
-    headers: {
-      "Authorization": "Basic " + btoa(user + ":" + pass)
-    },
     success: function (data, status, xhr) {
       showResultDiv();
       showVideo();
-      hideLoginDiv()
       hideErrorDiv();
 
       var manifest_url = data;
@@ -97,17 +90,10 @@ function load(type) {
     },
     error: function (data, status, xhr) {
 
-      if (data.status == 401) {
-        //error authentication
-        showLoginErrorDiv();
-        showLoginError("Authentication failed!");
-        enableSubmitButton();
-
-      } else if (data.status == 404) {
+      if (data.status == 404) {
         //not found
         showVideoError("Video asset not configured for " + type.toUpperCase()+ " !")
         showVideoErrorDiv();
-        hideLoginDiv();
         showResultDiv();
         hideVideo();
 
@@ -116,7 +102,6 @@ function load(type) {
         $("#errorAsset").text("Unknown error!");
 
         showVideoErrorDiv();
-        hideLoginDiv();
         showResultDiv();
 
       }
@@ -135,9 +120,7 @@ function showVideoMetadata(requestUrl, playbackUrl, jwtHeader, jwtPayload) {
   $('#jwt_header').html(jwtHeader);
   $('#jwt_payload').html(jwtPayload);
 }
-function showLoginError(errorMsg) {
-  $("#errorMsg").text(errorMsg);
-}
+
 function showVideoError(errorMsg) {
   $("#errorAsset").text(errorMsg);
 }
@@ -156,16 +139,10 @@ function showVideo(){
   $("#metadataDiv").removeClass('d-none');
 }
 
-function hideLoginDiv() {
-  $("#login").addClass('d-none');
-}
-
 function showVideoErrorDiv() {
   $("#errorAsset").removeClass('d-none');
 }
-function showLoginErrorDiv() {
-  $("#errorMsg").removeClass('d-none');
-}
+
 function hideErrorDiv() {
   $("#errorMsg").addClass('d-none');
   $("#errorAsset").addClass('d-none');
@@ -250,6 +227,8 @@ $('#sessionrevoke').on('click', function () {
   });
 
 });
+
+load('hls');
 
 
 

@@ -41,6 +41,9 @@ export class SecureMediaStreamingStack extends Stack {
     id: string,
     config: IConfiguration,
     ruleGroupParamName: string,
+    sig4LambdaVersionParamName: string,
+    sig4LambdaArnParamName: string,
+    sig4LambdaRoleArnParamName: string,
     props: StackProps
   ) {
     super(scope, id, props);
@@ -150,6 +153,9 @@ export class SecureMediaStreamingStack extends Stack {
         secrets: secrets,
         dashboard: dashboard,
         sessionsTable: sessionToRevoke,
+        sig4LambdaVersionParamName: sig4LambdaVersionParamName,
+        sig4LambdaArnParamName: sig4LambdaArnParamName,
+        sig4LambdaRoleArnParamName: sig4LambdaRoleArnParamName
       });
     }
 

@@ -1,5 +1,6 @@
 // Declare constants reqiured for the signature process
 const crypto = require('crypto');
+const qs = require('querystring');
 const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 // CloudFront includes the x-amz-cf-id header in the signature for custom origins
 const signedHeadersCustomOrigin = 'host;x-amz-cf-id;x-amz-content-sha256;x-amz-date;x-amz-security-token';
@@ -68,7 +69,7 @@ function signV4(options) {
     let signedHeaders = '';
     canonicalHeaders = ['host:'+options.host, 'x-amz-cf-id:'+options.xAmzCfId, 'x-amz-content-sha256:'+emptyHash, 'x-amz-date:'+date, 'x-amz-security-token:'+options.credentials.sessionToken].join('\n');
     signedHeaders = signedHeadersCustomOrigin;
-    const requestParameters = options.query;
+    const requestParameters = createCanonicalQS(options.query);
 
     const canonicalURI = encodeRfc3986(encodeURIComponent(decodeURIComponent(options.path).replace(/\+/g, ' ')).replace(/%2F/g, '/'));
     const canonicalRequest = [options.method, canonicalURI, requestParameters, canonicalHeaders + '\n', signedHeaders,emptyHash].join('\n');
@@ -90,8 +91,23 @@ function signV4(options) {
     };
 }
 
+function createCanonicalQS(input_qs){
+	let canonicalQS='';
+	let qsparsed = qs.parse(input_qs);
+	Object.keys(qsparsed).sort().forEach((param)=>{
+		canonicalQS += encodeQS(param)+'='+encodeQS(qsparsed[param])+'&'
+	});
+	canonicalQS = canonicalQS.slice(0, -1);
+	
+	return canonicalQS;	
+}
+
+function encodeQS(input_str){
+	return input_str.replace(/[!'()*=]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+}
+
 function encodeRfc3986(urlEncodedStr) {
-  return urlEncodedStr.replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+  return urlEncodedStr.replace(/[!'()*]/g, c => '%25' + c.charCodeAt(0).toString(16).toUpperCase())
 }
 
 function hash(string, encoding) {

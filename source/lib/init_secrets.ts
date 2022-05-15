@@ -36,9 +36,18 @@ export class InitSecrets extends Construct {
           "initSecretsResourceId"
         ),
       },
-      policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
+      policy: /*custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [props.functionArn],
-      }),
+      })*/
+      custom_resources.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ['lambda:InvokeFunction'],
+          resources: [
+            props.functionArn
+          ]
+        })
+      ])
 
       //role: role
     });

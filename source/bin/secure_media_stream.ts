@@ -5,7 +5,7 @@ import { getOpts } from "../helpers/opts";
 import "source-map-support/register";
 import { SecureMediaStreamingStack } from "../lib/secure_media_stream_stack";
 import { AutoSessionRevocationStack } from "../lib/auto_session_revocation";
-import { RuleGroupStack } from "../lib/rule_group_stack";
+import { UsEast1Stack } from "../lib/us_east_1_stack";
 
 const app = new cdk.App();
 
@@ -22,9 +22,9 @@ const app = new cdk.App();
     process.env.CDK_DEPLOY_REGION ||
     process.env.CDK_DEFAULT_REGION;
 
-  const ruleGroupStack = new RuleGroupStack(
+  const usEast1Stack = new UsEast1Stack(
     app,
-    config.main?.stack_name! + "RuleGroup",
+    config.main?.stack_name! + "UsEast1Stack",
     config,
     {
       env: {
@@ -38,7 +38,10 @@ const app = new cdk.App();
     app,
     config.main?.stack_name!,
     config,
-    ruleGroupStack.ruleGroup,
+    usEast1Stack.ruleGroup,
+    usEast1Stack.sig4LambdaVersion,
+    usEast1Stack.sig4LambdaArn,
+    usEast1Stack.sig4LambdaRoleArn,
     {
       env: {
         account: account,
@@ -46,7 +49,7 @@ const app = new cdk.App();
       },
     }
   );
-  coreStack.addDependency(ruleGroupStack);
+  coreStack.addDependency(usEast1Stack);
 
   if (config.sessionRevocation) {
     new AutoSessionRevocationStack(

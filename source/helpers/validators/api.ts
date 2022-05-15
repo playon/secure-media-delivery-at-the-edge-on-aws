@@ -12,6 +12,7 @@ export interface IApi {
    * to the limit value.
    */
    language: string;
+   demo: boolean;
 }
 
 /**
@@ -19,5 +20,6 @@ export interface IApi {
  */
 export const apiSchema = Joi.object().keys({
   language: Joi.string().required(),
+  demo: Joi.boolean().required(),
 
 });

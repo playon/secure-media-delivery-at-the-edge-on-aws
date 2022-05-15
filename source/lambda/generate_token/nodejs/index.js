@@ -40,19 +40,6 @@ exports.handler = async (event, context) => {
         viewer_ip = event.requestContext.http.sourceIp;
     }
 
-    var auth_header = '';
-
-    //simple authentication logic using authorization header
-    var authorized = Buffer.from(user+':'+pass).toString('base64');
-    if(headers['authorization']) auth_header = headers['authorization'].split(' ')[1];
-
-    if (auth_header != authorized) {
-        console.log('Authentication failed');
-        //return error when authentication failed
-        return response401;
-    }
-
-
     if(event['queryStringParameters'] && event.queryStringParameters['id']){
         id = event.queryStringParameters['id'];
 		delete request_querystrings['id'];

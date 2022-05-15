@@ -65,10 +65,20 @@ export class SessionRevocation extends Construct {
             `${config.ruleGroupParamName}-${this.ruleGroupRegion}`
           ),
         },
-        policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-          resources: [`arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`]
-        }),
-        role: role,
+        //policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
+        //  resources: [`arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`]
+        //}),
+        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ['ssm:GetParameter*'],
+            resources: [
+              //`arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/*`
+              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`
+            ]
+          })
+        ]),
+        //role: role,
       }
     );
 

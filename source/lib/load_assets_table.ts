@@ -41,7 +41,6 @@ export class LoadAssetsTable extends Construct {
       },
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [props.table.tableArn],
-        //resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE,
       }),
     });
   }

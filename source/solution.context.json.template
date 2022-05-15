@@ -7,7 +7,9 @@
     "retention": 5
   },
   "api": {
-    "language": "A"
+    "language": "A",
+    "demo": true
+
   },
   "hls": {
     "hostname": "H",
@@ -19,8 +21,4 @@
     "url_path": "U",
     "ttl": "+24h"
   },
-  "demo": {
-    "username": "U",
-    "password": "P"
-  }
 }

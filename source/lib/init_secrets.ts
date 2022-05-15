@@ -11,7 +11,7 @@
  *  and limitations under the License.
  */
 
-import { Aws, custom_resources, aws_iam as iam } from "aws-cdk-lib";
+import { custom_resources, aws_iam as iam } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
 
@@ -36,20 +36,13 @@ export class InitSecrets extends Construct {
           "initSecretsResourceId"
         ),
       },
-      policy: /*custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-        resources: [props.functionArn],
-      })*/
-      custom_resources.AwsCustomResourcePolicy.fromStatements([
+      policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
         new iam.PolicyStatement({
           effect: iam.Effect.ALLOW,
-          actions: ['lambda:InvokeFunction'],
-          resources: [
-            props.functionArn
-          ]
-        })
-      ])
-
-      //role: role
+          actions: ["lambda:InvokeFunction"],
+          resources: [props.functionArn],
+        }),
+      ]),
     });
   }
 }

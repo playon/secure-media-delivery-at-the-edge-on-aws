@@ -14,10 +14,8 @@
 import {
   Stack,
   RemovalPolicy,
-  CfnOutput,
   Aws,
   aws_dynamodb as ddb,
-  aws_s3_deployment as s3deploy,
   aws_s3 as s3,
   aws_lambda as lambda,
   aws_logs as logs,
@@ -46,6 +44,7 @@ export class AutoSessionRevocationStack extends Stack {
 
     const sqlQueryBucket = new s3.Bucket(this, "SqlQuery");
 
+    //DynamoDB table holding the configuration for Athena Query (that is populate on deploying the stack and that can be modified by a user at anytime)
     const sqlConfigTable = new ddb.Table(this, "SqlConfigTable", {
       tableName: Aws.STACK_NAME + "_athenaconfig",
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
@@ -59,7 +58,8 @@ export class AutoSessionRevocationStack extends Stack {
       configuration: configuration,
     });
 
-    //Revoke an active session
+    //When DynamoDB table holding the configuration for Athena query is modified, the Lambda is triggered and generate a JSON file to be used by
+    //the StepFunction when running the query against CloudFront logs
     const updateSql = new lambda.Function(this, "ExportParams", {
       runtime: lambda.Runtime.PYTHON_3_7,
       functionName: Aws.STACK_NAME + "_ExportParams",

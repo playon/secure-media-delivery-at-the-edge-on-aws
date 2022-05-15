@@ -7,8 +7,8 @@ import string
 lambda_client = boto3.client('lambda')
 iam = boto3.client('iam')
 
-LAMBDA_ARN = os.environ['LE_ARN']
 API_ARN = os.environ['API_ARN']
+ROLE_NAME = os.environ['ROLE_NAME']
 
 def get_random_string(length):
     # choose from all lowercase letter
@@ -17,11 +17,6 @@ def get_random_string(length):
 
 
 def handler(event, context):
-    function_name = LAMBDA_ARN.split(':')[6]
-    print ('checking if function exists: {}'.format(function_name))
-    response = lambda_client.get_function(
-                FunctionName=function_name)
-    role_arn = response['Configuration']['Role']
 
     my_policy = {
         "Version": "2012-10-17",
@@ -40,10 +35,9 @@ def handler(event, context):
         PolicyDocument=json.dumps(my_policy)
     )
     policy_arn = response['Policy']['Arn']
-    role_name = role_arn.split(':')[5].split('/')[1]
-    print("Attaching the new policy to the role {}".format(role_name))
+    print("Attaching the new policy to the role {}".format(ROLE_NAME))
     response = iam.attach_role_policy(
-        RoleName=role_name,
+        RoleName=ROLE_NAME,
         PolicyArn=policy_arn
 
     )

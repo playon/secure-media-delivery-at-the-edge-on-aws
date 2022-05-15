@@ -2,7 +2,6 @@
 import * as cdk from "aws-cdk-lib";
 import { getOpts } from "../helpers/opts";
 
-import "source-map-support/register";
 import { SecureMediaStreamingStack } from "../lib/secure_media_stream_stack";
 import { AutoSessionRevocationStack } from "../lib/auto_session_revocation";
 import { UsEast1Stack } from "../lib/us_east_1_stack";

@@ -11,186 +11,158 @@
  *  and limitations under the License.
  */
 
- import {
-    Aws,
-    CfnOutput,
-    Stack,
-    RemovalPolicy,
-    custom_resources,
-    aws_lambda as lambda,
-    aws_s3_deployment as s3deploy,
-    aws_dynamodb as ddb,
-    aws_cloudfront as cloudfront,
-    aws_s3 as s3,
-    aws_cloudfront_origins as origins,
-    aws_logs as logs,
-    aws_iam as iam
-  } from "aws-cdk-lib";
+import {
+  Aws,
+  Stack,
+  custom_resources,
+  aws_lambda as lambda,
+  aws_iam as iam,
+} from "aws-cdk-lib";
 
 import { Construct } from "constructs";
 import { PhysicalResourceId } from "aws-cdk-lib/custom-resources";
 
-
 export interface IConfigProps {
-    sig4LambdaVersionParamName: string;
-    sig4LambdaArnParamName: string;
-    sig4LambdaRoleArnParamName: string;
-    apiArn: string
-  }
+  sig4LambdaVersionParamName: string;
+  sig4LambdaArnParamName: string;
+  sig4LambdaRoleArnParamName: string;
+  apiArn: string;
+}
 
 export class CustomResourceLambdaEdge extends Construct {
+  private readonly ruleGroupRegion = "us-east-1";
+  public readonly lambdaEdgeVersionArn: string;
 
-    private readonly ruleGroupRegion = "us-east-1";
-    public readonly lambdaEdgeVersionArn: string;
+  constructor(scope: Construct, id: string, props: IConfigProps) {
+    super(scope, id);
 
+    const accountId = Stack.of(this).account;
 
-    constructor(scope: Construct, id: string, props: IConfigProps) {
-      super(scope, id);
-
-      const accountId = Stack.of(this).account;
-
-      const ssmSig4VersionArn = new custom_resources.AwsCustomResource(
-        this,
-        "SSMParameterVersion",
-        {
-          onUpdate: {
-            service: "SSM",
-            action: "getParameter",
-            parameters: { Name: `${props.sig4LambdaVersionParamName}` },
-            region: this.ruleGroupRegion,
-            physicalResourceId: PhysicalResourceId.of(Date.now().toString())
-          },
-          policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
-            new iam.PolicyStatement({
-              effect: iam.Effect.ALLOW,
-              actions: ['ssm:GetParameter*'],
-              resources: [
-                `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaVersionParamName}`
-              ]
-            })
-          ]),
-        }
-      );
-
-      const ssmSig4Arn = new custom_resources.AwsCustomResource(
-        this,
-        "SSMParameterArn",
-        {
-          onUpdate: {
-            service: "SSM",
-            action: "getParameter",
-            parameters: { Name: `${props.sig4LambdaArnParamName}` },
-            region: this.ruleGroupRegion,
-            physicalResourceId: PhysicalResourceId.of(Date.now().toString())
-          },
-          policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
-            new iam.PolicyStatement({
-              effect: iam.Effect.ALLOW,
-              actions: ['ssm:GetParameter*'],
-              resources: [
-                `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaArnParamName}`
-              ]
-            })
-          ]),
-        }
-      );
-
-      this.lambdaEdgeVersionArn = ssmSig4VersionArn.getResponseField('Parameter.Value')
-
-
-      const ssmSig4RoleArn = new custom_resources.AwsCustomResource(
-        this,
-        "SSMParameterRoleArn",
-        {
-          onUpdate: {
-            service: "SSM",
-            action: "getParameter",
-            parameters: { Name: `${props.sig4LambdaRoleArnParamName}` },
-            region: this.ruleGroupRegion,
-            physicalResourceId: PhysicalResourceId.of(Date.now().toString())
-          },
-          policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
-            new iam.PolicyStatement({
-              effect: iam.Effect.ALLOW,
-              actions: ['ssm:GetParameter*'],
-              resources: [
-                `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaRoleArnParamName}`
-              ]
-            })
-          ]),
-        }
-      );
-
-
-
-      const lambdaEdge = lambda.Function.fromFunctionArn(
-        this,
-        'ExternalLambdaFromArn',
-        ssmSig4Arn.getResponseField('Parameter.Value')
-      );
-
-      const updateRoleFunction = new lambda.Function(this, "UpdateRole", {
-        functionName: Aws.STACK_NAME + "_UpdateRole",
-        runtime: lambda.Runtime.PYTHON_3_7,
-        code: lambda.Code.fromAsset("lambda/update_role"),
-        handler: "index.handler",
-        environment: {
-          ROLE_NAME: lambdaEdge.role?.roleName!,
-          LE_ARN: ssmSig4Arn.getResponseField('Parameter.Value'),
-          API_ARN: props.apiArn
+    const ssmSig4VersionArn = new custom_resources.AwsCustomResource(
+      this,
+      "SSMParameterVersion",
+      {
+        onCreate: {
+          service: "SSM",
+          action: "getParameter",
+          parameters: { Name: `${props.sig4LambdaVersionParamName}` },
+          region: this.ruleGroupRegion,
+          physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
         },
-      });
+        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["ssm:GetParameter*"],
+            resources: [
+              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaVersionParamName}`,
+            ],
+          }),
+        ]),
+      }
+    );
 
-      const getFunctionStatement = new iam.PolicyStatement(
+    const ssmSig4Arn = new custom_resources.AwsCustomResource(
+      this,
+      "SSMParameterArn",
       {
-        actions: ['lambda:GetFunction'],
-        resources: [ssmSig4Arn.getResponseField('Parameter.Value')],
-      });
+        onCreate: {
+          service: "SSM",
+          action: "getParameter",
+          parameters: { Name: `${props.sig4LambdaArnParamName}` },
+          region: this.ruleGroupRegion,
+          physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+        },
+        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["ssm:GetParameter*"],
+            resources: [
+              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaArnParamName}`,
+            ],
+          }),
+        ]),
+      }
+    );
 
-      const createPolicytStatement = new iam.PolicyStatement(
+    this.lambdaEdgeVersionArn =
+      ssmSig4VersionArn.getResponseField("Parameter.Value");
+
+    const ssmSig4RoleArn = new custom_resources.AwsCustomResource(
+      this,
+      "SSMParameterRoleArn",
       {
-        actions: ['iam:CreatePolicy'],
-        resources: [`arn:aws:iam::${accountId}:policy/*`],
-      });
+        onCreate: {
+          service: "SSM",
+          action: "getParameter",
+          parameters: { Name: `${props.sig4LambdaRoleArnParamName}` },
+          region: this.ruleGroupRegion,
+          physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+        },
+        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["ssm:GetParameter*"],
+            resources: [
+              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaRoleArnParamName}`,
+            ],
+          }),
+        ]),
+      }
+    );
 
-      const updateRoleStatement = new iam.PolicyStatement(
-        {
-          actions: ['iam:AttachRolePolicy'],
-          resources: [ssmSig4RoleArn.getResponseField('Parameter.Value')],
-        });
+    const lambdaEdge = lambda.Function.fromFunctionArn(
+      this,
+      "ExternalLambdaFromArn",
+      ssmSig4Arn.getResponseField("Parameter.Value")
+    );
 
-      updateRoleFunction.role?.attachInlinePolicy(
-        new iam.Policy(this, 'GetFunctionPolicy', {
-          statements: [getFunctionStatement, createPolicytStatement, updateRoleStatement],
+    //lambda used to add execute-api:Invoke permission to LambdaEdge (to sign the request)
+    const updateRoleFunction = new lambda.Function(this, "UpdateRole", {
+      functionName: Aws.STACK_NAME + "_UpdateRole",
+      runtime: lambda.Runtime.PYTHON_3_7,
+      code: lambda.Code.fromAsset("lambda/update_role"),
+      handler: "index.handler",
+      environment: {
+        ROLE_NAME: lambdaEdge.role?.roleName!,
+        API_ARN: props.apiArn,
+      },
+    });
+
+    const createPolicytStatement = new iam.PolicyStatement({
+      actions: ["iam:CreatePolicy"],
+      resources: [`arn:aws:iam::${accountId}:policy/*`],
+    });
+
+    const updateRoleStatement = new iam.PolicyStatement({
+      actions: ["iam:AttachRolePolicy"],
+      resources: [ssmSig4RoleArn.getResponseField("Parameter.Value")],
+    });
+
+    updateRoleFunction.role?.attachInlinePolicy(
+      new iam.Policy(this, "GetFunctionPolicy", {
+        statements: [
+          createPolicytStatement,
+          updateRoleStatement,
+        ],
+      })
+    );
+
+    const updateRoleCustomResource = new custom_resources.AwsCustomResource(this, "SSMParameterRole", {
+      onCreate: {
+        service: "Lambda",
+        action: "invoke",
+        parameters: {
+          FunctionName: updateRoleFunction.functionName,
+        },
+        physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+      },
+      policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ["lambda:InvokeFunction"],
+          resources: [updateRoleFunction.functionArn],
         }),
-      );
-
-      new custom_resources.AwsCustomResource(
-        this,
-        "SSMParameterRole",
-        {
-          onCreate: {
-            service: "Lambda",
-            action: "invoke",
-            parameters: {
-              FunctionName: updateRoleFunction.functionName
-            },
-            physicalResourceId: PhysicalResourceId.of(Date.now().toString())
-          },
-          policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
-            new iam.PolicyStatement({
-              effect: iam.Effect.ALLOW,
-              actions: ['lambda:InvokeFunction'],
-              resources: [
-                updateRoleFunction.functionArn
-              ]
-            })
-          ]),
-        }
-      );
-
-
-
-
-    }
+      ]),
+    });
+  }
 }

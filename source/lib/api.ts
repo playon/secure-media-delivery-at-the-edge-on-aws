@@ -18,7 +18,6 @@ import {
   aws_lambda as lambda,
   aws_dynamodb as ddb,
   aws_logs as logs,
-
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -28,8 +27,6 @@ import { LoadAssetsTable } from "./load_assets_table";
 import { CWDashboard } from "./dashboard";
 import { Endpoints } from "./endpoints";
 
-
-
 export interface IConfigProps {
   configuration: IConfiguration;
   secrets: Secrets;
@@ -37,18 +34,17 @@ export interface IConfigProps {
   sessionsTable: ddb.ITable;
   sig4LambdaVersionParamName: string;
   sig4LambdaArnParamName: string;
-  sig4LambdaRoleArnParamName: string
+  sig4LambdaRoleArnParamName: string;
 }
 
 export class Api extends Construct {
-
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
     var runtime: lambda.Runtime;
     var language: string;
 
-
+    //set the runtime based on the user selection in the wizard
     if (props.configuration.api?.language == "nodejs") {
       runtime = lambda.Runtime.NODEJS_14_X;
       language = "nodejs";
@@ -56,6 +52,8 @@ export class Api extends Construct {
       runtime = lambda.Runtime.PYTHON_3_7;
       language = "python";
     }
+
+    //build a layer with required libs
     const cloudfrontTokenLayer = new lambda.LayerVersion(
       this,
       "RotateSecretLayer",
@@ -68,6 +66,7 @@ export class Api extends Construct {
       }
     );
 
+    //DDB table used to store configuration for demo website
     const demoAssetsTable = new ddb.Table(this, "DemoTable", {
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "id", type: ddb.AttributeType.STRING },
@@ -75,11 +74,13 @@ export class Api extends Construct {
       pointInTimeRecovery: true,
     });
 
+    //load the DDB table with 2 items (one for HLS and one for DASH)
     new LoadAssetsTable(this, "AssetsTable", {
       table: demoAssetsTable,
       configuration: props.configuration,
     });
 
+    //Lambda that will generate the token using the provided SDK
     const generateToken = new lambda.Function(this, "GenerateToken", {
       functionName: Aws.STACK_NAME + "_GenerateToken",
       runtime: runtime,
@@ -87,7 +88,7 @@ export class Api extends Construct {
       handler: "index.handler",
       environment: {
         STACK_NAME: Aws.STACK_NAME,
-        TABLE_NAME: demoAssetsTable.tableName
+        TABLE_NAME: demoAssetsTable.tableName,
       },
       layers: [cloudfrontTokenLayer],
     });
@@ -98,6 +99,7 @@ export class Api extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
+    //Lambda used to add manually a session to be revoked into a DynamoDB Table
     const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
       functionName: Aws.STACK_NAME + "_SaveManualSession",
       runtime: lambda.Runtime.PYTHON_3_7,
@@ -115,26 +117,22 @@ export class Api extends Construct {
     props.secrets.primarySecret.grantRead(generateToken);
     props.secrets.secondarySecret.grantRead(generateToken);
 
-
+    //endpoint creation using a CloudFront Distribution in front of an HTTP API
     new Endpoints(this, "Endpoints", {
       generateTokenLambdaFunction: generateToken,
       saveSessionToDDBLambdaFunction: saveSessionToDdb,
       sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
       sig4LambdaArnParamName: props.sig4LambdaArnParamName,
       sig4LambdaRoleArnParamName: props.sig4LambdaRoleArnParamName,
-      demoWebsite: props.configuration.api?.demo
-      ? true
-      : false
-    })
+      demoWebsite: props.configuration.api?.demo ? true : false,
+    });
 
     const region = Stack.of(this).region;
 
+    //build a CloudWatch Dashboard to display some metrics from generateToken Lambda
     props.dashboard.buildApiDashboard({
       lambdaFunctionName: generateToken.functionName,
       region: region,
     });
-
-
-
   }
 }

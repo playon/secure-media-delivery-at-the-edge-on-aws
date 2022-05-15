@@ -18,19 +18,17 @@ import {
   aws_wafv2 as wafv2,
   aws_ssm as ssm,
   aws_lambda as lambda,
-  aws_iam as iam
+  aws_iam as iam,
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
-
 
 export class UsEast1Stack extends Stack {
   public readonly ruleGroup: string;
   public readonly sig4LambdaVersion: string;
   public readonly sig4LambdaArn: string;
   public readonly sig4LambdaRoleArn: string;
-
 
   constructor(
     scope: Construct,
@@ -42,7 +40,7 @@ export class UsEast1Stack extends Stack {
 
     this.ruleGroup = id + "_BlockSessions";
 
-    const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "MyCfnRuleGroup", {
+    const cfnRuleGroup = new wafv2.CfnRuleGroup(this, "RuleGroup", {
       capacity: config.main?.wcu!,
       scope: "CLOUDFRONT",
       visibilityConfig: {
@@ -55,14 +53,15 @@ export class UsEast1Stack extends Stack {
       rules: [],
     });
 
-    if(config.api && config.api?.demo){
+    if (config.api && config.api?.demo) {
+      const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName(
+        "service-role/AWSLambdaBasicExecutionRole"
+      );
 
-      const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole");
-
-      const role = new iam.Role(this, 'EdgeLambdaServiceRole', {
+      const role = new iam.Role(this, "EdgeLambdaServiceRole", {
         assumedBy: new iam.CompositePrincipal(
-          new iam.ServicePrincipal('lambda.amazonaws.com'),
-          new iam.ServicePrincipal('edgelambda.amazonaws.com')
+          new iam.ServicePrincipal("lambda.amazonaws.com"),
+          new iam.ServicePrincipal("edgelambda.amazonaws.com")
         ),
         managedPolicies: [
           {
@@ -71,12 +70,12 @@ export class UsEast1Stack extends Stack {
         ],
       });
 
-      const lambdaEdge = new lambda.Function(this, 'LambdaEdge', {
+      const lambdaEdge = new lambda.Function(this, "LambdaEdge", {
         functionName: Aws.STACK_NAME + "_Sig4Signer",
         runtime: lambda.Runtime.NODEJS_12_X,
-        handler: 'index.handler',
-        code: lambda.Code.fromAsset('lambda/sig4'),
-        role: role
+        handler: "index.handler",
+        code: lambda.Code.fromAsset("lambda/sig4"),
+        role: role,
       });
 
       const { functionArn } = lambdaEdge.currentVersion;
@@ -88,31 +87,26 @@ export class UsEast1Stack extends Stack {
       new ssm.StringParameter(this, "Sig4LambdaVersion", {
         parameterName: this.sig4LambdaVersion,
         description: "Sig4 Lambda Version Arn",
-        stringValue: functionArn
+        stringValue: functionArn,
       });
 
       new ssm.StringParameter(this, "Sig4LambdaArn", {
         parameterName: this.sig4LambdaArn,
         description: "Sig4 Lambda Arn",
-        stringValue: lambdaEdge.functionArn
+        stringValue: lambdaEdge.functionArn,
       });
 
       new ssm.StringParameter(this, "Sig4LambdaRole", {
         parameterName: this.sig4LambdaRoleArn,
         description: "Sig4 Lambda Role arn",
-        stringValue: role.roleArn
+        stringValue: role.roleArn,
       });
-
-
     }
 
     new ssm.StringParameter(this, "RuleGroupId", {
       parameterName: this.ruleGroup,
-      description: "Parameter that with the Rule Group ID",
+      description: "Rule Group ID",
       stringValue: cfnRuleGroup.attrId,
     });
-
-
   }
-
 }

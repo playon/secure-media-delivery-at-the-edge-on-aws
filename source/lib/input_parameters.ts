@@ -16,6 +16,7 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { addParametersToInterface } from "./cfn_parameters";
 
+//Construct used to implement input parameters when the user deploys the stack using CloudFormation template and not using the wizard and CDK
 export class GetInputParameters extends Construct {
   public readonly customInputParameters = {} as IConfiguration;
 
@@ -325,12 +326,12 @@ export class GetInputParameters extends Construct {
 
         returnObject.api = {
           language: api_language.valueAsString,
-          demo: true
+          demo: true,
         };
       } else {
         returnObject.api = {
           language: configuration.api?.language!,
-          demo: true
+          demo: true,
         };
       }
     }

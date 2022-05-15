@@ -11,8 +11,7 @@ import { MainModule } from './lib/main-module';
 import { ApiModule } from './lib/api-module';
 
 /**
- * A question prompting for the components of the Prototype
- * Engagement Pack to deploy to the sandbox account.
+ * A question prompting for the components to deploy to the sandbox account.
  */
 const componentQuestion = {
   type: 'multiselect',

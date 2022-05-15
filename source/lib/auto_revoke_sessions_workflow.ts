@@ -25,7 +25,7 @@ import {
   aws_iam as iam,
   aws_logs as logs,
 } from "aws-cdk-lib";
-import { Bucket, IBucket } from "aws-cdk-lib/aws-s3";
+import { IBucket } from "aws-cdk-lib/aws-s3";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
@@ -155,8 +155,9 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       )
       .otherwise(done);
 
-    const logGroup = new logs.LogGroup(this, 'AthenaQueryGroup');
-    // Step function to orchestrate Athena query and retrieving the results
+    const logGroup = new logs.LogGroup(this, "AthenaQueryGroup");
+
+    // Step function to orchestrate Athena query to detect corrupted sessions and update DynamoDB Table with the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {
       stateMachineName: Aws.STACK_NAME + "_DetectSessions",
       definition: prepareQueryJob

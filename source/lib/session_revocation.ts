@@ -41,17 +41,8 @@ export class SessionRevocation extends Construct {
     super(scope, id);
 
     const accountId = Stack.of(this).account;
-    const role = new iam.Role(this, "RoleSsmCustomResource", {
-      assumedBy: new iam.ServicePrincipal("lambda.amazonaws.com"),
-    });
-    role.addToPolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ["lambda:InvokeFunction"],
-        resources: ["*"],
-      })
-    );
 
+    //Getting the RuleGroup ID create in us-east-1 region (in a different stack)
     const ssmRuleGroupParameterId = new custom_resources.AwsCustomResource(
       this,
       "SSMParameter",
@@ -65,18 +56,23 @@ export class SessionRevocation extends Construct {
             `${config.ruleGroupParamName}-${this.ruleGroupRegion}`
           ),
         },
-        policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
-          resources: [`arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`]
-        }),
-        role: role,
+        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["ssm:GetParameter*"],
+            resources: [
+              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`,
+            ],
+          }),
+        ]),
       }
     );
 
-
-
-    const ssmRuleGroupId = ssmRuleGroupParameterId.getResponseField("Parameter.Value");
+    const ssmRuleGroupId =
+      ssmRuleGroupParameterId.getResponseField("Parameter.Value");
 
     //Revoke an active session
+    //Update WAF RuleGroup with sessions from DynamoDB
     const updateRuleGroupFunction = new lambda.Function(
       this,
       "UpdateRuleGroup",
@@ -103,8 +99,6 @@ export class SessionRevocation extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-
-
     updateRuleGroupFunction.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -113,7 +107,9 @@ export class SessionRevocation extends Construct {
           "wafv2:UpdateRuleGroup",
           "wafv2:ListRuleGroups",
         ],
-        resources: [`arn:aws:wafv2:${this.ruleGroupRegion}:${accountId}:global/rulegroup/${config.ruleGroupParamName}/${ssmRuleGroupId}`],
+        resources: [
+          `arn:aws:wafv2:${this.ruleGroupRegion}:${accountId}:global/rulegroup/${config.ruleGroupParamName}/${ssmRuleGroupId}`,
+        ],
       })
     );
 
@@ -121,6 +117,7 @@ export class SessionRevocation extends Construct {
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
 
+    //trigger the Lambda every time when DynamoDB table is updated
     updateRuleGroupFunction.addEventSource(
       new event_source.DynamoEventSource(config.sessionToRevoke, {
         startingPosition: lambda.StartingPosition.TRIM_HORIZON,

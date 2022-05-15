@@ -11,8 +11,7 @@ import { MainModule } from './lib/main-module';
 import { ApiModule } from './lib/api-module';
 
 /**
- * A question prompting for the components of the Prototype
- * Engagement Pack to deploy to the sandbox account.
+ * A question prompting for the components to deploy to the sandbox account.
  */
 const componentQuestion = {
   type: 'multiselect',
@@ -22,8 +21,8 @@ const componentQuestion = {
   instructions: false,
   hint: '- Space to select. Return to submit. \'a\' to toggle all.',
   choices: [
-    { title: 'AUTO SESSION REVOCATION]', 'value': 'session-revocation' },
-    { title: '[API]', 'value': 'api' },
+    { title: '[API]', 'value': 'b' },
+    { title: 'AUTO SESSION REVOCATION]', 'value': 'c' }
   ]
 };
 
@@ -41,9 +40,9 @@ const componentQuestion = {
  * A map between component identifiers and their instance.
  */
 const moduleMap: { [key: string]: PromptComponent } = {
-  'main': new MainModule(),
-  'session-revocation': new AutoSessionRevocationModule(),
-  'api': new ApiModule(),
+  'a': new MainModule(),
+  'b': new ApiModule(),
+  'c': new AutoSessionRevocationModule(),
 };
 
 
@@ -54,10 +53,11 @@ const moduleMap: { [key: string]: PromptComponent } = {
 const getConfiguration = async (): Promise<IConfiguration> => {
   const configuration: IConfiguration = {};
 
-  const mainComponent = new Array('main');
+  const mainComponent = new Array('a');
 
   const components: Array<string>     = (await prompts.prompt(componentQuestion, { onCancel })).value;
   const allComponents = mainComponent.concat(components);
+  console.log(allComponents)
 
   // Iterating over the component prompts.
   for (const item of allComponents) {

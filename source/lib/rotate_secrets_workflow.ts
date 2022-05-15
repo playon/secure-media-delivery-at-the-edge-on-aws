@@ -48,7 +48,7 @@ export class RotateSecretsWorkflow extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    //jsonpath layer
+    //jsonpath layer used by Lambda to parse JSON
     const jsonPathLayer = new lambda.LayerVersion(this, "JsonPathLayer", {
       compatibleRuntimes: [lambda.Runtime.PYTHON_3_7],
       code: lambda.Code.fromAsset("lambda/layers/jsonpath"),
@@ -57,6 +57,9 @@ export class RotateSecretsWorkflow extends Construct {
 
     const accountId = Stack.of(this).account;
 
+    //Lambda used to generate new secrets:
+    // 1 - generate 2 secrets when deploying the stacck
+    // 2 - generate a new secret at each execution
     const generateSecretUpdateCff = new lambda.Function(
       this,
       "GenerateSecretUpdateCff",
@@ -162,7 +165,9 @@ export class RotateSecretsWorkflow extends Construct {
       functionName: generateSecretUpdateCff.functionName,
     });
 
-    //Generate token
+    //Swap secrets:
+    // - the new secret is store in secret1
+    // - the old secret1 is stored in secret2
     const swapSecrets = new lambda.Function(this, "SwapSecrets", {
       functionName: Aws.STACK_NAME + "_SwapSecrets",
       runtime: lambda.Runtime.PYTHON_3_7,
@@ -182,9 +187,6 @@ export class RotateSecretsWorkflow extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    //permissions for Secrets Manager
-    //
-    //generateSecretUpdateCff
     props.secrets.temporarySecret.grantWrite(generateSecretUpdateCff);
     props.secrets.primarySecret.grantWrite(generateSecretUpdateCff);
     props.secrets.secondarySecret.grantWrite(generateSecretUpdateCff);
@@ -264,9 +266,14 @@ export class RotateSecretsWorkflow extends Construct {
     map.iterator(getLastModifiedTimeJob.next(updatePropagated));
     // Step function to orchestrate generating a new secret
 
-    const logGroup = new logs.LogGroup(this, 'RotateSecretsGroup');
+    const logGroup = new logs.LogGroup(this, "RotateSecretsGroup");
 
-
+    //StepFunction used to coordinate tasks to swap secrets:
+    // 1 - generate new secrets
+    // 2 - get the list of all distributions associated with our CloudFront Function
+    // 3 - update the CloudFront Function with the new secret
+    // 4 - wait until all distribution are updated with the new CloudFront Function
+    // 5 - Move secret 1 -> secret 2, new secret -> secret 1
     const workflow = new sfn.StateMachine(this, "Rotate", {
       stateMachineName: Aws.STACK_NAME + "_RotateSecret",
       definition: generateNewSecretJob

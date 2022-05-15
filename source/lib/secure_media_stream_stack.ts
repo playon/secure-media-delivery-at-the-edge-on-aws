@@ -41,12 +41,16 @@ export class SecureMediaStreamingStack extends Stack {
     id: string,
     config: IConfiguration,
     ruleGroupParamName: string,
+    sig4LambdaVersionParamName: string,
+    sig4LambdaArnParamName: string,
+    sig4LambdaRoleArnParamName: string,
     props: StackProps
   ) {
     super(scope, id, props);
 
     const parameters = new GetInputParameters(this, "InputParameters", config);
 
+    //CloudFront Function used to check the JWT token for each request
     const checkToken = new cloudfront.Function(this, "CheckJWTTokenFunction", {
       code: cloudfront.FunctionCode.fromFile({
         filePath: "lambda/generate_secret_update_cff/index.js",
@@ -56,6 +60,7 @@ export class SecureMediaStreamingStack extends Stack {
         "CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery",
     });
 
+    //CloudFront Function used to fix the redirect for Media Tailor
     const mediatailorRedirect = new cloudfront.Function(
       this,
       "RedirectMediaTailorFunction",
@@ -71,6 +76,7 @@ export class SecureMediaStreamingStack extends Stack {
 
     const secrets = new Secrets(this, "Secrets");
 
+    //DynamoDB Table used to hold sessions to be revoked (manually added or automatically via the Step Function)
     const sessionToRevoke = new ddb.Table(this, "SessionToRevoke", {
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "session_id", type: ddb.AttributeType.STRING },
@@ -100,6 +106,7 @@ export class SecureMediaStreamingStack extends Stack {
       ],
     });
 
+    //role created to be assumed by the SDK
     const role4sdk = new iam.Role(this, "Role4SDK", {
       description: "A role to be assumed by the SDK",
       assumedBy: new iam.AccountPrincipal(Stack.of(this).account),
@@ -109,7 +116,7 @@ export class SecureMediaStreamingStack extends Stack {
       maxSessionDuration: Duration.hours(12),
     });
 
-    // 👇 add global secondary index
+    //add global secondary index
     sessionToRevoke.addGlobalSecondaryIndex({
       indexName: this.gsi_name,
       partitionKey: { name: "reason", type: ddb.AttributeType.STRING },
@@ -120,14 +127,16 @@ export class SecureMediaStreamingStack extends Stack {
 
     this.sessionToRevoke = sessionToRevoke;
 
+    //session revocation resources
     new SessionRevocation(this, "SessionRevocation", {
       sessionToRevoke: sessionToRevoke,
       gsi_index_name: this.gsi_name,
       wcu: config.main?.wcu!,
       retention: config.main?.retention!,
-      ruleGroupParamName: ruleGroupParamName
+      ruleGroupParamName: ruleGroupParamName,
     });
 
+    //workflow used to rotate secrets (on a frequency selected by the user in the wizard)
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(
       this,
       "RotateSecrets",
@@ -138,6 +147,7 @@ export class SecureMediaStreamingStack extends Stack {
       }
     );
 
+    //create a CloudWatch Dashboard where widgets will be added by eash selected module (API and Session Revocation)
     const dashboard = new CWDashboard(this, "CoreDashboard");
     dashboard.buildCoreDashboard({
       cfFunctionName: checkToken.functionName,
@@ -145,11 +155,15 @@ export class SecureMediaStreamingStack extends Stack {
     });
 
     if (parameters.customInputParameters.api) {
+      //if the API module was selected in the wizard, deploy the required resources
       new Api(this, "Api", {
         configuration: parameters.customInputParameters,
         secrets: secrets,
         dashboard: dashboard,
         sessionsTable: sessionToRevoke,
+        sig4LambdaVersionParamName: sig4LambdaVersionParamName,
+        sig4LambdaArnParamName: sig4LambdaArnParamName,
+        sig4LambdaRoleArnParamName: sig4LambdaRoleArnParamName,
       });
     }
 

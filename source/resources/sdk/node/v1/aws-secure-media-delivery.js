@@ -3,33 +3,48 @@ const b64url = require('base64url');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
+let DEBUG = false;
+
+function setDEBUG(val){
+    DEBUG = val
+}
+
+function logger(message){
+    if(DEBUG) console.log("[DEBUG] " + message);
+}
+
 function validateIPv4(address){
-    var ipv4_regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    //validate if input address matches with IPv4 regex pattern, with single regex statement
+    let ipv4_regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     return ipv4_regex.test(address);
 }
 
 function validateIPv6(address){
-    var ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
+    //validate if input address matches with expected IPv6 format. 
+    let ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
+    //Input is splitt into two parts assuming two-colon separator can exist then each side of the address is validated against regex
     address_parts = address.split('::');
-    if(address_parts.length>2) return false;
-    var parts_groups_sum = 0;
+    if(address_parts.length>2) return false; //only a single two-colon seperator is allowed
+    let parts_groups_sum = 0;
     for (part of address_parts){
-        var part_groups = part.split(':');
+        let part_groups = part.split(':');
         parts_groups_sum += part_groups.length;
         if(part_groups.length == 1 && part_groups[0] == ''){
+            //skip when address starts or ends with two-colon
             continue;
         } else {
             if(!ipv6_parts_regex.test(part)) return false;
         }
 
     }
+    //checking if number of groups does not equal expected value
     if(parts_groups_sum > 8) return false;
     if(address_parts.length == 1 && parts_groups_sum != 8) return false;
     return true;
 }
 
 function expandIPv6(address){
-    var hextets_abbrev = address.split(':');
+    let hextets_abbrev = address.split(':');
     if (hextets_abbrev.slice(-1) == '') {
         hextets_abbrev.pop();  //when prefix ends with :: this creates two empty elements in an array
     }
@@ -63,33 +78,57 @@ class TokenProvider{
         this.key_expiry = key_expiry_period;
     }
 
+    static _getSecretKV(smResponse){
+        //returns key value object from either string or binary format of the secret
+		let secret = null;
+        if ('SecretString' in smResponse) {
+            secret = smResponse.SecretString;
+        } else {
+            let buff = Buffer.from(smResponse.SecretBinary, 'base64');
+            secret = buff.toString();
+        }
+        return JSON.parse(secret);
+    }
+
     static async retrieveSecrets(){
         this._secrets_retrival_lock = true;
         if(this._secrets_retrieve_mode == 'native'){
-            let primarySecret = await this._getSecretfromSM(this._secrets_manager_client,`${this._secrets_prefix}_PrimarySecret`); 
-            let secondarySecret = await this._getSecretfromSM(this._secrets_manager_client,`${this._secrets_prefix}_SecondarySecret`);   
-            //TODO - add suport for binary secret
-            let primarySecret_json = JSON.parse(primarySecret['SecretString']);
-            let secondarySecret_json = JSON.parse(secondarySecret['SecretString']);
-            this._secrets = {
-                'primary': {
-                    'uuid': Object.keys(primarySecret_json)[0],
-                    'value': Object.values(primarySecret_json)[0]
-                },
-                'secondary': {
-                    'uuid': Object.keys(secondarySecret_json)[0],
-                    'value': Object.values(secondarySecret_json)[0]
-                }
-            };
-            this._secrets_last_update = Math.floor(Date.now()/1000);
-            //console.log(this._secrets);
-            console.log("Secrets updated! Last update: ", this._secrets_last_update);
-            //TODO - promise error handling
+            try{
+                let primarySecret = await this._getSecretfromSM(this._secrets_manager_client,`${this._secrets_prefix}_PrimarySecret`); 
+                let secondarySecret = await this._getSecretfromSM(this._secrets_manager_client,`${this._secrets_prefix}_SecondarySecret`);
+                let primarySecret_json = this._getSecretKV(primarySecret);
+                let secondarySecret_json = this._getSecretKV(secondarySecret);
+                this._secrets = {
+                    'primary': {
+                        'uuid': Object.keys(primarySecret_json)[0],
+                        'value': Object.values(primarySecret_json)[0]
+                    },
+                    'secondary': {
+                        'uuid': Object.keys(secondarySecret_json)[0],
+                        'value': Object.values(secondarySecret_json)[0]
+                    }
+                };
+                this._secrets_last_update = Math.floor(Date.now()/1000);
+                logger("Secrets updated! Last update: " + this._secrets_last_update.toString());
+            } catch (e) {
+                logger("Couldn't process the secret from SecretsManager");
+            } finally {
+                this._secrets_retrival_lock = false;
+            }
         }
         else if(this._secrets_retrieve_mode == 'custom'){
-            this._secrets = this._secrets_retrieve_function();
+            try{
+                this._secrets = await this._secrets_retrieve_function();
+                this._secrets_last_update = Math.floor(Date.now()/1000);
+                logger("Secrets updated! Last update: " + this._secrets_last_update.toString());
+            } catch (e) {
+                logger("Couldn't process the secret from SecretsManager");
+            } finally {
+                this._secrets_retrival_lock = false;
+            }
+            
         }
-        this._secrets_retrival_lock = false;
+        
     }
     
     
@@ -142,7 +181,7 @@ class TokenProvider{
         let intsig_input = '';
 
         if (attributes['ip']) {
-            var fullIP;
+            let fullIP;
             if(attributes['ip'].includes('.') && validateIPv4(attributes['ip'])){
                 jwt_payload['ip_ver']=4;
                 fullIP = attributes['ip'];
@@ -218,4 +257,5 @@ class TokenProvider{
 
 }
 
-module.exports = TokenProvider;
+exports.TokenProvider = TokenProvider;
+exports.setDEBUG = setDEBUG;

@@ -16,6 +16,7 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { addParametersToInterface } from "./cfn_parameters";
 
+//Construct used to implement input parameters when the user deploys the stack using CloudFormation template and not using the wizard and CDK
 export class GetInputParameters extends Construct {
   public readonly customInputParameters = {} as IConfiguration;
 
@@ -195,47 +196,6 @@ export class GetInputParameters extends Construct {
       };
     }
 
-    if (configuration.demo) {
-      if (configuration.demo?.username === "U") {
-        const username = new CfnParameter(this, "EE", {
-          type: "String",
-          description: "Username used to authenticate demo viewer",
-        });
-
-        const password = new CfnParameter(this, "FF", {
-          type: "String",
-          description: "Password used to authenticate demo viewer",
-        });
-
-        addParametersToInterface({
-          params: [
-            {
-              scope: this,
-              parameter: username,
-              groupLabel: "Demo website",
-              parameterLabel: "Username",
-            },
-            {
-              scope: this,
-              parameter: password,
-              groupLabel: "Demo website",
-              parameterLabel: "Password",
-            },
-          ],
-        });
-
-        returnObject.demo = {
-          username: username.valueAsString,
-          password: password.valueAsString,
-        };
-      } else {
-        returnObject.demo = {
-          username: configuration.demo?.username!,
-          password: configuration.demo?.password!,
-        };
-      }
-    }
-
     if (configuration.dash) {
       if (configuration.dash?.hostname === "H") {
         const dash_hostname = new CfnParameter(this, "GG", {
@@ -366,10 +326,12 @@ export class GetInputParameters extends Construct {
 
         returnObject.api = {
           language: api_language.valueAsString,
+          demo: true,
         };
       } else {
         returnObject.api = {
           language: configuration.api?.language!,
+          demo: true,
         };
       }
     }

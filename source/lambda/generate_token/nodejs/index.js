@@ -1,6 +1,6 @@
 const aws = require('aws-sdk');
 const qs = require('querystring');
-const cfToken = require("aws-secure-media-delivery");
+const awsSMD = require("aws-secure-media-delivery");
 
 const docClient = new aws.DynamoDB.DocumentClient();
 const stackName = process.env.STACK_NAME;
@@ -9,7 +9,10 @@ const tableName = process.env.TABLE_NAME;
 const user = process.env.USERNAME;
 const pass = process.env.PASSWORD;
 
+const cfToken = awsSMD.TokenProvider;
 const smClient = new aws.SecretsManager();
+
+awsSMD.setDEBUG(true);
 
 cfToken.SecretsConfigure({secrets_manager_client: smClient, secrets_prefix: stackName});
 var tokenGenerator = new cfToken(10);
@@ -36,19 +39,6 @@ exports.handler = async (event, context) => {
     } else {
         viewer_ip = event.requestContext.http.sourceIp;
     }
-
-    var auth_header = '';
-
-    //simple authentication logic using authorization header
-    var authorized = Buffer.from(user+':'+pass).toString('base64');
-    if(headers['authorization']) auth_header = headers['authorization'].split(' ')[1];
-
-    if (auth_header != authorized) {
-        console.log('Authentication failed');
-        //return error when authentication failed
-        return response401;
-    }
-
 
     if(event['queryStringParameters'] && event.queryStringParameters['id']){
         id = event.queryStringParameters['id'];

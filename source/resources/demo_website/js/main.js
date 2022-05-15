@@ -66,7 +66,7 @@ function load(type) {
   const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
 
   $.ajax({
-    type: 'POST',
+    type: 'GET',
     url: urlToGet,
     success: function (data, status, xhr) {
       showResultDiv();

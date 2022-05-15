@@ -55,13 +55,9 @@ export class UsEast1Stack extends Stack {
       rules: [],
     });
 
-
-
-    if(config.demo){
+    if(config.api && config.api?.demo){
 
       const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole");
-
-      //myRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole"));
 
       const role = new iam.Role(this, 'EdgeLambdaServiceRole', {
         assumedBy: new iam.CompositePrincipal(
@@ -76,6 +72,7 @@ export class UsEast1Stack extends Stack {
       });
 
       const lambdaEdge = new lambda.Function(this, 'LambdaEdge', {
+        functionName: Aws.STACK_NAME + "_Sig4Signer",
         runtime: lambda.Runtime.NODEJS_12_X,
         handler: 'index.handler',
         code: lambda.Code.fromAsset('lambda/sig4'),

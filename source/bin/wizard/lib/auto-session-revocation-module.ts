@@ -94,7 +94,7 @@ const sessionRevocationQuestions = [
     type: "text",
     name: "response_bytes_column_name",
     initial: "bytes",
-    message: "[AUTO AUTO SESSION REVOCATION] --> Response bytes column name",
+    message: "[AUTO SESSION REVOCATION] --> Response bytes column name",
     validate: (value: string) =>
       Joi.string().required().validate(value).error
         ? "Response bytes column name is mandatory"

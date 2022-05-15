@@ -24,7 +24,7 @@ const app = new cdk.App();
 
   const usEast1Stack = new UsEast1Stack(
     app,
-    config.main?.stack_name! + "RuleGroup",
+    config.main?.stack_name! + "UsEast1Stack",
     config,
     {
       env: {

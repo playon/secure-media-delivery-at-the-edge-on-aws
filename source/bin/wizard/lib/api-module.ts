@@ -4,7 +4,6 @@ import { PromptComponent } from "./prompt-component";
 import { onCancel } from "./handlers";
 import { IConfiguration } from "../../../helpers/validators/configuration";
 import { IApi } from "../../../helpers/validators/api";
-import { IDemo } from "../../../helpers/validators/demo";
 import { IHosting } from "../../../helpers/validators/hosting";
 
 /**
@@ -19,6 +18,16 @@ const apiQuestions = [
     choices: [
       { title: "NodeJs", value: "nodejs" },
       { title: "Python", value: "python" },
+    ],
+    initial: 0,
+  },
+  {
+    type: "toggle",
+    name: "demo",
+    message: "[API] --> Do you want to deploy a demo website?",
+    choices: [
+      { title: "Yes", value: true },
+      { title: "Python", value: false },
     ],
     initial: 1,
   },
@@ -87,40 +96,6 @@ function hostQuestions(type: string) {
   ];
 }
 
-const selectDemoWebsite = [
-  {
-    type: "toggle",
-    name: "demo",
-    message: "[API][Demo website] --> Do you want to deploy a demo website?",
-    initial: true,
-    active: "yes",
-    inactive: "no",
-  },
-];
-
-const demoQuestions = [
-  {
-    type: "text",
-    name: "username",
-    message:
-      "[API][Demo website] --> Username used to authenticate demo viewer",
-    validate: (value: string) =>
-      Joi.string().required().validate(value).error
-        ? "Username is mandatory"
-        : true,
-  },
-  {
-    type: "text",
-    name: "password",
-    message:
-      "[API][Demo website] --> Password used to authenticate demo viewer",
-    validate: (value: string) =>
-      Joi.string().required().validate(value).error
-        ? "Password is mandatory"
-        : true,
-  },
-];
-
 export class ApiModule implements PromptComponent {
   /**
    * Implements the logic to prompt questions to the user
@@ -151,13 +126,6 @@ export class ApiModule implements PromptComponent {
           await prompts.prompt(hostQuestions("DASH"), { onCancel })
         );
       }
-    }
-
-    const configureDemo = await prompts.prompt(selectDemoWebsite, { onCancel });
-    if (configureDemo.demo) {
-      configuration.demo = <IDemo>(
-        await prompts.prompt(demoQuestions, { onCancel })
-      );
     }
 
     return configuration;

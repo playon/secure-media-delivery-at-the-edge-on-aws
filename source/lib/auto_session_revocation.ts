@@ -42,7 +42,14 @@ export class AutoSessionRevocationStack extends Stack {
   ) {
     super(scope, id, props);
 
-    const sqlQueryBucket = new s3.Bucket(this, "SqlQuery");
+    const sqlQueryBucket = new s3.Bucket(this, "SqlQuery", {
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicPolicy: true,
+        blockPublicAcls: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+       }),
+    });
 
     //DynamoDB table holding the configuration for Athena Query (that is populate on deploying the stack and that can be modified by a user at anytime)
     const sqlConfigTable = new ddb.Table(this, "SqlConfigTable", {

@@ -22,6 +22,7 @@ import {
   aws_s3 as s3,
   aws_cloudfront_origins as origins,
   aws_logs as logs,
+  Duration,
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -52,11 +53,23 @@ export class Endpoints extends Construct {
 
     const s3Logs = new s3.Bucket(this, "LogsBucket", {
       encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicPolicy: true,
+        blockPublicAcls: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+       }),
     });
 
     const hostingBucket = new s3.Bucket(this, "HostingBucket", {
       serverAccessLogsBucket: s3Logs,
       encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicPolicy: true,
+        blockPublicAcls: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+       }),
     });
 
     const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";
@@ -123,6 +136,19 @@ export class Endpoints extends Construct {
       }
     );
 
+    const myResponseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'ResponseHeadersPolicy', {
+      responseHeadersPolicyName: Aws.STACK_NAME+'SecureStreamingPolicy',
+      comment: 'ResponseHeadersPolicy for Secure Media Streaming',
+      securityHeadersBehavior: {
+        contentSecurityPolicy: { contentSecurityPolicy: "default-src 'none'; script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'sha256-7csW7+CE5i1JUZlQEdHZKNUOoEIxkWL2oluhMb7Itg0='; style-src 'self' https://cdn.jsdelivr.net; img-src 'self'; connect-src *; media-src blob:; worker-src blob:", override: true },
+        contentTypeOptions: { override: true },
+        frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
+        referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.SAME_ORIGIN, override: true },
+        strictTransportSecurity: { accessControlMaxAge: Duration.seconds(31536000), includeSubdomains: true, override: true },
+        xssProtection: { protection: true, modeBlock: true, override: true },
+      },
+    });
+
     const apiArn = `arn:aws:execute-api:${region}:*:${httpApi.apiId}/*`;
 
     const customResourceLE = new CustomResourceLambdaEdge(
@@ -145,6 +171,9 @@ export class Endpoints extends Construct {
       "CfLambdaEdge",
       customResourceLE.lambdaEdgeVersionArn
     );
+
+    const s3origin = new origins.S3Origin(hostingBucket);
+
     const distribution = new cloudfront.Distribution(this, "Distribution", {
       comment: Aws.STACK_NAME + " - Demo website Secure Media Delivery",
       defaultRootObject: "index.html",
@@ -153,12 +182,20 @@ export class Endpoints extends Construct {
       logFilePrefix: "distribution-access-logs/",
       minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2016,
       defaultBehavior: {
-        origin: new origins.S3Origin(hostingBucket),
+        origin: s3origin,
         cachePolicy: cloudfront.CachePolicy.CACHING_OPTIMIZED,
         allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       additionalBehaviors: {
+        "/index.html": {
+          origin: s3origin,
+          responseHeadersPolicy: myResponseHeadersPolicy,
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
+
+        },
         "/tokengenerate": {
           origin: httpApiOrigin,
           edgeLambdas: [

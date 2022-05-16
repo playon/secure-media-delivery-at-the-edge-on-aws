@@ -47,6 +47,11 @@ def handler(event, context):
 
     if ('queryStringParameters' in event and 'id' in event['queryStringParameters']):
         id =  event['queryStringParameters']['id']
+        if (len(id) > 200 or (not id.isalnum())):
+            return {
+				'status': '400',
+				'body': "Bad Request"
+            }
         del event['queryStringParameters']['id']
         newQueryString = urlencode(event['queryStringParameters'])
 

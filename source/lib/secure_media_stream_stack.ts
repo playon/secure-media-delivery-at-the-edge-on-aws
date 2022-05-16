@@ -16,11 +16,12 @@ import {
   StackProps,
   Aws,
   RemovalPolicy,
+  Duration,
+  CfnOutput,
   aws_iam as iam,
   aws_cloudfront as cloudfront,
   aws_dynamodb as ddb,
-  Duration,
-  CfnOutput,
+  aws_cloudtrail as cloudtrail
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -47,6 +48,15 @@ export class SecureMediaStreamingStack extends Stack {
     props: StackProps
   ) {
     super(scope, id, props);
+
+    const region = Stack.of(this).region;
+    if(region!='us-east-1'){
+      //CloudTrail is enabled for us-east-1 in the other stack
+      new cloudtrail.Trail(this, 'CloudTrail');
+    }
+
+
+
 
     const parameters = new GetInputParameters(this, "InputParameters", config);
 

@@ -116,7 +116,7 @@ export class Api extends Construct {
 
     props.secrets.primarySecret.grantRead(generateToken);
     props.secrets.secondarySecret.grantRead(generateToken);
-
+    console.log("props.configuration.api?.demo="+props.configuration.api?.demo)
     //endpoint creation using a CloudFront Distribution in front of an HTTP API
     new Endpoints(this, "Endpoints", {
       generateTokenLambdaFunction: generateToken,
@@ -124,7 +124,7 @@ export class Api extends Construct {
       sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
       sig4LambdaArnParamName: props.sig4LambdaArnParamName,
       sig4LambdaRoleArnParamName: props.sig4LambdaRoleArnParamName,
-      demoWebsite: props.configuration.api?.demo ? true : false,
+      demoWebsite: props.configuration.api?.demo as boolean
     });
 
     const region = Stack.of(this).region;

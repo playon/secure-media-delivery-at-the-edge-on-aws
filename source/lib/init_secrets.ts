@@ -42,7 +42,7 @@ export class InitSecrets extends Construct {
           actions: ["lambda:InvokeFunction"],
           resources: [props.functionArn],
         }),
-      ]),
+      ])
     });
   }
 }

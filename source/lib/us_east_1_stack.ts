@@ -19,6 +19,7 @@ import {
   aws_ssm as ssm,
   aws_lambda as lambda,
   aws_iam as iam,
+  aws_cloudtrail as cloudtrail
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -37,6 +38,9 @@ export class UsEast1Stack extends Stack {
     props: StackProps
   ) {
     super(scope, id, props);
+
+    //const trail = new cloudtrail.Trail(this, 'CloudTrail');
+
 
     this.ruleGroup = id + "_BlockSessions";
 

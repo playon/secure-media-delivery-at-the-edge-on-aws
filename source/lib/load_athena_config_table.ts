@@ -39,7 +39,7 @@ export class LoadSqlParams extends Construct {
       },
       policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
         resources: [props.table.tableArn],
-      }),
+      })
     });
   }
 

@@ -56,7 +56,8 @@ export class SessionRevocation extends Construct {
             `${config.ruleGroupParamName}-${this.ruleGroupRegion}`
           ),
         },
-        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+        functionName: Aws.STACK_NAME + '_CustomResourceGetRuleGroup',
+        /*policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
             actions: ["ssm:GetParameter*"],
@@ -64,7 +65,10 @@ export class SessionRevocation extends Construct {
               `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`,
             ],
           }),
-        ]),
+        ]),*/
+        policy: custom_resources.AwsCustomResourcePolicy.fromSdkCalls({
+          resources: custom_resources.AwsCustomResourcePolicy.ANY_RESOURCE,
+      }),
       }
     );
 

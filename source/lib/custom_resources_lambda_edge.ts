@@ -17,6 +17,7 @@ import {
   custom_resources,
   aws_lambda as lambda,
   aws_iam as iam,
+  triggers
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -123,7 +124,7 @@ export class CustomResourceLambdaEdge extends Construct {
       code: lambda.Code.fromAsset("lambda/update_role"),
       handler: "index.handler",
       environment: {
-        ROLE_NAME: lambdaEdge.role?.roleName!,
+        ROLE_ARN: ssmSig4RoleArn.getResponseField("Parameter.Value"),
         API_ARN: props.apiArn,
       },
     });
@@ -147,22 +148,13 @@ export class CustomResourceLambdaEdge extends Construct {
       })
     );
 
-    const updateRoleCustomResource = new custom_resources.AwsCustomResource(this, "SSMParameterRole", {
-      onCreate: {
-        service: "Lambda",
-        action: "invoke",
-        parameters: {
-          FunctionName: updateRoleFunction.functionName,
-        },
-        physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
-      },
-      policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
-        new iam.PolicyStatement({
-          effect: iam.Effect.ALLOW,
-          actions: ["lambda:InvokeFunction"],
-          resources: [updateRoleFunction.functionArn],
-        }),
-      ]),
+    const trigger = new triggers.Trigger(this, 'MyTrigger', {
+      handler: updateRoleFunction,
+
+      // the properties below are optional
+      executeAfter: [updateRoleFunction],
+      executeOnHandlerChange: false,
     });
+
   }
 }

@@ -69,7 +69,7 @@ export class Endpoints extends Construct {
     const authorizer = new HttpIamAuthorizer();
 
     const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
-      apiName: "SecureMediaStreamDemoAPI",
+      apiName:  Aws.STACK_NAME + "_SecureMediaStreamDemoAPI",
       description: "Secure Media Stream Demo API",
       defaultAuthorizer: authorizer,
     });

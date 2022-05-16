@@ -34,17 +34,19 @@ exports.handler = async (event, context) => {
     var headers = event.headers;
     var request_querystrings = event.queryStringParameters;
     var viewer_ip;
+	
+    if(event['queryStringParameters'] && event.queryStringParameters['id']){
+        id = event.queryStringParameters['id'];
+        if(!/^\w+$/.test(id) || (id.length > 200)) return response400;
+		delete request_querystrings['id'];
+    } else {
+        return response400;
+    }	
+
     if(headers['cloudfront-viewer-address']){
         viewer_ip = headers['cloudfront-viewer-address'].substring(0, headers['cloudfront-viewer-address'].lastIndexOf(':'))
     } else {
         viewer_ip = event.requestContext.http.sourceIp;
-    }
-
-    if(event['queryStringParameters'] && event.queryStringParameters['id']){
-        id = event.queryStringParameters['id'];
-		delete request_querystrings['id'];
-    } else {
-        return response400;
     }
 
     var params = {

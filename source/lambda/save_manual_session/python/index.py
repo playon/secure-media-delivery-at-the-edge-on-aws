@@ -18,6 +18,12 @@ def handler(event, context):
     if 'queryStringParameters' in event and 'sessionid' in event['queryStringParameters']:
 
         session_id = event['queryStringParameters']['sessionid']
+        if (len(session_id) > 50 or (not session_id.isalnum())):
+            return {
+                'statusCode': 400,
+                'body': json.dumps("sessionid is invalid")
+            }
+
         ddb_client.put_item(
             TableName = table_name,
             Item= {

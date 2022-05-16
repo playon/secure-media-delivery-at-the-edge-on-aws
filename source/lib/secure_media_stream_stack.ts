@@ -50,13 +50,12 @@ export class SecureMediaStreamingStack extends Stack {
     super(scope, id, props);
 
     const region = Stack.of(this).region;
+
+
+    //CloudTrail is enabled for us-east-1 in the other stack, so if we are in the same region no need to activate it twice
     if(region!='us-east-1'){
-      //CloudTrail is enabled for us-east-1 in the other stack
       new cloudtrail.Trail(this, 'CloudTrail');
     }
-
-
-
 
     const parameters = new GetInputParameters(this, "InputParameters", config);
 
@@ -67,7 +66,7 @@ export class SecureMediaStreamingStack extends Stack {
       }),
       functionName: Aws.STACK_NAME + "_checkJWTToken",
       comment:
-        "CloudFront Function used to check a JWT, part of Core Secure Media Stream Delivery",
+        "CloudFront Function used to check a JWT token",
     });
 
     //CloudFront Function used to fix the redirect for Media Tailor
@@ -80,7 +79,7 @@ export class SecureMediaStreamingStack extends Stack {
         }),
         functionName: Aws.STACK_NAME + "_mediaTailorRedirect",
         comment:
-          "CloudFront Function used to handle the redirect for MediaTailor",
+          "CloudFront Function used to handle the redirection for MediaTailor",
       }
     );
 

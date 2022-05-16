@@ -21,7 +21,6 @@ import {
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
-import { PhysicalResourceId } from "aws-cdk-lib/custom-resources";
 
 export interface IConfigProps {
   sig4LambdaVersionParamName: string;
@@ -43,12 +42,12 @@ export class CustomResourceLambdaEdge extends Construct {
       this,
       "SSMParameterVersion",
       {
-        onCreate: {
+        onUpdate: {
           service: "SSM",
           action: "getParameter",
           parameters: { Name: `${props.sig4LambdaVersionParamName}` },
           region: this.ruleGroupRegion,
-          physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+          physicalResourceId: custom_resources.PhysicalResourceId.of(`${props.sig4LambdaVersionParamName}`)
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
@@ -66,12 +65,12 @@ export class CustomResourceLambdaEdge extends Construct {
       this,
       "SSMParameterArn",
       {
-        onCreate: {
+        onUpdate: {
           service: "SSM",
           action: "getParameter",
           parameters: { Name: `${props.sig4LambdaArnParamName}` },
           region: this.ruleGroupRegion,
-          physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+          physicalResourceId: custom_resources.PhysicalResourceId.of(`${props.sig4LambdaArnParamName}`)
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
@@ -92,12 +91,12 @@ export class CustomResourceLambdaEdge extends Construct {
       this,
       "SSMParameterRoleArn",
       {
-        onCreate: {
+        onUpdate: {
           service: "SSM",
           action: "getParameter",
           parameters: { Name: `${props.sig4LambdaRoleArnParamName}` },
           region: this.ruleGroupRegion,
-          physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+          physicalResourceId: custom_resources.PhysicalResourceId.of(`${props.sig4LambdaRoleArnParamName}`)
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
@@ -126,6 +125,8 @@ export class CustomResourceLambdaEdge extends Construct {
       environment: {
         ROLE_ARN: ssmSig4RoleArn.getResponseField("Parameter.Value"),
         API_ARN: props.apiArn,
+        STACK_NAME: Aws.STACK_NAME,
+        ACCOUNT_ID: Stack.of(this).account
       },
     });
 
@@ -148,10 +149,8 @@ export class CustomResourceLambdaEdge extends Construct {
       })
     );
 
-    const trigger = new triggers.Trigger(this, 'MyTrigger', {
+    const trigger = new triggers.Trigger(this, 'TriggerUpdateRole4LE', {
       handler: updateRoleFunction,
-
-      // the properties below are optional
       executeAfter: [updateRoleFunction],
       executeOnHandlerChange: false,
     });

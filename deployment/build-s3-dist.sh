@@ -13,7 +13,7 @@
 #
 set -x
 # Important: CDK global version number
-cdk_version=2.15.0
+cdk_version=2.24.1
 
 # Check to see if the required parameters have been provided:
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then

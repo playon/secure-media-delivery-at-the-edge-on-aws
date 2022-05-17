@@ -15,6 +15,8 @@ export const getOpts = async (): Promise<IConfiguration> => {
   try {
     config = require('../solution.context.json');
   } catch (e) {
+
+    console.error(e);
     console.error(`
       The 'solution.context.json' configuration file could not be found.
       Please run 'npm run wizard' to generate a configuration before deploying.

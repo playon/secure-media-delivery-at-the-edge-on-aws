@@ -140,7 +140,7 @@ export class Endpoints extends Construct {
       responseHeadersPolicyName: Aws.STACK_NAME+'SecureStreamingPolicy',
       comment: 'ResponseHeadersPolicy for Secure Media Streaming',
       securityHeadersBehavior: {
-        contentSecurityPolicy: { contentSecurityPolicy: "default-src 'none'; script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'sha256-7csW7+CE5i1JUZlQEdHZKNUOoEIxkWL2oluhMb7Itg0='; style-src 'self' https://cdn.jsdelivr.net; img-src 'self'; connect-src *; media-src blob:; worker-src blob:", override: true },
+        contentSecurityPolicy: { contentSecurityPolicy: "default-src 'none'; script-src 'self' https://code.jquery.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' https://cdn.jsdelivr.net; img-src 'self'; connect-src *; media-src blob:; worker-src blob:", override: true },
         contentTypeOptions: { override: true },
         frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
         referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.SAME_ORIGIN, override: true },

@@ -39,7 +39,9 @@ export class UsEast1Stack extends Stack {
   ) {
     super(scope, id, props);
 
-    const trail = new cloudtrail.Trail(this, 'CloudTrail');
+    const trail = new cloudtrail.Trail(this, 'CloudTrail', {
+      encryptionKey:
+    });
 
     this.ruleGroup = id + "_BlockSessions";
 

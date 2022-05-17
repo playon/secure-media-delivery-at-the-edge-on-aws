@@ -19,8 +19,10 @@ import {
   aws_ssm as ssm,
   aws_lambda as lambda,
   aws_iam as iam,
-  aws_cloudtrail as cloudtrail
+  aws_cloudtrail as cloudtrail,
+  aws_s3 as s3
 } from "aws-cdk-lib";
+import { Trail } from "aws-cdk-lib/aws-cloudtrail";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
@@ -39,8 +41,17 @@ export class UsEast1Stack extends Stack {
   ) {
     super(scope, id, props);
 
+    const s3Logs = new s3.Bucket(this, "CloudTrailLogsBucket", {
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicPolicy: true,
+        blockPublicAcls: true,
+        ignorePublicAcls: true,
+        restrictPublicBuckets: true
+       }),
+    });
     const trail = new cloudtrail.Trail(this, 'CloudTrail', {
-      encryptionKey:
+      bucket: s3Logs
     });
 
     this.ruleGroup = id + "_BlockSessions";

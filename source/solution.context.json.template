@@ -1,0 +1,24 @@
+{
+  "main": {
+    "stack_name": "LIVE",
+    "rotate_secrets_frequency": "1m",
+    "rotate_secrets_pattern": "P",
+    "wcu": 100,
+    "retention": 5
+  },
+  "api": {
+    "language": "A",
+    "demo": true
+
+  },
+  "hls": {
+    "hostname": "H",
+    "url_path": "U",
+    "ttl": "+3h"
+  },
+  "dash": {
+    "hostname": "H",
+    "url_path": "U",
+    "ttl": "+24h"
+  },
+}

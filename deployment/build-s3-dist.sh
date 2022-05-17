@@ -83,7 +83,7 @@ cd "$source_dir"
 chmod +x ./install_dependencies.sh && ./install_dependencies.sh
 
 echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
-
+ls
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
 cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `

@@ -52,7 +52,7 @@ export class SecureMediaStreamingStack extends Stack {
     super(scope, id, props);
 
     const region = Stack.of(this).region;
-
+    console.log("region="+region)
 
     //CloudTrail is enabled for us-east-1 in the other stack, so if we are in the same region no need to activate it twice
     if(region!='us-east-1'){

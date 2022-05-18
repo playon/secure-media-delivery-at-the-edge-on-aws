@@ -26,6 +26,7 @@ import { Trail } from "aws-cdk-lib/aws-cloudtrail";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
+import { addCfnSuppressRules } from "./utils";
 
 export class UsEast1Stack extends Stack {
   public readonly ruleGroup: string;
@@ -50,6 +51,10 @@ export class UsEast1Stack extends Stack {
         restrictPublicBuckets: true
        }),
     });
+
+    addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'By default, the log files delivered by CloudTrail to your bucket are encrypted' }]);
+
+
     const trail = new cloudtrail.Trail(this, 'CloudTrail', {
       bucket: s3Logs
     });
@@ -93,6 +98,12 @@ export class UsEast1Stack extends Stack {
         code: lambda.Code.fromAsset("lambda/sig4"),
         role: role,
       });
+
+      addCfnSuppressRules(lambdaEdge, [{ id: 'W89', reason: 'Lambda Edge cannot be deployed in a VPC' }]);
+      addCfnSuppressRules(lambdaEdge, [{ id: 'W92', reason: 'Lambda Edge cannot have ReservedConcurrentExecutions defined' }]);
+      addCfnSuppressRules(lambdaEdge, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+
+
 
       const { functionArn } = lambdaEdge.currentVersion;
 

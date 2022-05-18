@@ -65,6 +65,9 @@ export class SecureMediaStreamingStack extends Stack {
           restrictPublicBuckets: true
          }),
       });
+      addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'Log bucket, no access log required' }]);
+
+
       new cloudtrail.Trail(this, 'CloudTrail', {
         bucket: s3Logs
       });

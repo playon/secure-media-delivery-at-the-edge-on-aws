@@ -52,7 +52,8 @@ export class UsEast1Stack extends Stack {
        }),
     });
 
-    addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'By default, the log files delivered by CloudTrail to your bucket are encrypted' }]);
+
+    addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'Log bucket, no access log required' }]);
 
 
     const trail = new cloudtrail.Trail(this, 'CloudTrail', {

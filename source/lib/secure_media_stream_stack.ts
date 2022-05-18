@@ -33,6 +33,7 @@ import { GetInputParameters } from "./input_parameters";
 import { RotateSecretsWorkflow } from "./rotate_secrets_workflow";
 import { Secrets } from "./secrets";
 import { SessionRevocation } from "./session_revocation";
+import { addCfnSuppressRules } from "./utils";
 
 export class SecureMediaStreamingStack extends Stack {
   public readonly sessionToRevoke: ddb.ITable;
@@ -105,6 +106,9 @@ export class SecureMediaStreamingStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
       pointInTimeRecovery: true,
     });
+
+    addCfnSuppressRules(sessionToRevoke, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);
+
 
     const customPolicy = new iam.PolicyDocument({
       statements: [

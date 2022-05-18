@@ -16,6 +16,7 @@ import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
+import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   table: ITable;
@@ -26,7 +27,7 @@ export class LoadSqlParams extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    new custom_resources.AwsCustomResource(this, "initDBResource", {
+    const cr = new custom_resources.AwsCustomResource(this, "initDBResource", {
       onCreate: {
         service: "DynamoDB",
         action: "putItem",
@@ -41,7 +42,11 @@ export class LoadSqlParams extends Construct {
         resources: [props.table.tableArn],
       })
     });
+
+
   }
+
+
 
   private loadItems = (props: IConfigProps) => {
     return {

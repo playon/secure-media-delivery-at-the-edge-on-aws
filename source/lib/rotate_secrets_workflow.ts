@@ -32,6 +32,7 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { InitSecrets } from "./init_secrets";
 import { Secrets } from "./secrets";
+import { addCfnSuppressRules } from "./utils";
 
 /**
  * The properties expected by the config construct.
@@ -78,6 +79,10 @@ export class RotateSecretsWorkflow extends Construct {
       }
     );
 
+    addCfnSuppressRules(generateSecretUpdateCff, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(generateSecretUpdateCff, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(generateSecretUpdateCff, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
     generateSecretUpdateCff.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -91,11 +96,14 @@ export class RotateSecretsWorkflow extends Construct {
     );
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "GenerateNewSecretLogs", {
+    const myLogs = new logs.LogGroup(this, "GenerateNewSecretLogs", {
       logGroupName: "/aws/lambda/" + generateSecretUpdateCff.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(myLogs, [{ id: 'W84', reason: 'CloudWatch log group is always encrypted by default.' }]);
+
 
     const getLastModifiedTime = new lambda.Function(
       this,
@@ -111,6 +119,11 @@ export class RotateSecretsWorkflow extends Construct {
       }
     );
 
+    addCfnSuppressRules(getLastModifiedTime, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(getLastModifiedTime, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(getLastModifiedTime, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
+
     getLastModifiedTime.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -121,11 +134,14 @@ export class RotateSecretsWorkflow extends Construct {
     );
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "LastModifiedTimeLogs", {
+    const myLogsTs =new logs.LogGroup(this, "LastModifiedTimeLogs", {
       logGroupName: "/aws/lambda/" + getLastModifiedTime.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(myLogsTs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     const getDistributionsForCff = new lambda.Function(
       this,
@@ -144,6 +160,12 @@ export class RotateSecretsWorkflow extends Construct {
       }
     );
 
+    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W12', reason: 'Lambda needs to have permissions to read all CF distribution configuration' }]);
+
+
     getDistributionsForCff.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
@@ -154,11 +176,14 @@ export class RotateSecretsWorkflow extends Construct {
     );
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "updateCFFLogs", {
+    const cffLogs = new logs.LogGroup(this, "updateCFFLogs", {
       logGroupName: "/aws/lambda/" + getDistributionsForCff.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(cffLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     new InitSecrets(this, "Init", {
       functionArn: generateSecretUpdateCff.functionArn,
@@ -180,12 +205,20 @@ export class RotateSecretsWorkflow extends Construct {
       },
     });
 
+    addCfnSuppressRules(swapSecrets, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(swapSecrets, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(swapSecrets, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
+
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "KeyRotationLogs", {
+    const keyRotationLogs = new logs.LogGroup(this, "KeyRotationLogs", {
       logGroupName: "/aws/lambda/" + swapSecrets.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(keyRotationLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     props.secrets.temporarySecret.grantWrite(generateSecretUpdateCff);
     props.secrets.primarySecret.grantWrite(generateSecretUpdateCff);
@@ -267,6 +300,7 @@ export class RotateSecretsWorkflow extends Construct {
     // Step function to orchestrate generating a new secret
 
     const logGroup = new logs.LogGroup(this, "RotateSecretsGroup");
+    addCfnSuppressRules(logGroup, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
 
     //StepFunction used to coordinate tasks to swap secrets:
     // 1 - generate new secrets

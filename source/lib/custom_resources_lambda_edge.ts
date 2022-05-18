@@ -21,6 +21,7 @@ import {
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
+import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   sig4LambdaVersionParamName: string;
@@ -129,6 +130,11 @@ export class CustomResourceLambdaEdge extends Construct {
         ACCOUNT_ID: Stack.of(this).account
       },
     });
+
+    addCfnSuppressRules(updateRoleFunction, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(updateRoleFunction, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(updateRoleFunction, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
 
     const createPolicytStatement = new iam.PolicyStatement({
       actions: ["iam:CreatePolicy"],

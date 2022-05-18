@@ -29,6 +29,7 @@ import { IBucket } from "aws-cdk-lib/aws-s3";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
+import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   bucket: IBucket;
@@ -56,11 +57,19 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       },
     });
 
-    new logs.LogGroup(this, "SubmitQueryLogs", {
+    addCfnSuppressRules(submitAthenaQuery, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(submitAthenaQuery, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(submitAthenaQuery, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
+
+    const streamLogs = new logs.LogGroup(this, "SubmitQueryLogs", {
       logGroupName: "/aws/lambda/" + submitAthenaQuery.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(streamLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     const saveSessionsToDdb = new lambda.Function(this, "SaveAutoSession", {
       functionName: Aws.STACK_NAME + "_SaveAutoSession",
@@ -72,14 +81,21 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         TTL: "7", //days
       },
     });
+    addCfnSuppressRules(saveSessionsToDdb, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(saveSessionsToDdb, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(saveSessionsToDdb, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
 
     props.dynamodbTable.grantReadWriteData(saveSessionsToDdb);
 
-    new logs.LogGroup(this, "SaveSessionsLogs", {
+    const saveSessionsLogs = new logs.LogGroup(this, "SaveSessionsLogs", {
       logGroupName: "/aws/lambda/" + saveSessionsToDdb.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(saveSessionsLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     submitAthenaQuery.addToRolePolicy(
       new iam.PolicyStatement({
@@ -156,6 +172,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       .otherwise(done);
 
     const logGroup = new logs.LogGroup(this, "AthenaQueryGroup");
+    addCfnSuppressRules(logGroup, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
 
     // Step function to orchestrate Athena query to detect corrupted sessions and update DynamoDB Table with the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {

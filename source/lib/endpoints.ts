@@ -34,6 +34,7 @@ import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
 import { CustomResourceLambdaEdge } from "./custom_resources_lambda_edge";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
+import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   generateTokenLambdaFunction: IFunction;
@@ -60,6 +61,10 @@ export class Endpoints extends Construct {
         restrictPublicBuckets: true
        }),
     });
+
+    addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'It is a log bucket, not need to have access logging enabled.' }]);
+    addCfnSuppressRules(s3Logs, [{ id: 'W51', reason: 'It is a log bucket, not need for a bucket policy.' }]);
+
 
     const hostingBucket = new s3.Bucket(this, "HostingBucket", {
       serverAccessLogsBucket: s3Logs,
@@ -92,6 +97,9 @@ export class Endpoints extends Construct {
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(log, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     const stage = <CfnStage>httpApi.defaultStage!.node.defaultChild;
     stage.accessLogSettings = {
@@ -232,6 +240,9 @@ export class Endpoints extends Construct {
         },
       },
     });
+
+    addCfnSuppressRules(distribution, [{ id: 'W70', reason: 'CloudFront has the setting to use minimum TLS version 1.2.' }]);
+
 
     new CfnOutput(this, "HostingBucketName", {
       value: hostingBucket.bucketName,

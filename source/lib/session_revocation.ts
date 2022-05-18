@@ -25,6 +25,7 @@ import {
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
+import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   sessionToRevoke: ITable;
@@ -68,6 +69,8 @@ export class SessionRevocation extends Construct {
       }
     );
 
+
+
     const ssmRuleGroupId =
       ssmRuleGroupParameterId.getResponseField("Parameter.Value");
 
@@ -92,12 +95,17 @@ export class SessionRevocation extends Construct {
       }
     );
 
+
+
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "ReadStreamLogs", {
+    const myLogs = new logs.LogGroup(this, "ReadStreamLogs", {
       logGroupName: "/aws/lambda/" + updateRuleGroupFunction.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(myLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     updateRuleGroupFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -113,9 +121,16 @@ export class SessionRevocation extends Construct {
       })
     );
 
+    addCfnSuppressRules(updateRuleGroupFunction, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(updateRuleGroupFunction, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(updateRuleGroupFunction, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
     const deadLetterQueue = new sqs.Queue(this, "updateRuleGroupDlq", {
       encryption: sqs.QueueEncryption.KMS_MANAGED,
     });
+
+    addCfnSuppressRules(deadLetterQueue, [{ id: 'W92', reason: 'We are satisfied with default KMS encryption on SQS queue.' }]);
+
 
     //trigger the Lambda every time when DynamoDB table is updated
     updateRuleGroupFunction.addEventSource(

@@ -26,6 +26,7 @@ import { Secrets } from "./secrets";
 import { LoadAssetsTable } from "./load_assets_table";
 import { CWDashboard } from "./dashboard";
 import { Endpoints } from "./endpoints";
+import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -74,6 +75,9 @@ export class Api extends Construct {
       pointInTimeRecovery: true,
     });
 
+    addCfnSuppressRules(demoAssetsTable, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);
+
+
     //load the DDB table with 2 items (one for HLS and one for DASH)
     new LoadAssetsTable(this, "AssetsTable", {
       table: demoAssetsTable,
@@ -93,11 +97,19 @@ export class Api extends Construct {
       layers: [cloudfrontTokenLayer],
     });
 
-    new logs.LogGroup(this, "ReadStreamLogs", {
+    addCfnSuppressRules(generateToken, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(generateToken, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(generateToken, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
+
+    const readStreamLogs = new logs.LogGroup(this, "ReadStreamLogs", {
       logGroupName: "/aws/lambda/" + generateToken.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
+
+    addCfnSuppressRules(readStreamLogs, [{ id: 'W84', reason: 'CloudWatch log group is always encrypted by default.' }]);
+
 
     //Lambda used to add manually a session to be revoked into a DynamoDB Table
     const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
@@ -110,6 +122,11 @@ export class Api extends Construct {
         TTL: "7",
       },
     });
+
+    addCfnSuppressRules(saveSessionToDdb, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(saveSessionToDdb, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(saveSessionToDdb, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
 
     demoAssetsTable.grantReadData(generateToken);
     props.sessionsTable.grantReadWriteData(saveSessionToDdb);

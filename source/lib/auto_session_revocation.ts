@@ -29,6 +29,7 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { AutoRevokeSessionsWorkflow } from "./auto_revoke_sessions_workflow";
 import { LoadSqlParams } from "./load_athena_config_table";
+import { addCfnSuppressRules } from "./utils";
 
 export class AutoSessionRevocationStack extends Stack {
   private readonly params_filename = "athena_query_params.json";
@@ -43,6 +44,7 @@ export class AutoSessionRevocationStack extends Stack {
     super(scope, id, props);
 
     const sqlQueryBucket = new s3.Bucket(this, "SqlQuery", {
+      encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicPolicy: true,
         blockPublicAcls: true,
@@ -51,14 +53,21 @@ export class AutoSessionRevocationStack extends Stack {
        }),
     });
 
+    addCfnSuppressRules(sqlQueryBucket, [{ id: 'W51', reason: 'The bucket is used to store results from Athena Query' }]);
+    addCfnSuppressRules(sqlQueryBucket, [{ id: 'W35', reason: 'It is a log bucket, access logging is not necessary' }]);
+
+
     //DynamoDB table holding the configuration for Athena Query (that is populate on deploying the stack and that can be modified by a user at anytime)
     const sqlConfigTable = new ddb.Table(this, "SqlConfigTable", {
-      tableName: Aws.STACK_NAME + "_athenaconfig",
       billingMode: ddb.BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: "table_name", type: ddb.AttributeType.STRING },
       removalPolicy: RemovalPolicy.DESTROY,
       stream: ddb.StreamViewType.NEW_IMAGE,
+      pointInTimeRecovery: true,
     });
+
+    addCfnSuppressRules(sqlConfigTable, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);
+
 
     new LoadSqlParams(this, "SqlConfig", {
       table: sqlConfigTable,
@@ -79,16 +88,29 @@ export class AutoSessionRevocationStack extends Stack {
       },
     });
 
+    addCfnSuppressRules(updateSql, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(updateSql, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(updateSql, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+
+
     sqlQueryBucket.grantReadWrite(updateSql);
 
     // Set Lambda Logs Retention and Removal Policy
-    new logs.LogGroup(this, "ReadStreamLogs", {
+    const readStreamLogs = new logs.LogGroup(this, "ReadStreamLogs", {
       logGroupName: "/aws/lambda/" + updateSql.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue");
+    addCfnSuppressRules(readStreamLogs, [{ id: 'W84', reason: 'CloudWatch log group is always encrypted by default.' }]);
+
+
+    const deadLetterQueue = new sqs.Queue(this, "deadLetterQueue", {
+      encryption: sqs.QueueEncryption.KMS_MANAGED,
+    });
+
+    addCfnSuppressRules(deadLetterQueue, [{ id: 'W92', reason: 'We are satisfied with default KMS encryption on SQS queue.' }]);
+
 
     updateSql.addEventSource(
       new event_source.DynamoEventSource(sqlConfigTable, {

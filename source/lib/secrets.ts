@@ -19,6 +19,7 @@ import {
   Duration,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
+import { addCfnSuppressRules } from "./utils";
 
 export class Secrets extends Construct {
   public readonly primarySecret: secretsmanager.ISecret;
@@ -37,6 +38,9 @@ export class Secrets extends Construct {
       },
     });
 
+    addCfnSuppressRules(primarySecret, [{ id: 'W77', reason: 'By default CDK provisions this secret using a default encryption key sourced from AWS Key Management Service. We are satisfied with default KMS encryption on secrets.' }]);
+
+
     const secondarySecret = new secretsmanager.Secret(this, "Secondary", {
       secretName: Aws.STACK_NAME + "_SecondarySecret",
       description: "Secondary secret for Secure Media Stream Delivery",
@@ -46,6 +50,9 @@ export class Secrets extends Construct {
       },
     });
 
+    addCfnSuppressRules(secondarySecret, [{ id: 'W77', reason: 'By default CDK provisions this secret using a default encryption key sourced from AWS Key Management Service. We are satisfied with default KMS encryption on secrets.' }]);
+
+
     const temporarySecret = new secretsmanager.Secret(this, "Temporary", {
       secretName: Aws.STACK_NAME + "_TemporarySecret",
       description: "Temporary secret for Secure Media Stream Delivery",
@@ -54,6 +61,8 @@ export class Secrets extends Construct {
         generateStringKey: "MY_TEMPORARY_KEY",
       },
     });
+
+    addCfnSuppressRules(temporarySecret, [{ id: 'W77', reason: 'By default CDK provisions this secret using a default encryption key sourced from AWS Key Management Service. We are satisfied with default KMS encryption on secrets.' }]);
 
     this.primarySecret = primarySecret;
     this.secondarySecret = secondarySecret;

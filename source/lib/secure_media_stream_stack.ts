@@ -66,6 +66,7 @@ export class SecureMediaStreamingStack extends Stack {
          }),*/
       });
       addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'Log bucket, no access log required' }]);
+      addCfnSuppressRules(s3Logs, [{ id: 'W41', reason: 'By default, the log files delivered by CloudTrail to your bucket are encrypted by Amazon server-side encryption with Amazon S3-managed encryption keys (SSE-S3)' }]);
 
 
       new cloudtrail.Trail(this, 'CloudTrail', {

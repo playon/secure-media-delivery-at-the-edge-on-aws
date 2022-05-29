@@ -43,17 +43,18 @@ export class UsEast1Stack extends Stack {
     super(scope, id, props);
 
     const s3Logs = new s3.Bucket(this, "CloudTrailLogsBucket", {
-      encryption: s3.BucketEncryption.S3_MANAGED,
+      /*encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicPolicy: true,
         blockPublicAcls: true,
         ignorePublicAcls: true,
         restrictPublicBuckets: true
-       }),
+       }),*/
     });
 
 
     addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'Log bucket, no access log required' }]);
+    addCfnSuppressRules(s3Logs, [{ id: 'W41', reason: 'By default, the log files delivered by CloudTrail to your bucket are encrypted by Amazon server-side encryption with Amazon S3-managed encryption keys (SSE-S3)' }]);
 
 
     const trail = new cloudtrail.Trail(this, 'CloudTrail', {

@@ -57,13 +57,13 @@ export class SecureMediaStreamingStack extends Stack {
     //CloudTrail is enabled for us-east-1 in the other stack, so if we are in the same region no need to activate it twice
     if(region!='us-east-1'){
       const s3Logs = new s3.Bucket(this, "CloudTrailLogsBucket", {
-        encryption: s3.BucketEncryption.S3_MANAGED,
+        /*encryption: s3.BucketEncryption.S3_MANAGED,
         blockPublicAccess: new s3.BlockPublicAccess({
           blockPublicPolicy: true,
           blockPublicAcls: true,
           ignorePublicAcls: true,
           restrictPublicBuckets: true
-         }),
+         }),*/
       });
       addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'Log bucket, no access log required' }]);
 

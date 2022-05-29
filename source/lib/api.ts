@@ -51,16 +51,19 @@ export class Api extends Construct {
     if (props.configuration.api?.language === "A"){
       //deploy one-click from AWS Solutions, so the language needs to be retrieved from the parameters
       language = props.parameters.customInputParameters.api?.language!
-
+      runtime = language=='nodejs' ? lambda.Runtime.NODEJS_14_X : lambda.Runtime.PYTHON_3_7;
     }else{
-      if (props.configuration.api?.language == "nodejs") {
+      language = props.configuration.api?.language!
+      if (language == "nodejs") {
         runtime = lambda.Runtime.NODEJS_14_X;
-        language = "nodejs";
       } else {
         runtime = lambda.Runtime.PYTHON_3_7;
-        language = "python";
       }
+
     }
+
+
+
 
 
     //build a layer with required libs

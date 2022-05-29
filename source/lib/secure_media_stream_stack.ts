@@ -193,6 +193,7 @@ export class SecureMediaStreamingStack extends Stack {
         sig4LambdaVersionParamName: sig4LambdaVersionParamName,
         sig4LambdaArnParamName: sig4LambdaArnParamName,
         sig4LambdaRoleArnParamName: sig4LambdaRoleArnParamName,
+        parameters
       });
     }
 

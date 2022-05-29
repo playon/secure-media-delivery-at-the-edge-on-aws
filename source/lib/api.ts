@@ -27,6 +27,7 @@ import { LoadAssetsTable } from "./load_assets_table";
 import { CWDashboard } from "./dashboard";
 import { Endpoints } from "./endpoints";
 import { addCfnSuppressRules } from "./utils";
+import { GetInputParameters } from "./input_parameters";
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -36,6 +37,7 @@ export interface IConfigProps {
   sig4LambdaVersionParamName: string;
   sig4LambdaArnParamName: string;
   sig4LambdaRoleArnParamName: string;
+  parameters: GetInputParameters;
 }
 
 export class Api extends Construct {
@@ -46,18 +48,25 @@ export class Api extends Construct {
     var language: string;
 
     //set the runtime based on the user selection in the wizard
-    if (props.configuration.api?.language == "nodejs") {
-      runtime = lambda.Runtime.NODEJS_14_X;
-      language = "nodejs";
-    } else {
-      runtime = lambda.Runtime.PYTHON_3_7;
-      language = "python";
+    if (props.configuration.api?.language === "A"){
+      //deploy one-click from AWS Solutions, so the language needs to be retrieved from the parameters
+      language = props.parameters.customInputParameters.api?.language!
+
+    }else{
+      if (props.configuration.api?.language == "nodejs") {
+        runtime = lambda.Runtime.NODEJS_14_X;
+        language = "nodejs";
+      } else {
+        runtime = lambda.Runtime.PYTHON_3_7;
+        language = "python";
+      }
     }
+
 
     //build a layer with required libs
     const cloudfrontTokenLayer = new lambda.LayerVersion(
       this,
-      "RotateSecretLayer",
+      "GenerateTokenLayer",
       {
         compatibleRuntimes: [runtime],
         code: lambda.Code.fromAsset(

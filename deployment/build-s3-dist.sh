@@ -86,7 +86,8 @@ echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json | grep -o '[^"]*$' | head -1 `
+cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/$stack_name.assets.json | grep -o '[^"]*$' | head -1 `
+cdk_bucket_name_useast1=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/$stack_nameUsEast1Stack.assets.json | grep -o '[^"]*$' | head -1 `
 
 #echo sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
 #sed -i'' -e "s#$cdk_bucket_name#$BUILD_OUTPUT_BUCKET-\${AWS::Region}#g" $staging_dist_dir/$stack_name.template.json
@@ -94,7 +95,7 @@ cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/*.assets.json 
 new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
 sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/$stack_name.template.json
 
-sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
+sed -i'' -e s"/\"$cdk_bucket_name_useast1\"/$new_bucket_name/" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
 
 
 i=1

@@ -67,14 +67,14 @@ export class Endpoints extends Construct {
 
 
     const hostingBucket = new s3.Bucket(this, "HostingBucket", {
-      serverAccessLogsBucket: s3Logs,
+      /*serverAccessLogsBucket: s3Logs,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicPolicy: true,
         blockPublicAcls: true,
         ignorePublicAcls: true,
         restrictPublicBuckets: true
-       }),
+       }),*/
     });
 
     const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";

@@ -86,7 +86,7 @@ echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/$stack_name.assets.json | grep -o '[^"]*$' | head -1 `
+cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}.assets.json | grep -o '[^"]*$' | head -1 `
 echo "bucket_name=$bucket_name"
 cdk_bucket_name_useast1=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}UsEast1Stack.assets.json | grep -o '[^"]*$' | head -1 `
 echo "cdk_bucket_name_useast1=$cdk_bucket_name_useast1"

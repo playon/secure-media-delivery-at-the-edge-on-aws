@@ -41,7 +41,7 @@ export class SessionRevocation extends Construct {
   constructor(scope: Construct, id: string, config: IConfigProps) {
     super(scope, id);
 
-    const accountId = Stack.of(this).account;
+    const accountId = Aws.ACCOUNT_ID;
 
     //Getting the RuleGroup ID create in us-east-1 region (in a different stack)
     const ssmRuleGroupParameterId = new custom_resources.AwsCustomResource(

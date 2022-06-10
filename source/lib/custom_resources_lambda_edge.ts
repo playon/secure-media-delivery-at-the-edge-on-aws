@@ -37,7 +37,7 @@ export class CustomResourceLambdaEdge extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    const accountId = Stack.of(this).account;
+    const accountId = Aws.ACCOUNT_ID;
 
     const ssmSig4VersionArn = new custom_resources.AwsCustomResource(
       this,
@@ -127,7 +127,7 @@ export class CustomResourceLambdaEdge extends Construct {
         ROLE_ARN: ssmSig4RoleArn.getResponseField("Parameter.Value"),
         API_ARN: props.apiArn,
         STACK_NAME: Aws.STACK_NAME,
-        ACCOUNT_ID: Stack.of(this).account
+        ACCOUNT_ID: Aws.ACCOUNT_ID
       },
     });
 

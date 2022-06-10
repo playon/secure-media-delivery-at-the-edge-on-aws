@@ -56,7 +56,7 @@ export class RotateSecretsWorkflow extends Construct {
       description: "Layer with jsonpath lib",
     });
 
-    const accountId = Stack.of(this).account;
+    const accountId = Aws.ACCOUNT_ID;
 
     //Lambda used to generate new secrets:
     // 1 - generate 2 secrets when deploying the stacck

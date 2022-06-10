@@ -47,12 +47,30 @@ export class Api extends Construct {
     var runtime: lambda.Runtime;
     var language: string;
 
+    console.log("here1")
+    console.log(props.configuration.api?.language);
+
+    runtime = lambda.Runtime.NODEJS_14_X;
+    language = "nodejs";
+    var cdkSupportedRuntime = ['nodejs', 'python'];
+    if(cdkSupportedRuntime.includes(props.configuration.api?.language!)){
+      //cdk deploy
+      console.log("cdk deploy")
+    }else{
+      console.log("cfn synth");
+      language = "nodejs"
+      runtime = lambda.Runtime.NODEJS_14_X;
+    }
+
+    /*
     //set the runtime based on the user selection in the wizard
     if (props.configuration.api?.language === "A"){
+      console.log("here")
       //deploy one-click from AWS Solutions, so the language needs to be retrieved from the parameters
       language = props.parameters.customInputParameters.api?.language!
       runtime = language=='nodejs' ? lambda.Runtime.NODEJS_14_X : lambda.Runtime.PYTHON_3_7;
     }else{
+      console.log("here 2")
       language = props.configuration.api?.language!
       if (language == "nodejs") {
         runtime = lambda.Runtime.NODEJS_14_X;
@@ -62,10 +80,11 @@ export class Api extends Construct {
 
     }
 
+*/
 
 
-
-
+    console.log("runtime="+runtime);
+    console.log("language="+language);
     //build a layer with required libs
     const cloudfrontTokenLayer = new lambda.LayerVersion(
       this,
@@ -156,7 +175,7 @@ export class Api extends Construct {
       demoWebsite: props.configuration.api?.demo as boolean
     });
 
-    const region = Stack.of(this).region;
+    const region = Aws.REGION;
 
     //build a CloudWatch Dashboard to display some metrics from generateToken Lambda
     props.dashboard.buildApiDashboard({

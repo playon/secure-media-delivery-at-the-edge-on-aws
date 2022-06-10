@@ -125,7 +125,7 @@ export class Endpoints extends Construct {
       ),
     });
 
-    const region = Stack.of(this).region;
+    const region = Aws.REGION;
 
     const myOriginRequestPolicy = new cloudfront.OriginRequestPolicy(
       this,

@@ -51,7 +51,7 @@ export class SecureMediaStreamingStack extends Stack {
   ) {
     super(scope, id, props);
 
-    const region = Stack.of(this).region;
+    const region = Aws.REGION;
     console.log("region="+region)
 
     //CloudTrail is enabled for us-east-1 in the other stack, so if we are in the same region no need to activate it twice
@@ -138,7 +138,7 @@ export class SecureMediaStreamingStack extends Stack {
     //role created to be assumed by the SDK
     const role4sdk = new iam.Role(this, "Role4SDK", {
       description: "A role to be assumed by the SDK",
-      assumedBy: new iam.AccountPrincipal(Stack.of(this).account),
+      assumedBy: new iam.AccountPrincipal(Aws.ACCOUNT_ID),
       inlinePolicies: {
         policy: customPolicy,
       },

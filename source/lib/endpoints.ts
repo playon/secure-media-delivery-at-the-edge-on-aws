@@ -77,6 +77,11 @@ export class Endpoints extends Construct {
        }),*/
     });
 
+    addCfnSuppressRules(hostingBucket, [{ id: 'W35', reason: 'It is a log bucket, not need to have access logging enabled.' }]);
+
+    addCfnSuppressRules(hostingBucket, [{ id: 'W41', reason: 'Encryption done' }]);
+
+
     const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";
 
     new s3deploy.BucketDeployment(this, "DeployWebsite", {

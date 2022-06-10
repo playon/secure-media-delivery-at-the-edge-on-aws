@@ -42,6 +42,7 @@ export class UsEast1Stack extends Stack {
   ) {
     super(scope, id, props);
 
+    /*
     const s3Logs = new s3.Bucket(this, "CloudTrailLogsBucket", {
       /*encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: new s3.BlockPublicAccess({
@@ -49,7 +50,7 @@ export class UsEast1Stack extends Stack {
         blockPublicAcls: true,
         ignorePublicAcls: true,
         restrictPublicBuckets: true
-       }),*/
+       }),
     });
 
 
@@ -60,6 +61,8 @@ export class UsEast1Stack extends Stack {
     const trail = new cloudtrail.Trail(this, 'CloudTrail', {
       bucket: s3Logs
     });
+*/
+
 
     this.ruleGroup = id + "_BlockSessions";
 

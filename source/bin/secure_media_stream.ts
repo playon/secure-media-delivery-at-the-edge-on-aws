@@ -33,11 +33,7 @@ const app = new cdk.App();
       env: {
         account: account,
         region: "us-east-1",
-      },
-      synthesizer: new DefaultStackSynthesizer({
-        fileAssetsBucketName: "cdk-assets-${AWS::Region}",
-        bucketPrefix: '',
-      }),
+      }
     },
 
   );

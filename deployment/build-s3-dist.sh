@@ -94,8 +94,10 @@ echo "cdk_bucket_name_useast1=$cdk_bucket_name_useast1"
 new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
 sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}.template.json
 
+#my_new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
+
 #update policy for the bucket
-sed -i'' -e "s#$cdk_bucket_name#$new_bucket_name#g" $staging_dist_dir/${stack_name}.template.json
+#sed -i'' -e s"/\"$cdk_bucket_name\"/$BUILD_OUTPUT_BUCKET-\${AWS::Region}/g" $staging_dist_dir/$stack_name.template.json
 
 
 echo sed -i'' -e s"/\"$cdk_bucket_name_useast1\"/$new_bucket_name/" $staging_dist_dir/${stack_name}UsEast1Stack.template.json

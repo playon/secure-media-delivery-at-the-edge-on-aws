@@ -94,10 +94,12 @@ echo "cdk_bucket_name_useast1=$cdk_bucket_name_useast1"
 new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
 sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}.template.json
 
-#my_new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
+#replace bucket name in policy
+#from this ":s3:::cdk-hnb659fds-assets-423991167869-us-west-2" -> ":s3:::", "solutions-test", "-", {"Ref": "AWS::Region"}
+str_to_replace=":s3:::${cdk_bucket_name}"
+string=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"} "
+sed -i'' -e s"/\"$str_to_replace\"/$string/" $staging_dist_dir/${stack_name}.template.json
 
-#update policy for the bucket
-#sed -i'' -e s"/\"$cdk_bucket_name\"/$BUILD_OUTPUT_BUCKET-\${AWS::Region}/g" $staging_dist_dir/$stack_name.template.json
 
 
 echo sed -i'' -e s"/\"$cdk_bucket_name_useast1\"/$new_bucket_name/" $staging_dist_dir/${stack_name}UsEast1Stack.template.json

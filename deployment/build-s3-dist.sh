@@ -100,7 +100,7 @@ str_to_replace1=":s3:::${cdk_bucket_name}"
 str_to_replace2=":s3:::${cdk_bucket_name}/\*"
 string=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"} "
 sed -i'' -e s"/\"$str_to_replace1\"/$string/" $staging_dist_dir/${stack_name}.template.json
-sed -i'' -e s"/\"$str_to_replace2\"/$string/" $staging_dist_dir/${stack_name}.template.json
+sed -i'' -e s"#\"$str_to_replace2\"#$string#" $staging_dist_dir/${stack_name}.template.json
 
 
 

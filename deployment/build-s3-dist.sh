@@ -118,7 +118,7 @@ echo "Searching for assets..."
 for cdk_key in `ls  | grep '^asset'`; do
     wordtoremove="asset."
     item=${cdk_key//$wordtoremove/}
-    asset_new_name="asset_$i.zip"
+    asset_new_name="myasset_$i.zip"
 
     if [[ $item == *zip ]];
     then
@@ -144,6 +144,8 @@ for cdk_key in `ls  | grep '^asset'`; do
     let "i+=1"
 
 done
+
+
 echo "Assets zipped"
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"

@@ -88,8 +88,12 @@ npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_di
 
 ############ Tweak template #############
 #
-# 1. CDK generated template uses a CDK generated bucket for assets. Replacing this bucket with BUILD_OUTPUT_BUCKET
-# 2. The assets are folder on the disk (and some are already zipped). Zipping all assets folder, renaming the zip, update the template to use the zip name and to use BUILD_OUTPUT_BUCKET as bucket
+# 1. CDK generated template uses a CDK generated bucket for assets. Replacing this bucket with BUILD_OUTPUT_BUCKET in both templates
+# 2. The assets are folder on the disk (and some are already zipped).
+#         1 - zipping all assets folder
+#         2 - renaming the zip
+#         3 - update the template to use the zip name and to use BUILD_OUTPUT_BUCKET as bucket
+#         4 - upload the zips to BUILD_OUTPUT_BUCKET
 # 2. Some policies have a hardcoded AccountID; Replacing it with "AWS::AccountId" so that this template can be deployed in any AWS account
 # 3. Some policies have a hardcoded Region; Replacing it with "AWS::Region" so that this template can be deployed in any AWS region
 
@@ -135,7 +139,7 @@ if [[ "$DATA" =~ :execute-api:([^:\n]*):([^:\n]*): ]]; then
 fi;
 
 
-#Zipping the assets
+#zipping the assets
 i=1
 cd $staging_dist_dir
 echo "Searching for assets..."
@@ -147,7 +151,7 @@ for cdk_key in `ls  | grep '^asset'`; do
     if [[ $item == *zip ]];
     then
         mv $cdk_key $asset_new_name
-        zipped_new_name=$item
+        current_asset_name=$item
     else
         cd $cdk_key
         echo "zipping $cdk_key to $asset_new_name"
@@ -155,11 +159,11 @@ for cdk_key in `ls  | grep '^asset'`; do
         cd ..
         mv $cdk_key/$asset_new_name $asset_new_name
         rm -rf $cdk_key
-        zipped_new_name=$item.zip
+        current_asset_name=$item.zip
     fi
 
-    sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
-    sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
+    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
+    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
 
 
     let "i+=1"

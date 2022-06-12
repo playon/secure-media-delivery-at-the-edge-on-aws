@@ -104,8 +104,8 @@ sed -i'' -e s"#\"$str_to_replace1\"#$string1#" $staging_dist_dir/${stack_name}.t
 sed -i'' -e s"#\"$str_to_replace2\"#$string2#" $staging_dist_dir/${stack_name}.template.json
 
 str_to_replace3="states.us-west-2.amazonaws.com"
-string3="{\"Fn::Sub\": \"states.\${AWS::Region}.amazonaws.com\" } "
-sed -i'' -e s"#\"$str_to_replace3\"#$string2#" $staging_dist_dir/${stack_name}.template.json
+string3="{ \"Fn::Sub\": \"states.\${AWS::Region}.amazonaws.com\" } "
+sed -i'' -e s"#\"$str_to_replace3\"#$string3#" $staging_dist_dir/${stack_name}.template.json
 
 
 echo sed -i'' -e s"#\"$cdk_bucket_name_useast1\"#$new_bucket_name#" $staging_dist_dir/${stack_name}UsEast1Stack.template.json

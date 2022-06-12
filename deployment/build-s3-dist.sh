@@ -128,7 +128,7 @@ sed -i'' -e s"#\"$str_to_replace3\"#$string3#" $staging_dist_dir/${stack_name}.t
 
 
 #replace policy [":execute-api:MY_REGION:MY_ACCOUNT_ID:"] -> [ ":execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"} , ":" ]
-DATA=`more ${staging_dist_dir}/${stack_name}UsEast1Stack.template.json`
+DATA=`more ${staging_dist_dir}/${stack_name}.template.json`
 echo "replace policy for api gw"
 if [[ "$DATA" =~ :execute-api:([^:\n]*):([^:\n]*): ]]; then
 	my_region=${BASH_REMATCH[1]}

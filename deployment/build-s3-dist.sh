@@ -86,32 +86,56 @@ echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
+############ Tweak template #############
+#
+# 1. CDK generated template uses a CDK generated bucket for assets. Replacing this bucket with BUILD_OUTPUT_BUCKET
+# 2. The assets are folder on the disk (and some are already zipped). Zipping all assets folder, renaming the zip, update the template to use the zip name and to use BUILD_OUTPUT_BUCKET as bucket
+# 2. Some policies have a hardcoded AccountID; Replacing it with "AWS::AccountId" so that this template can be deployed in any AWS account
+# 3. Some policies have a hardcoded Region; Replacing it with "AWS::Region" so that this template can be deployed in any AWS region
+
 cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}.assets.json | grep -o '[^"]*$' | head -1 `
 echo "cdk_bucket_name=$cdk_bucket_name"
 cdk_bucket_name_useast1=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}UsEast1Stack.assets.json | grep -o '[^"]*$' | head -1 `
 echo "cdk_bucket_name_useast1=$cdk_bucket_name_useast1"
 
 new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
-sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}.template.json
 
-#replace bucket name in policy
-#from this ":s3:::cdk-bucket-xxxxx" -> ":s3:::", "my-bucket-xxxxxx", "-", {"Ref": "AWS::Region"}
+#update asset bucket name in main template
+sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}.template.json
+#update asset bucket name in us-east-1 template
+sed -i'' -e s"#\"$cdk_bucket_name_useast1\"#$new_bucket_name#" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
+
+
+#replace bucket name in policy [ ":s3:::cdk-bucket-xxxxx" ] -> [ ":s3:::", "my-bucket-xxxxxx", "-", {"Ref": "AWS::Region"} ]
 str_to_replace1=":s3:::${cdk_bucket_name}"
-str_to_replace2=":s3:::${cdk_bucket_name}/\*"
 string1=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"} "
-string2=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"}, \"/\*\" "
 sed -i'' -e s"#\"$str_to_replace1\"#$string1#" $staging_dist_dir/${stack_name}.template.json
+
+
+#replace bucket name in policy [ ":s3:::cdk-bucket-xxxxx/*" ] -> [ ":s3:::", "$BUILD_OUTPUT_BUCKET", "-", {"Ref": "AWS::Region"} ]
+str_to_replace2=":s3:::${cdk_bucket_name}/\*"
+string2=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"}, \"/\*\" "
 sed -i'' -e s"#\"$str_to_replace2\"#$string2#" $staging_dist_dir/${stack_name}.template.json
 
+#replace policy this [ "states.MY_REGION.amazonaws.com" ] -> [ { "Fn::Sub": "states.${AWS::Region}.amazonaws.com" } ]
 str_to_replace3="states.us-west-2.amazonaws.com"
 string3="{ \"Fn::Sub\": \"states.\${AWS::Region}.amazonaws.com\" } "
 sed -i'' -e s"#\"$str_to_replace3\"#$string3#" $staging_dist_dir/${stack_name}.template.json
 
 
-echo sed -i'' -e s"#\"$cdk_bucket_name_useast1\"#$new_bucket_name#" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
-sed -i'' -e s"#\"$cdk_bucket_name_useast1\"#$new_bucket_name#" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
+#replace policy [":execute-api:MY_REGION:MY_ACCOUNT_ID:"] -> [ ":execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"} , ":" ]
+DATA=`more ${staging_dist_dir}/${stack_name}UsEast1Stack.template.json`
+
+if [[ "$DATA" =~ :execute-api:([^:\n]*):([^:\n]*): ]]; then
+	my_region=${BASH_REMATCH[1]}
+	my_account_id=${BASH_REMATCH[2]}
+	str_to_replace4=":execute-api:${my_region}:${my_account_id}:"
+	string4=" \":execute-api:\",{\"Ref\": \"AWS::Region\"}, \":\", {\"Ref\": \"AWS::AccountId\"} , \":\" "
+	sed -i'' -e s"#\"$str_to_replace4\"#$string4#" ${staging_dist_dir}/${stack_name}UsEast1Stack.template.json
+fi;
 
 
+#Zipping the assets
 i=1
 cd $staging_dist_dir
 echo "Searching for assets..."
@@ -134,10 +158,7 @@ for cdk_key in `ls  | grep '^asset'`; do
         zipped_new_name=$item.zip
     fi
 
-    echo sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
     sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
-
-    echo sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
     sed -i'' -e "s#$zipped_new_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
 
 
@@ -147,6 +168,10 @@ done
 
 
 echo "Assets zipped"
+
+############ End tweak template #############
+
+
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"
 cd $staging_dist_dir

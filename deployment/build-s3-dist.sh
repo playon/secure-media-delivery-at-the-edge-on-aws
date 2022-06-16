@@ -123,7 +123,7 @@ sed -i'' -e s"#\"$str_to_replace2\"#$string2#" $staging_dist_dir/${stack_name}.t
 
 #replace policy this [ "states.MY_REGION.amazonaws.com" ] -> [ { "Fn::Sub": "states.${AWS::Region}.amazonaws.com" } ]
 str_to_replace3="states.us-west-2.amazonaws.com"
-string3="{ \"Fn::Sub\": \"states.\${AWS::Region}.amazonaws.com\" } "
+string3="{ \"Fn::Sub\": \"states.\${Aws.REGION}.amazonaws.com\" } "
 sed -i'' -e s"#\"$str_to_replace3\"#$string3#" $staging_dist_dir/${stack_name}.template.json
 
 

@@ -51,6 +51,10 @@ const app = new cdk.App();
         account: account,
         region: region,
       },
+        /*synthesizer: new DefaultStackSynthesizer({
+          fileAssetsBucketName: "my-cdk-assets-bucket-${Aws.REGION}",
+          bucketPrefix: '',
+        })*/
     }
   );
   coreStack.addDependency(usEast1Stack);
@@ -65,7 +69,7 @@ const app = new cdk.App();
         env: {
           account: account,
           region: region,
-        },
+        }
       }
     );
   }

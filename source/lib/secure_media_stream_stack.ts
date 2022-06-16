@@ -25,6 +25,9 @@ import {
   aws_s3 as s3
 } from "aws-cdk-lib";
 
+import { aws_cloudformation as cloudformation } from 'aws-cdk-lib';
+
+
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { Api } from "./api";
@@ -50,6 +53,19 @@ export class SecureMediaStreamingStack extends Stack {
     props: StackProps
   ) {
     super(scope, id, props);
+
+    const cfnStackSet = new cloudformation.CfnStackSet(this, 'MyCfnStackSet', {
+      permissionModel: 'permissionModel',
+      stackSetName: 'stackSetName',
+      stackInstancesGroup: [{
+        deploymentTargets: {
+          accounts: [Aws.ACCOUNT_ID],
+        },
+        regions: ['us-east-1'],
+      }],
+      templateUrl: 'https://solutions-features-reference.s3.amazonaws.com/secure-media-delivery-at-the-edge/v1.0.0/MYSTREAMUsEast1Stack.template',
+    });
+
 
     const region = Aws.REGION;
     console.log("region="+region)

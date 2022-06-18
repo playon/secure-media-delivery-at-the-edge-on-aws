@@ -2,6 +2,7 @@ const aws = require('aws-sdk');
 const b64url = require('base64url');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const qs = require('querystring');
 
 let DEBUG = false;
 
@@ -59,23 +60,162 @@ function expandIPv6(address){
     return hextets.join(':');
 }
 
-class TokenProvider{
-    static _secrets = {};
-    static _secrets_prefix = '';
-    static _secrets_last_update = null;
-    static _secrets_retrieve_mode = 'native';
-    static _secrets_retrieve_function = null;
-    static _secrets_manager_client = null;
-    static _secrets_retrival_lock = false;
+class Secret{
 
-         
-    static _getSecretfromSM(sm_client, secret_name){
-        let sm_promise = sm_client.getSecretValue({SecretId: secret_name}).promise();
-        return sm_promise;
+    constructor(stackName, ttl, retrieveMode = 'native', retrieveFunction = null, retrieveFunctionArgs = []){
+        this.keys = null;
+        this._last_updated = null;
+        this._lock = false;
+        this.stackName = stackName;
+        this._smClient = null;
+        this.ttl = ttl;
+        this.retrieveMode = retrieveMode,
+        this.retrieveFunction = retrieveFunction,
+        this.retrieveFunctionArgs = retrieveFunctionArgs
     }
+
+    initSMClient(params={}){
+        let sm_creds;
+        let sm_region;
+        if(params['profile']){
+            sm_creds = new AWS.SharedIniFileCredentials({profile: params['profile']});
+        } else if(params['role']) {
+           sm_creds = new AWS.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
+        }
+
+        if(params['region']){
+            sm_region = params['region'];
+        } else if(!aws.config.region){
+            sm_region = 'us-east-1';
+        }
+        try{
+            this._smClient = new aws.SecretsManager({credentials: sm_creds, region: sm_region});
+        } catch(e) {
+            logger(`Couldn't create SecretsManager client: ${e}`);
+            return false;
+        }
+        return true;
         
-    constructor(key_expiry_period){
-        this.key_expiry = key_expiry_period;
+    }
+
+    async _getSMSecret(){
+        let secret_name_primary = `${this.stackName}_PrimarySecret`;
+        let secret_name_secondary = `${this.stackName}_SecondarySecret`;
+        let primarySecret_json;
+        let secondarySecret_json;
+        try{
+            let sm_promise_primary = this._smClient.getSecretValue({SecretId: secret_name_primary}).promise();
+            let sm_promise_secondary = this._smClient.getSecretValue({SecretId: secret_name_secondary}).promise();
+            let smResponses = await Promise.all([sm_promise_primary,sm_promise_secondary]);
+            primarySecret_json = Secret._getSecretKV(smResponses[0]);
+            secondarySecret_json = Secret._getSecretKV(smResponses[1]);
+        } catch (e){
+            throw `Couldn't retrieve SecretsManager secrets: ${e}`
+        }        
+
+        let keys = {
+            'primary': {
+                'uuid': Object.keys(primarySecret_json)[0],
+                'value': Object.values(primarySecret_json)[0]
+            },
+            'secondary': {
+                'uuid': Object.keys(secondarySecret_json)[0],
+                'value': Object.values(secondarySecret_json)[0]
+            }
+        };
+        
+        return keys;
+    }
+
+    getKeyValue(key_alias){
+        return this.keys['key_alias'].value;
+    }
+    getKeyUUID(key_alias){
+        return this.keys['key_alias'].uuid;
+    }
+    
+    _checkIfExpired(){
+        if(!this._last_updated){
+            logger('Keys have not been set yet');
+            return null;
+        } else if(Math.floor(Date.now()/1000)-this._last_updated  > this.ttl) {
+            return true;
+        } else {
+            return false;
+        }
+
+    }
+
+    async retrieveKeys(key_alias = 'all'){
+        let isExpired = this._checkIfExpired();
+        if((!this._last_updated) || (isExpired && (!this._lock))){
+            logger('Starting key retrival');
+            this._lock = true;
+            try{
+                if (this.retrieveMode == 'native') {
+                    //TO-DO: add timeout
+                    let provisional_keys = await this._getSMSecret();
+                    if(Secret.validateKeys(provisional_keys)){
+                        this.keys = provisional_keys;
+                        this._last_updated = Math.floor(Date.now()/1000);
+                    } else {
+                        throw "Invalid format of the returned keys";
+                    }
+                } else if(this.retrieveMode == 'custom'){
+                    //TO-DO: add timeout
+                    let provisional_keys = await this.retrieveFunction(...this.retrieveFunctionArgs);
+                    if(Secret.validateKeys(provisional_keys)){
+                        this.keys = provisional_keys;
+                        this._last_updated = Math.floor(Date.now()/1000);
+                    } else {
+                        throw "Invalid format of the returned keys";
+                    }
+                }
+            } catch(e){
+                logger(`failed to retrieve the keys: ${e}`);
+            } finally{
+                this._lock = false;
+                if(this.keys){
+                    if(key_alias == 'all'){
+                        return this.keys;
+                    } else {
+                        return this.keys[key_alias];
+                    }
+                } else {
+                    throw "Key retrival failed and no previously set key is available";
+                }
+            }
+        } else {
+            if(key_alias == 'all'){
+                return this.keys;
+            } else {
+                return this.keys[key_alias];
+            }
+        }
+    }
+
+    static validateKeys(obj){
+        let top_level_keys = Object.keys(obj);
+        if(top_level_keys.length == 1){
+            if(!top_level_keys.includes('primary')) return false;
+            let low_level_keys = Object.keys(obj['primary']);
+            if (low_level_keys.length != 2) return false
+            if(!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
+            if(typeof(obj['primary'].uuid) != 'string' || typeof(obj['primary'].value) != 'string')  return false;
+            return true;
+        } else if(top_level_keys.length == 2){
+            if(!(top_level_keys.includes('primary') && top_level_keys.includes('secondary'))) return false;
+            for (let key of Object.entries(obj)){
+                let low_level_keys = Object.keys(key[1]);
+                if (low_level_keys.length != 2) return false
+                if(!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
+                if(typeof(key[1].uuid) != 'string' || typeof(key[1].value) != 'string')  return false;
+            }
+            return true;
+        } else {
+            return false;
+        }
+        
     }
 
     static _getSecretKV(smResponse){
@@ -90,86 +230,111 @@ class TokenProvider{
         return JSON.parse(secret);
     }
 
-    static async retrieveSecrets(){
-        this._secrets_retrival_lock = true;
-        if(this._secrets_retrieve_mode == 'native'){
-            try{
-                let primarySecret = await this._getSecretfromSM(this._secrets_manager_client,`${this._secrets_prefix}_PrimarySecret`); 
-                let secondarySecret = await this._getSecretfromSM(this._secrets_manager_client,`${this._secrets_prefix}_SecondarySecret`);
-                let primarySecret_json = this._getSecretKV(primarySecret);
-                let secondarySecret_json = this._getSecretKV(secondarySecret);
-                this._secrets = {
-                    'primary': {
-                        'uuid': Object.keys(primarySecret_json)[0],
-                        'value': Object.values(primarySecret_json)[0]
-                    },
-                    'secondary': {
-                        'uuid': Object.keys(secondarySecret_json)[0],
-                        'value': Object.values(secondarySecret_json)[0]
-                    }
-                };
-                this._secrets_last_update = Math.floor(Date.now()/1000);
-                logger("Secrets updated! Last update: " + this._secrets_last_update.toString());
-            } catch (e) {
-                logger("Couldn't process the secret from SecretsManager");
-            } finally {
-                this._secrets_retrival_lock = false;
+}
+
+class Session{
+
+    static _ddbClient = null;
+    static revocationTable = '';
+
+    constructor(id=null, autogenerate=false, suspicion_score = 0){
+        let sessionLength;
+        if(id && autogenerate){
+            if((sessionLength=parseInt(id)) > 6) {
+                this.id = Session._autoGenerate(sessionLength);
+            } else{
+                throw "Invalid id input while autogenerate set to true. It must be a number greater than 6";
             }
+        } else if(id) {
+            this.id = id;
+        } else {
+            this.id = Session._autoGenerate(12);
         }
-        else if(this._secrets_retrieve_mode == 'custom'){
-            try{
-                this._secrets = await this._secrets_retrieve_function();
-                this._secrets_last_update = Math.floor(Date.now()/1000);
-                logger("Secrets updated! Last update: " + this._secrets_last_update.toString());
-            } catch (e) {
-                logger("Couldn't process the secret from SecretsManager");
-            } finally {
-                this._secrets_retrival_lock = false;
-            }
-            
+        this.suspicion_score = suspicion_score;
+    }
+
+    async revoke(reason='COMPROMISED'){
+        if(!Session._ddbClient) throw "DynamoDB client hasn't been initialized";
+        if(!Session.revocationTable) throw "Revocation Table name must be set";
+        let currentTimestamp = Math.floor(Date.now()/1000);
+        let expiryTime = currentTimestamp + 86400;
+        //TO-DO: add suspicion score
+        let item= {
+            'session_id': { 'S': this.id},
+            'type': { 'S': 'MANUAL' },
+            'reason': { 'S': reason },
+            'last_updated' : { 'N': currentTimestamp.toString() },
+            'ttl': { 'N': expiryTime.toString()}
         }
-        
+
+        let params = {
+            Item: item,
+            TableName: Session.revocationTable
+        };
+        let prom = Session._ddbClient.putItem(params).promise();
+        return prom;
+        //TO-DO: check if promise was resolved
+
+    } 
+
+    static _initDBClient(params={}){
+        let ddb_creds;
+        let ddb_region;
+        if(params['profile']){
+            ddb_creds = new AWS.SharedIniFileCredentials({profile: params['profile']});
+        } else if(params['role']) {
+           ddb_creds = new AWS.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
+        }
+
+        if(params['region']){
+            ddb_region = params['region'];
+        } else if(!aws.config.region){
+            ddb_region = 'us-east-1';
+        }
+        try{
+            this._ddbClient = new aws.DynamoDB({credentials: ddb_creds, region: ddb_region});
+        } catch(e) {
+            logger(`Couldn't create DynamoDB client: ${e}`);
+            return false;
+        }
+        return true;
     }
-    
-    
-    static SecretsConfigure(kwarg){
-        if(kwarg['secrets_prefix']) this._secrets_prefix = kwarg['secrets_prefix'];
-        if(kwarg['secrets_retrieve_mode']) this._secrets_retrieve_mode = kwarg['secrets_retrieve_mode'];
-        if(kwarg['secrets_retrieve_function']) this._secrets_retrieve_function = kwarg['secrets_retrieve_function'];
-        if(kwarg['secrets_manager_client']) this._secrets_manager_client = kwarg['secrets_manager_client'];
-    }
-    
-    _get_random_alphanumeric_string(output_length){
+
+
+    static _autoGenerate(output_length){
         const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
         let result_str = Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
         return result_str;
     }
 
+}
+
+class Token{
+        
+    constructor(secret, defaultTokenPolicy=null){
+        this.secret = secret;
+        this.defaultTokenPolicy = defaultTokenPolicy;
+    }
+  
+
     _sign(input, key, method){
         return b64url(crypto.createHmac(method, key).update(input).digest());
     }
     
-    async generateToken(attributes, secret_alias, playback_url){
-        if (!TokenProvider._secrets[secret_alias] && !TokenProvider._secrets_retrival_lock){
-            console.log("Initializing secrets object");
-            await TokenProvider.retrieveSecrets();
-            console.log('Done');
-        } 
-        else if(!TokenProvider._secrets_last_update){
-            throw "Missing last update timestamp";
+    async generate(viewer_attributes, playback_url=null, token_policy = self.defaultTokenPolicy, secret_alias = 'primary'){
+        let keys = await this.secret.retrieveKeys();
+        if(!keys[secret_alias]) throw "Provided secret alias can't be found in the retrived secret";
+        let playback_url_qs = {};
+        if(playback_url){
+            playback_url_qs = qs.parse(playback_url);
         }
-        else if((Math.floor(Date.now()/1000)-TokenProvider._secrets_last_update > this.key_expiry) && !TokenProvider._secrets_retrival_lock) {
-            console.log("Expiry time elapsed - updating secrets object");
-            TokenProvider.retrieveSecrets();
-        } 
-        else console.log('Time left: ', Math.floor(Date.now()/1000)-TokenProvider._secrets_last_update);
 
         let jwt_payload = {
             ip: false,
             co: false,
             cty: false,
+            reg: false,
             ssn: false,
-            nbf: '',
             exp: '',
             headers: [],
             qs: [],
@@ -180,70 +345,95 @@ class TokenProvider{
 
         let intsig_input = '';
 
-        if (attributes['ip']) {
+        if (token_policy['ip']) {
             let fullIP;
-            if(attributes['ip'].includes('.') && validateIPv4(attributes['ip'])){
+            if(viewer_attributes['ip'].includes('.') && validateIPv4(viewer_attributes['ip'])){
                 jwt_payload['ip_ver']=4;
-                fullIP = attributes['ip'];
-            } else if(validateIPv6(attributes['ip'])){
+                fullIP = viewer_attributes['ip'];
+            } else if(validateIPv6(viewer_attributes['ip'])){
                 jwt_payload['ip_ver']=6;
-                fullIP = expandIPv6(attributes['ip']);
+                fullIP = expandIPv6(viewer_attributes['ip']);
             } else {
                 throw "Invalid viewer's IP format";
             }
             jwt_payload['ip']=true;
             intsig_input += fullIP + ':';
         };
-        if (attributes['co']){
+        if (token_policy['co']){
             jwt_payload['co']=true;
-            intsig_input += attributes['co'] + ':';
+            intsig_input += viewer_attributes['co'] + ':';
+            if(token_policy['co_fallback']) jwt_payload['co_fallback']=true;
         };
 
-        if (attributes['cty']){
+        if (token_policy['cty']){
             jwt_payload['cty']=true;
-            intsig_input += attributes['cty'] + ':';
+            intsig_input += viewer_attributes['cty'] + ':';
         }; 
 
-        if (attributes['ssn']){
+        if (token_policy['reg']){
+            jwt_payload['reg']=true;
+            intsig_input += viewer_attributes['reg'] + ':';
+            if(token_policy['reg_fallback']) jwt_payload['reg_fallback']=true;
+        }; 
+
+        if (token_policy['ssn']){
             jwt_payload['ssn']=true;
-            if (attributes['ssn'].startsWith('generate_')) {
-                let session_len = attributes['ssn'].split('_').pop();
-                this.payloadSsn = this._get_random_alphanumeric_string(session_len);
+            if (viewer_attributes['sessionId']) {
+                this.payloadSsn = viewer_attributes['sessionId'];
             } else {
-                this.payloadSsn = attributes['ssn'];
+                let session = new Session(token_policy['session_auto_generate'],true);
+                this.payloadSsn = session.id;
             };
             intsig_input += this.payloadSsn + ':';
         };
          
-        if (attributes['headers'] && attributes['headers'].length){
-            attributes['headers'].forEach((header)=>{
-                jwt_payload['headers'].push(header.key);
-                intsig_input += header.value + ':';
+        if (token_policy['headers'] && token_policy['headers'].length){
+            token_policy['headers'].forEach((header)=>{
+                jwt_payload['headers'].push(header);
+                if(viewer_attributes['headers'][header]) intsig_input += viewer_attributes['headers'][header] + ':';
             });
         };
 
-        if (attributes['qs']){
-            attributes['qs'].forEach((qs_param)=>{
-                jwt_payload['qs'].push(qs_param.key);
-                intsig_input += qs_param.value + ':';
+        if (token_policy['querystrings'] && token_policy['querystrings'].length){
+            token_policy['querystrings'].forEach((qs_param)=>{
+                jwt_payload['qs'].push(qs_param);
+                let qs_value = playback_url_qs[qs_param] || viewer_attributes['qs'][qs_param];
+                if(qs_value) intsig_input += qs_value + ':';
             });
         };
 
 		if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
 			console.log("Input for internal signature: ", intsig_input); 
-			jwt_payload['intsig'] = this._sign(intsig_input, TokenProvider._secrets[secret_alias].value, 'sha256')
+			jwt_payload['intsig'] = this._sign(intsig_input, keys[secret_alias].value, 'sha256')
         } else {
 			delete jwt_payload['intsig'];
 		};
 
-        jwt_payload['paths'] = attributes['paths'];
-        if (attributes['exc']) jwt_payload['exc'] = attributes['exc'];
+        jwt_payload['paths'] = token_policy['paths'];
+        if (token_policy['exc']) jwt_payload['exc'] = token_policy['exc'];
 
-        if (attributes['nbf']) jwt_payload['nbf'] = parseInt(attributes['nbf']);
-        jwt_payload['exp'] = parseInt(attributes['exp']);
+        if (token_policy['nbf']) jwt_payload['nbf'] = parseInt(token_policy['nbf']);
 
-        this.encoded_jwt = jwt.sign( jwt_payload, TokenProvider._secrets[secret_alias].value, {algorithm: 'HS256', keyid: TokenProvider._secrets[secret_alias].uuid});
+        if(token_policy['exp'].startsWith('+')){
+            if(token_policy['exp'].endsWith('h')){
+                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*3600;
+            } else if(token_policy['exp'].endsWith('m')){
+                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*60;
+            } else {
+                throw "Invalid exp format";
+            }
+        } else {
+            let parsedExp = parseInt(token_policy['exp']);
+            if(parsedExp > 0){
+                jwt_payload['exp'] = parsedExp;
+            } else {
+                throw "Invalid exp format";
+            }
+        }
+
+
+        this.encoded_jwt = jwt.sign( jwt_payload, keys[secret_alias].value, {algorithm: 'HS256', keyid: keys[secret_alias].uuid});
 
         if(playback_url){
             let playback_url_array = playback_url.split('/');
@@ -257,5 +447,7 @@ class TokenProvider{
 
 }
 
-exports.TokenProvider = TokenProvider;
+exports.Token = Token;
+exports.Secret = Secret;
+exports.Session = Session;
 exports.setDEBUG = setDEBUG;

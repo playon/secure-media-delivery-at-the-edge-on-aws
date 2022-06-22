@@ -164,7 +164,8 @@ export class Endpoints extends Construct {
 
     const apiArn = `arn:aws:execute-api:${region}:*:${httpApi.apiId}/*`;
 
-    const customResourceLE = new CustomResourceLambdaEdge(
+
+    /*const customResourceLE = new CustomResourceLambdaEdge(
       this,
       "CustomResourceLE",
       {
@@ -173,17 +174,23 @@ export class Endpoints extends Construct {
         sig4LambdaRoleArnParamName: props.sig4LambdaRoleArnParamName,
         apiArn,
       }
-    );
+    );*/
 
     const httpApiOrigin = new origins.HttpOrigin(
       `${httpApi.apiId}.execute-api.${region}.amazonaws.com`
     );
 
-    const lambdaEdge = lambda.Version.fromVersionArn(
+    /*const lambdaEdge = lambda.Version.fromVersionArn(
       this,
       "CfLambdaEdge",
       customResourceLE.lambdaEdgeVersionArn
-    );
+    );*/
+
+    const sig4Function = new cloudfront.experimental.EdgeFunction(this, 'MySig4Function', {
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('lambda/sig4'),
+    });
 
     const s3origin = new origins.S3Origin(hostingBucket);
 
@@ -213,7 +220,7 @@ export class Endpoints extends Construct {
           origin: httpApiOrigin,
           edgeLambdas: [
             {
-              functionVersion: lambdaEdge,
+              functionVersion: sig4Function.currentVersion,
               eventType: cloudfront.LambdaEdgeEventType.ORIGIN_REQUEST,
             },
           ],
@@ -230,7 +237,7 @@ export class Endpoints extends Construct {
           origin: httpApiOrigin,
           edgeLambdas: [
             {
-              functionVersion: lambdaEdge,
+              functionVersion: sig4Function.currentVersion,
               eventType: cloudfront.LambdaEdgeEventType.ORIGIN_REQUEST,
             },
           ],

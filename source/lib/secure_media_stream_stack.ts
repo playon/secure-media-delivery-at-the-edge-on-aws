@@ -22,10 +22,19 @@ import {
   aws_cloudfront as cloudfront,
   aws_dynamodb as ddb,
   aws_cloudtrail as cloudtrail,
-  aws_s3 as s3
+  aws_lambda as lambda,
+  aws_s3 as s3,
+  custom_resources,
 } from "aws-cdk-lib";
 
+import * as triggers from 'aws-cdk-lib/triggers';
+
+
+import * as path from 'path';
+
+
 import { aws_cloudformation as cloudformation } from 'aws-cdk-lib';
+import { Asset } from "aws-cdk-lib/aws-s3-assets";
 
 
 import { Construct } from "constructs";
@@ -54,21 +63,134 @@ export class SecureMediaStreamingStack extends Stack {
   ) {
     super(scope, id, props);
 
-    const cfnStackSet = new cloudformation.CfnStackSet(this, 'MyCfnStackSet', {
-      permissionModel: 'permissionModel',
-      stackSetName: 'stackSetName',
-      stackInstancesGroup: [{
-        deploymentTargets: {
-          accounts: [Aws.ACCOUNT_ID],
+/*
+    const directoryAsset = new Asset(this, "LEAsset", {
+      path: ("lambda/sig4")
+    });
+*/
+    const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName(
+      "service-role/AWSLambdaBasicExecutionRole"
+    );
+    const role = new iam.Role(this, "EdgeLambdaServiceRole", {
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal("lambda.amazonaws.com"),
+        new iam.ServicePrincipal("edgelambda.amazonaws.com")
+      ),
+      managedPolicies: [
+        {
+          managedPolicyArn,
         },
-        regions: ['us-east-1'],
-      }],
-      templateUrl: 'https://solutions-features-reference.s3.amazonaws.com/secure-media-delivery-at-the-edge/v1.0.0/MYSTREAMUsEast1Stack.template',
+      ],
+    });
+
+    /*
+    this.sig4LambdaVersion = id + "_sig4lambdaVersion";
+    this.sig4LambdaArn = id + "_sig4lambdaArn";
+    this.sig4LambdaRoleArn = id + "_sig4lambdaRoleArn";
+    */
+
+    //Lambda to create Lambda@Edge
+    const createLE = new lambda.Function(this, "CreateLambdaEdge", {
+      functionName: Aws.STACK_NAME + "_CreateLambdaEdge",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "index.handler",
+      timeout: Duration.seconds(600),
+      code: lambda.Code.fromAsset("lambda/create_lambda_edge"),
+      environment: {
+        'ROLE_ARN': role.roleArn,
+        'STACK_NAME': Aws.STACK_NAME,
+        'LAMBDA_VERSION' : Aws.STACK_NAME + "a_sig4lambdaVersion",
+        'LAMBDA_ARN' :Aws.STACK_NAME + "a_sig4lambdaArn"
+      }
+    });
+
+    const createFunctionPolicy = new iam.PolicyStatement({
+      actions: ['lambda:CreateFunction', 'lambda:PublishVersion', 'lambda:GetFunctionConfiguration'],
+      resources: ['*'],
+    });
+
+    const passRolePolicy = new iam.PolicyStatement({
+      actions: ['iam:PassRole'],
+      resources: ['*'],
+    });
+
+    const ssmPolicy = new iam.PolicyStatement({
+      actions: ['ssm:PutParameter'],
+      resources: ["*"],
+    });
+    createLE.role?.attachInlinePolicy(
+      new iam.Policy(this, 'CreateFunctionPolicy', {
+        statements: [createFunctionPolicy, passRolePolicy, ssmPolicy],
+      }),
+    );
+
+    const code = lambda.Code.fromAsset( "lambda/sig4");
+    console.log(code.path);
+
+    const triggerLE = new triggers.Trigger(this, 'CRLEUsEast1', {
+      handler: createLE,
+      //executeAfter: [updateRoleFunction],
+      executeOnHandlerChange: false,
+    });
+/*
+
+    //Lambda to create WAF Rule group
+    const createRuleGroup = new lambda.Function(this, "CreateRuleGroup", {
+      functionName: Aws.STACK_NAME + "_CreateRuleGroup",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset("lambda/create_waf_rulegroup"),
+      environment: {
+        'WCU': '100',
+        'RULE_NAME': Aws.STACK_NAME + "_BlockSessions",
+        'STACK_NAME': Aws.STACK_NAME,
+      }
+    });
+*/
+    const createRulePolicy = new iam.PolicyStatement({
+      actions: ['wafv2:CreateRuleGroup'],
+      resources: ['*'],
     });
 
 
+    /*
+    createRuleGroup.role?.attachInlinePolicy(
+      new iam.Policy(this, 'CreateRulePolicy', {
+        statements: [createRulePolicy, ssmPolicy],
+      }),
+    );
+*/
+    /*
+    const triggerWaf = new triggers.Trigger(this, 'CRRGUsEast1', {
+      handler: createRuleGroup,
+      //executeAfter: [updateRoleFunction],
+      executeOnHandlerChange: false,
+    });*/
+
+
+/*
+    const myTrigger = new triggers.TriggerFunction(this, 'MyTrigger', {
+      //functionName: Aws.STACK_NAME + "_CreateRuleGroup",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset("lambda/create_waf_rulegroup"),
+      environment: {
+        'WCU': '100',
+        'RULE_NAME': Aws.STACK_NAME + "_BlockSessions",
+        'STACK_NAME': Aws.STACK_NAME,
+      }
+    });
+
+    myTrigger.role?.attachInlinePolicy(
+      new iam.Policy(this, 'CreateRulePolicy', {
+        statements: [createRulePolicy, ssmPolicy],
+      }),
+    );
+
+    myTrigger.executeAfter(triggerLE);*/
+
     const region = Aws.REGION;
-    console.log("region="+region)
+    console.log("region1="+region)
 
     /*
     //CloudTrail is enabled for us-east-1 in the other stack, so if we are in the same region no need to activate it twice

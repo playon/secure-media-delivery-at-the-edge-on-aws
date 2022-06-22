@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import * as cdk from "aws-cdk-lib";
-
 import { getOpts } from "../helpers/opts";
 
 import { SecureMediaStreamingStack } from "../lib/secure_media_stream_stack";
@@ -23,6 +22,7 @@ const app = new cdk.App();
     process.env.CDK_DEPLOY_REGION ||
     process.env.CDK_DEFAULT_REGION;
 
+  const myregion = Aws.REGION;
 
 
   const usEast1Stack = new UsEast1Stack(
@@ -38,7 +38,7 @@ const app = new cdk.App();
 
   );
 
-
+console.log(cdk.Fn.sub("my-bucket-${AWS::Region}"))
   const coreStack = new SecureMediaStreamingStack(
     app,
     config.main?.stack_name!,
@@ -52,6 +52,7 @@ const app = new cdk.App();
         account: account,
         region: region,
       }
+
     }
   );
   coreStack.addDependency(usEast1Stack);

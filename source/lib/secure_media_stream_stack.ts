@@ -63,11 +63,11 @@ export class SecureMediaStreamingStack extends Stack {
   ) {
     super(scope, id, props);
 
-/*
-    const directoryAsset = new Asset(this, "LEAsset", {
-      path: ("lambda/sig4")
-    });
-*/
+
+
+
+    // LAMBDA EDGE ///
+
     const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName(
       "service-role/AWSLambdaBasicExecutionRole"
     );
@@ -83,11 +83,7 @@ export class SecureMediaStreamingStack extends Stack {
       ],
     });
 
-    /*
-    this.sig4LambdaVersion = id + "_sig4lambdaVersion";
-    this.sig4LambdaArn = id + "_sig4lambdaArn";
-    this.sig4LambdaRoleArn = id + "_sig4lambdaRoleArn";
-    */
+
 
     //Lambda to create Lambda@Edge
     const createLE = new lambda.Function(this, "CreateLambdaEdge", {
@@ -132,13 +128,22 @@ export class SecureMediaStreamingStack extends Stack {
       //executeAfter: [updateRoleFunction],
       executeOnHandlerChange: false,
     });
+
+
+
+//    RULE GROUP //
 /*
+    const ssmPolicy = new iam.PolicyStatement({
+      actions: ['ssm:PutParameter'],
+      resources: ["*"],
+    });
 
     //Lambda to create WAF Rule group
     const createRuleGroup = new lambda.Function(this, "CreateRuleGroup", {
       functionName: Aws.STACK_NAME + "_CreateRuleGroup",
       runtime: lambda.Runtime.NODEJS_14_X,
       handler: "index.handler",
+      timeout: Duration.seconds(600),
       code: lambda.Code.fromAsset("lambda/create_waf_rulegroup"),
       environment: {
         'WCU': '100',
@@ -146,26 +151,30 @@ export class SecureMediaStreamingStack extends Stack {
         'STACK_NAME': Aws.STACK_NAME,
       }
     });
-*/
+
     const createRulePolicy = new iam.PolicyStatement({
       actions: ['wafv2:CreateRuleGroup'],
       resources: ['*'],
     });
 
 
-    /*
+
     createRuleGroup.role?.attachInlinePolicy(
       new iam.Policy(this, 'CreateRulePolicy', {
         statements: [createRulePolicy, ssmPolicy],
       }),
     );
-*/
-    /*
+
+
     const triggerWaf = new triggers.Trigger(this, 'CRRGUsEast1', {
       handler: createRuleGroup,
       //executeAfter: [updateRoleFunction],
       executeOnHandlerChange: false,
-    });*/
+    });
+*/
+    //END RULE GROUP
+
+   // triggerWaf.node.addDependency(triggerLE);
 
 
 /*

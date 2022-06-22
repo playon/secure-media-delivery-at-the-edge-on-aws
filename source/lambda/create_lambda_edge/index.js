@@ -31,7 +31,7 @@ exports.handler = async (event, context) => {
 
         let result = await lambda.createFunction(params).promise();
         functionArn = result.FunctionArn;
-        saveSecret(LAMBDA_ARN, functionArn);
+        await saveToSSM(LAMBDA_ARN, functionArn)
     } catch (error) {
         console.error(error);
         throw Error('Creating Edge Lambda failed.');
@@ -61,7 +61,8 @@ exports.handler = async (event, context) => {
         };
 
         let result = await lambda.publishVersion(params).promise();
-        saveSecret(LAMBDA_VERSION, `${functionArn}:${result.Version}`);
+        await saveToSSM(LAMBDA_VERSION, `${functionArn}:${result.Version}`)
+
     } catch (error) {
         console.error(error);
         throw Error('Publishing Edge Lambda version failed.');
@@ -70,27 +71,21 @@ exports.handler = async (event, context) => {
 
 }
 
-const saveSecret = (paramName, paramValue) => {
+
+async function saveToSSM(paramName, paramValue) {
     console.log('Saving to SSM...');
 
-    const  params = {
-      Name: paramName,
-      Value: paramValue,
-      Type: 'String',
-      Overwrite: true
+    const params = {
+        Name: paramName,
+        Value: paramValue,
+        Type: 'String',
+        Overwrite: true
     };
+    var request = await ssm.putParameter(params).promise();
+    return request.Parameter;
+}
 
-    ssm.putParameter(params, (err, data) => {
-      if (err) {
-        console.log(err, err.stack);
-      }
-    });
-
-  };
-
-  /** Function to add delay for waiting on process.
- * @param ms time in milliseconds
-*/
+// Function to add delay for waiting on process
 const waitForTime = async (ms) => {
     return new Promise(resolve => setTimeout(resolve, ms));
 };

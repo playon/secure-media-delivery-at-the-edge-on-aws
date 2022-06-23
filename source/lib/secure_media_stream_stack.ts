@@ -64,7 +64,7 @@ export class SecureMediaStreamingStack extends Stack {
     super(scope, id, props);
 
 
-
+/*
 
     // LAMBDA EDGE ///
 
@@ -110,20 +110,24 @@ export class SecureMediaStreamingStack extends Stack {
       resources: ['*'],
     });
 
-    const ssmPolicy = new iam.PolicyStatement({
+    const ssmPolicy1 = new iam.PolicyStatement({
       actions: ['ssm:PutParameter'],
       resources: ["*"],
     });
     createLE.role?.attachInlinePolicy(
       new iam.Policy(this, 'CreateFunctionPolicy', {
-        statements: [createFunctionPolicy, passRolePolicy, ssmPolicy],
+        statements: [createFunctionPolicy, passRolePolicy, ssmPolicy1],
       }),
     );
 
     const code = lambda.Code.fromAsset( "lambda/sig4");
     console.log(code.path);
 
-    const triggerLE = new triggers.Trigger(this, 'CRLEUsEast1', {
+
+
+    //const triggerLE = new triggers.Trigger(this, 'CRLEUsEast1', {
+    const triggerLE = new triggers.TriggerFunction(this, 'CRLEUsEast1', {
+      functionName: '',
       handler: createLE,
       //executeAfter: [updateRoleFunction],
       executeOnHandlerChange: false,
@@ -132,7 +136,7 @@ export class SecureMediaStreamingStack extends Stack {
 
 
 //    RULE GROUP //
-/*
+
     const ssmPolicy = new iam.PolicyStatement({
       actions: ['ssm:PutParameter'],
       resources: ["*"],
@@ -174,7 +178,7 @@ export class SecureMediaStreamingStack extends Stack {
 */
     //END RULE GROUP
 
-   // triggerWaf.node.addDependency(triggerLE);
+    //triggerWaf.node.addDependency(triggerLE);
 
 
 /*
@@ -197,6 +201,141 @@ export class SecureMediaStreamingStack extends Stack {
     );
 
     myTrigger.executeAfter(triggerLE);*/
+
+
+
+    //// USE TRIGGER FUNCTION
+
+
+/*
+
+
+    const triggerRulePolicy = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          resources: ['*'],
+          actions: ['ssm:PutParameter'],
+        }),
+        new iam.PolicyStatement({
+          resources: ['*'],
+          actions: ['wafv2:CreateRuleGroup'],
+        }),
+      ],
+    });
+
+    const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName(
+      "service-role/AWSLambdaBasicExecutionRole"
+    );
+
+    const triggerRuleRole = new iam.Role(this, "TriggerRuleRole", {
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal("lambda.amazonaws.com")
+      ),
+      managedPolicies: [
+        {
+          managedPolicyArn,
+        },
+      ],
+      inlinePolicies: {
+        myPolicy: triggerRulePolicy,
+      },
+    });
+
+    const myTriggerRule = new triggers.TriggerFunction(this, 'MyTriggerRule', {
+      functionName: Aws.STACK_NAME + "_CreateRuleGroup",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "index.handler",
+      timeout: Duration.seconds(600),
+      code: lambda.Code.fromAsset("lambda/create_waf_rulegroup"),
+      environment: {
+        'WCU': '100',
+        'RULE_NAME': Aws.STACK_NAME + "_BlockSessions",
+        'STACK_NAME': Aws.STACK_NAME,
+      },
+      role: triggerRuleRole
+    });
+
+    const role = new iam.Role(this, "EdgeLambdaServiceRole", {
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal("lambda.amazonaws.com"),
+        new iam.ServicePrincipal("edgelambda.amazonaws.com")
+      ),
+      managedPolicies: [
+        {
+          managedPolicyArn,
+        },
+      ],
+    });
+*/
+
+    const triggerPolicy = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          resources: ['*'],
+          actions: ['lambda:CreateFunction', 'lambda:PublishVersion', 'lambda:GetFunctionConfiguration'],
+        }),
+        new iam.PolicyStatement({
+          resources: ['*'],
+          actions: ['iam:PassRole'],
+        }),
+        new iam.PolicyStatement({
+          resources: ['*'],
+          actions: ['ssm:PutParameter'],
+        }),
+        new iam.PolicyStatement({
+          resources: ['*'],
+          actions: ['wafv2:CreateRuleGroup'],
+        }),
+      ],
+    });
+
+    const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName(
+      "service-role/AWSLambdaBasicExecutionRole"
+    );
+
+    const triggerRole = new iam.Role(this, "TriggerLERole", {
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal("lambda.amazonaws.com")
+      ),
+      managedPolicies: [
+        {
+          managedPolicyArn,
+        },
+      ],
+      inlinePolicies: {
+        myPolicy: triggerPolicy,
+      },
+    });
+
+    const roleToPass = new iam.Role(this, "EdgeLambdaServiceRole", {
+      assumedBy: new iam.CompositePrincipal(
+        new iam.ServicePrincipal("lambda.amazonaws.com"),
+        new iam.ServicePrincipal("edgelambda.amazonaws.com")
+      ),
+      managedPolicies: [
+        {
+          managedPolicyArn,
+        },
+      ],
+    });
+
+    const myTriggerLE = new triggers.TriggerFunction(this, 'MyTriggerLE', {
+      functionName: Aws.STACK_NAME + "_CreateLambdaEdge",
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: "index.handler",
+      timeout: Duration.seconds(600),
+      code: lambda.Code.fromAsset("lambda/create_lambda_edge"),
+      environment: {
+        'ROLE_ARN': roleToPass.roleArn,
+        'STACK_NAME': Aws.STACK_NAME,
+        'LAMBDA_VERSION' : Aws.STACK_NAME + "a_sig4lambdaVersion",
+        'LAMBDA_ARN' :Aws.STACK_NAME + "a_sig4lambdaArn",
+        'WCU': '100',
+        'RULE_NAME': Aws.STACK_NAME + "_BlockSessions"
+      },
+      role: triggerRole
+    });
+    ///// END TRIGGER FUNCTION
 
     const region = Aws.REGION;
     console.log("region1="+region)

@@ -5,7 +5,10 @@ let path = require("path");
 var AWS = require('aws-sdk');
 var lambda = new AWS.Lambda({ region: 'us-east-1' });
 const ssm = new AWS.SSM();
+const wafv2 = new AWS.WAFV2({ region: 'us-east-1' });
 
+const WCU = process.env.WCU;
+const RULE_NAME = process.env.RULE_NAME;
 const ROLE_ARN = process.env.ROLE_ARN;
 const STACK_NAME = process.env.STACK_NAME;
 const LAMBDA_VERSION = process.env.LAMBDA_VERSION;
@@ -67,6 +70,30 @@ exports.handler = async (event, context) => {
         console.error(error);
         throw Error('Publishing Edge Lambda version failed.');
     }
+
+    try {
+        // Creates WAF Rule Group
+        var params = {
+          Capacity: parseInt(WCU),
+          Name: RULE_NAME + '13',
+          Scope: 'CLOUDFRONT',
+          VisibilityConfig: {
+            CloudWatchMetricsEnabled: false,
+            MetricName: "metricName",
+            SampledRequestsEnabled: false,
+          },
+          Description: "Revoked sessions",
+          Rules: [],
+        };
+
+        let result = await wafv2.createRuleGroup(params).promise();
+        console.log(result);
+        var resp = await saveToSSM(RULE_NAME, result.Summary.Id)
+        console.log(resp);
+      } catch (error) {
+        console.error(error);
+        throw Error('Creating WAF Rule group failed.');
+      }
 
 
 }

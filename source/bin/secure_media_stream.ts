@@ -22,9 +22,9 @@ const app = new cdk.App();
     process.env.CDK_DEPLOY_REGION ||
     process.env.CDK_DEFAULT_REGION;
 
-  const myregion = Aws.REGION;
+  //const myregion = Aws.REGION;
 
-
+/*
   const usEast1Stack = new UsEast1Stack(
     app,
     config.main?.stack_name! + "UsEast1Stack",
@@ -37,16 +37,13 @@ const app = new cdk.App();
     },
 
   );
-
+*/
 console.log(cdk.Fn.sub("my-bucket-${AWS::Region}"))
+
   const coreStack = new SecureMediaStreamingStack(
     app,
     config.main?.stack_name!,
     config,
-    usEast1Stack.ruleGroup,
-    usEast1Stack.sig4LambdaVersion,
-    usEast1Stack.sig4LambdaArn,
-    usEast1Stack.sig4LambdaRoleArn,
     {
       env: {
         account: account,
@@ -55,7 +52,7 @@ console.log(cdk.Fn.sub("my-bucket-${AWS::Region}"))
 
     }
   );
-  coreStack.addDependency(usEast1Stack);
+  //coreStack.addDependency(usEast1Stack);
 
   if (config.sessionRevocation) {
     new AutoSessionRevocationStack(

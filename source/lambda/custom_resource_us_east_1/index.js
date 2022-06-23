@@ -12,7 +12,7 @@ const RULE_NAME = process.env.RULE_NAME;
 const ROLE_ARN = process.env.ROLE_ARN;
 const STACK_NAME = process.env.STACK_NAME;
 const LAMBDA_VERSION = process.env.LAMBDA_VERSION;
-const LAMBDA_ARN = process.env.LAMBDA_ARN;
+//const LAMBDA_ARN = process.env.LAMBDA_ARN;
 const DEPLOY_LE = process.env.DEPLOY_LE;
 
 exports.handler = async (event, context) => {
@@ -46,42 +46,51 @@ async function createLambdaEdge(){
 
         let result = await lambda.createFunction(params).promise();
         functionArn = result.FunctionArn;
-        await saveToSSM(LAMBDA_ARN, functionArn)
+        await publishLEVersion(functionArn);
     } catch (error) {
-        console.error(error);
-        throw Error('Creating Edge Lambda failed.');
-    }
-
-    // Publishes Edge Lambda version
-    try {
-        let isFunctionStateActive = false
-        let retry = 0
-        let delayinMilliseconds = 5000;
-        while (!isFunctionStateActive) {
-            let response = await lambda.getFunctionConfiguration({
-                FunctionName: functionArn
-            }).promise();
-            console.log(`Response from get function configuration ${JSON.stringify(response)}`)
-            if (response.State === 'Active' || retry > 10) {
-                isFunctionStateActive = true
-            } else {
-                await waitForTime(delayinMilliseconds)
-                retry++
-                delayinMilliseconds += 5000;
-            }
+        if(error.name === "ResourceConflictException"){
+            console.log("LambdaEdge exist already. Nothing to do.")
+        }else{
+            console.error(error);
+            throw Error('Creating Edge Lambda failed.');
         }
 
-        let params = {
-            FunctionName: functionArn
-        };
-
-        let result = await lambda.publishVersion(params).promise();
-        await saveToSSM(LAMBDA_VERSION, `${functionArn}:${result.Version}`)
-
-    } catch (error) {
-        console.error(error);
-        throw Error('Publishing Edge Lambda version failed.');
     }
+
+
+}
+
+async function publishLEVersion(functionArn){
+ // Publishes Edge Lambda version
+ try {
+    let isFunctionStateActive = false
+    let retry = 0
+    let delayinMilliseconds = 5000;
+    while (!isFunctionStateActive) {
+        let response = await lambda.getFunctionConfiguration({
+            FunctionName: functionArn
+        }).promise();
+        console.log(`Response from get function configuration ${JSON.stringify(response)}`)
+        if (response.State === 'Active' || retry > 10) {
+            isFunctionStateActive = true
+        } else {
+            await waitForTime(delayinMilliseconds)
+            retry++
+            delayinMilliseconds += 5000;
+        }
+    }
+
+    let params = {
+        FunctionName: functionArn
+    };
+
+    let result = await lambda.publishVersion(params).promise();
+    await saveToSSM(LAMBDA_VERSION, `${functionArn}:${result.Version}`)
+
+} catch (error) {
+    console.error(error);
+    throw Error('Publishing Edge Lambda version failed.');
+}
 }
 
 async function createWafRuleGroup(){
@@ -105,8 +114,12 @@ async function createWafRuleGroup(){
         var resp = await saveToSSM(RULE_NAME, result.Summary.Id)
         console.log(resp);
       } catch (error) {
-        console.error(error);
-        throw Error('Creating WAF Rule group failed.');
+        if (error.name === "WAFDuplicateItemException") {
+            console.log("The rule group exist already. Nothing to do.")
+        }else{
+            console.error(error);
+            throw Error('Creating WAF Rule group failed.');
+        }
       }
 }
 

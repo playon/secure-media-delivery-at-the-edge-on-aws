@@ -25,6 +25,8 @@ import {
   aws_lambda as lambda,
   aws_s3 as s3,
   custom_resources,
+  CustomResourceProvider,
+  CustomResourceProviderRuntime,
 } from "aws-cdk-lib";
 
 import * as triggers from 'aws-cdk-lib/triggers';
@@ -49,16 +51,16 @@ import { addCfnSuppressRules } from "./utils";
 
 export class SecureMediaStreamingStack extends Stack {
   public readonly sessionToRevoke: ddb.ITable;
-  private readonly gsi_name = "last_updated_index";
+  private readonly GSI_NAME = "last_updated_index";
+
+  private readonly LAMBDA_EDGE_VERSION_SSM_PARAM = Aws.STACK_NAME + "_sig4lambdaVersion";
+  private readonly LAMBDA_EDGE_ARN_SSM_PARAM = Aws.STACK_NAME + "_sig4lambdaArn";
+  private readonly WAF_RULE_NAME_SSM_PARAM = Aws.STACK_NAME + "_BlockSessions";
 
   constructor(
     scope: Construct,
     id: string,
     config: IConfiguration,
-    ruleGroupParamName: string,
-    sig4LambdaVersionParamName: string,
-    sig4LambdaArnParamName: string,
-    sig4LambdaRoleArnParamName: string,
     props: StackProps
   ) {
     super(scope, id, props);
@@ -123,14 +125,40 @@ export class SecureMediaStreamingStack extends Stack {
       environment: {
         'ROLE_ARN': roleToPass.roleArn,
         'STACK_NAME': Aws.STACK_NAME,
-        'LAMBDA_VERSION' : Aws.STACK_NAME + "_sig4lambdaVersion",
-        'LAMBDA_ARN' :Aws.STACK_NAME + "_sig4lambdaArn",
-        'WCU': '100',
-        'RULE_NAME': Aws.STACK_NAME + "_BlockSessions",
+        'LAMBDA_VERSION' : this.LAMBDA_EDGE_VERSION_SSM_PARAM,
+        //'LAMBDA_ARN' :Aws.STACK_NAME + "_sig4lambdaArn",
+        'WCU': config.main ? config.main?.wcu.toString() : '100',
+        'RULE_NAME': this.WAF_RULE_NAME_SSM_PARAM,
         'DEPLOY_LE': config.api ? '1' : '0'
       },
       role: triggerRole
     });
+/*
+    const provider = CustomResourceProvider.getOrCreateProvider(this, 'AWSCDK.TriggerCustomResourceProvider', {
+      runtime: CustomResourceProviderRuntime.NODEJS_14_X,
+      codeDirectory: ('lambda'),
+      policyStatements: [
+        {
+          Effect: 'Allow',
+          Action: ['lambda:InvokeFunction'],
+          Resource: [`arn:aws:lambda:eu-west-1:${Aws.ACCOUNT_ID}:function:*:*`],
+        },
+      ],
+    });
+*/
+const provider = this.node.findChild('AWSCDK.TriggerCustomResourceProviderCustomResourceProvider',) as CustomResourceProvider;
+
+new iam.Policy(this, 'Policy', {
+    force: true,
+    roles: [iam.Role.fromRoleArn(this, 'Role', provider.roleArn)],
+    statements: [
+        new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ['lambda:InvokeFunction'],
+            resources: [`arn:aws:lambda:${Aws.REGION}:${Aws.ACCOUNT_ID}:function:*:*`],
+        }),
+    ],
+});
 
     const region = Aws.REGION;
 
@@ -228,7 +256,7 @@ export class SecureMediaStreamingStack extends Stack {
 
     //add global secondary index
     sessionToRevoke.addGlobalSecondaryIndex({
-      indexName: this.gsi_name,
+      indexName: this.GSI_NAME,
       partitionKey: { name: "reason", type: ddb.AttributeType.STRING },
       sortKey: { name: "last_updated", type: ddb.AttributeType.NUMBER },
       projectionType: ddb.ProjectionType.INCLUDE,
@@ -240,10 +268,10 @@ export class SecureMediaStreamingStack extends Stack {
     //session revocation resources
     new SessionRevocation(this, "SessionRevocation", {
       sessionToRevoke: sessionToRevoke,
-      gsi_index_name: this.gsi_name,
+      gsi_index_name: this.GSI_NAME,
       wcu: config.main?.wcu!,
       retention: config.main?.retention!,
-      ruleGroupParamName: ruleGroupParamName,
+      ruleGroupParamName: this.WAF_RULE_NAME_SSM_PARAM,
     });
 
     //workflow used to rotate secrets (on a frequency selected by the user in the wizard)
@@ -271,9 +299,9 @@ export class SecureMediaStreamingStack extends Stack {
         secrets: secrets,
         dashboard: dashboard,
         sessionsTable: sessionToRevoke,
-        sig4LambdaVersionParamName: sig4LambdaVersionParamName,
-        sig4LambdaArnParamName: sig4LambdaArnParamName,
-        sig4LambdaRoleArnParamName: sig4LambdaRoleArnParamName,
+        sig4LambdaVersionParamName: this.LAMBDA_EDGE_VERSION_SSM_PARAM,
+        //sig4LambdaArnParamName: this.LAMBDA_EDGE_ARN_SSM_PARAM,
+        sig4LambdaRoleArn: roleToPass.roleArn,
         parameters
       });
     }

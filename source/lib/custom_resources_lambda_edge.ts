@@ -13,7 +13,6 @@
 
 import {
   Aws,
-  Stack,
   custom_resources,
   aws_lambda as lambda,
   aws_iam as iam,
@@ -25,13 +24,12 @@ import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   sig4LambdaVersionParamName: string;
-  sig4LambdaArnParamName: string;
-  sig4LambdaRoleArnParamName: string;
+  //sig4LambdaArnParamName: string;
+  sig4LambdaRoleArn: string;
   apiArn: string;
 }
 
 export class CustomResourceLambdaEdge extends Construct {
-  private readonly ruleGroupRegion = "us-east-1";
   public readonly lambdaEdgeVersionArn: string;
 
   constructor(scope: Construct, id: string, props: IConfigProps) {
@@ -47,7 +45,7 @@ export class CustomResourceLambdaEdge extends Construct {
           service: "SSM",
           action: "getParameter",
           parameters: { Name: `${props.sig4LambdaVersionParamName}` },
-          region: this.ruleGroupRegion,
+          region: Aws.REGION,
           physicalResourceId: custom_resources.PhysicalResourceId.of(`${props.sig4LambdaVersionParamName}`)
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
@@ -55,13 +53,14 @@ export class CustomResourceLambdaEdge extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ["ssm:GetParameter*"],
             resources: [
-              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaVersionParamName}`,
+              `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${props.sig4LambdaVersionParamName}`,
             ],
           }),
         ]),
       }
     );
 
+    /*
     const ssmSig4Arn = new custom_resources.AwsCustomResource(
       this,
       "SSMParameterArn",
@@ -70,7 +69,7 @@ export class CustomResourceLambdaEdge extends Construct {
           service: "SSM",
           action: "getParameter",
           parameters: { Name: `${props.sig4LambdaArnParamName}` },
-          region: this.ruleGroupRegion,
+          region: Aws.REGION,
           physicalResourceId: custom_resources.PhysicalResourceId.of(`${props.sig4LambdaArnParamName}`)
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
@@ -78,17 +77,17 @@ export class CustomResourceLambdaEdge extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ["ssm:GetParameter*"],
             resources: [
-              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${props.sig4LambdaArnParamName}`,
+              `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${props.sig4LambdaArnParamName}`,
             ],
           }),
         ]),
       }
-    );
+    );*/
 
     this.lambdaEdgeVersionArn =
       ssmSig4VersionArn.getResponseField("Parameter.Value");
 
-    const ssmSig4RoleArn = new custom_resources.AwsCustomResource(
+    /*const ssmSig4RoleArn = new custom_resources.AwsCustomResource(
       this,
       "SSMParameterRoleArn",
       {
@@ -109,14 +108,15 @@ export class CustomResourceLambdaEdge extends Construct {
           }),
         ]),
       }
-    );
+    );*/
 
+    /*
     const lambdaEdge = lambda.Function.fromFunctionArn(
       this,
       "ExternalLambdaFromArn",
       ssmSig4Arn.getResponseField("Parameter.Value")
     );
-
+*/
     //lambda used to add execute-api:Invoke permission to LambdaEdge (to sign the request)
     const updateRoleFunction = new lambda.Function(this, "UpdateRole", {
       functionName: Aws.STACK_NAME + "_UpdateRole",
@@ -124,7 +124,7 @@ export class CustomResourceLambdaEdge extends Construct {
       code: lambda.Code.fromAsset("lambda/update_role"),
       handler: "index.handler",
       environment: {
-        ROLE_ARN: ssmSig4RoleArn.getResponseField("Parameter.Value"),
+        ROLE_ARN: props.sig4LambdaRoleArn,
         API_ARN: props.apiArn,
         STACK_NAME: Aws.STACK_NAME,
         ACCOUNT_ID: Aws.ACCOUNT_ID
@@ -143,7 +143,7 @@ export class CustomResourceLambdaEdge extends Construct {
 
     const updateRoleStatement = new iam.PolicyStatement({
       actions: ["iam:AttachRolePolicy"],
-      resources: [ssmSig4RoleArn.getResponseField("Parameter.Value")],
+      resources: [props.sig4LambdaRoleArn],
     });
 
     updateRoleFunction.role?.attachInlinePolicy(
@@ -155,10 +155,31 @@ export class CustomResourceLambdaEdge extends Construct {
       })
     );
 
+    /*
     const trigger = new triggers.Trigger(this, 'TriggerUpdateRole4LE', {
       handler: updateRoleFunction,
       executeAfter: [updateRoleFunction],
       executeOnHandlerChange: false,
+    });*/
+
+    new custom_resources.AwsCustomResource(this, "TriggerUpdateRoleCR", {
+      onCreate: {
+        service: "Lambda",
+        action: "invoke",
+        parameters: {
+          FunctionName: updateRoleFunction.functionName
+        },
+        physicalResourceId: custom_resources.PhysicalResourceId.of(
+          "TriggerUpdateRole4LE"
+        ),
+      },
+      policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+        new iam.PolicyStatement({
+          effect: iam.Effect.ALLOW,
+          actions: ["lambda:InvokeFunction"],
+          resources: [updateRoleFunction.functionArn],
+        }),
+      ])
     });
 
   }

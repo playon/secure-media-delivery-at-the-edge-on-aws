@@ -37,10 +37,8 @@ export interface IConfigProps {
 
 export class SessionRevocation extends Construct {
   public readonly sessionsTable: ddb.ITable;
-  private readonly ruleGroupRegion = "us-east-1";
   constructor(scope: Construct, id: string, config: IConfigProps) {
     super(scope, id);
-
 
     const accountId = Aws.ACCOUNT_ID;
 
@@ -53,9 +51,9 @@ export class SessionRevocation extends Construct {
           service: "SSM",
           action: "getParameter",
           parameters: { Name: `${config.ruleGroupParamName}` },
-          region: this.ruleGroupRegion,
+          region: Aws.REGION,
           physicalResourceId: custom_resources.PhysicalResourceId.of(
-            `${config.ruleGroupParamName}-${this.ruleGroupRegion}`
+            `${config.ruleGroupParamName}-${Aws.REGION}`
           ),
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
@@ -63,7 +61,7 @@ export class SessionRevocation extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ["ssm:GetParameter*"],
             resources: [
-              `arn:aws:ssm:${this.ruleGroupRegion}:${accountId}:parameter/${config.ruleGroupParamName}`,
+              `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${config.ruleGroupParamName}`,
             ],
           }),
         ]),
@@ -117,7 +115,7 @@ export class SessionRevocation extends Construct {
           "wafv2:ListRuleGroups",
         ],
         resources: [
-          `arn:aws:wafv2:${this.ruleGroupRegion}:${accountId}:global/rulegroup/${config.ruleGroupParamName}/${ssmRuleGroupId}`,
+          `arn:aws:wafv2:us-east-1:${accountId}:global/rulegroup/${config.ruleGroupParamName}/${ssmRuleGroupId}`,
         ],
       })
     );

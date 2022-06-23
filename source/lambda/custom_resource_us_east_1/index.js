@@ -110,10 +110,9 @@ async function createWafRuleGroup(){
         };
 
         let result = await wafv2.createRuleGroup(params).promise();
-        console.log(result);
-        var resp = await saveToSSM(RULE_NAME, result.Summary.Id)
-        console.log(resp);
-      } catch (error) {
+        await saveToSSM(RULE_NAME, result.Summary.Id)
+
+    } catch (error) {
         if (error.name === "WAFDuplicateItemException") {
             console.log("The rule group exist already. Nothing to do.")
         }else{

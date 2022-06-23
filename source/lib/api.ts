@@ -35,7 +35,6 @@ export interface IConfigProps {
   dashboard: CWDashboard;
   sessionsTable: ddb.ITable;
   sig4LambdaVersionParamName: string;
-  //sig4LambdaArnParamName: string;
   sig4LambdaRoleArn: string;
   parameters: GetInputParameters;
 }
@@ -170,7 +169,6 @@ export class Api extends Construct {
       generateTokenLambdaFunction: generateToken,
       saveSessionToDDBLambdaFunction: saveSessionToDdb,
       sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
-      //sig4LambdaArnParamName: props.sig4LambdaArnParamName,
       sig4LambdaRoleArn: props.sig4LambdaRoleArn,
       demoWebsite: props.configuration.api?.demo as boolean
     });

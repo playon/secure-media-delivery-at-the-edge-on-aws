@@ -40,7 +40,6 @@ export interface IConfigProps {
   generateTokenLambdaFunction: IFunction;
   saveSessionToDDBLambdaFunction: IFunction;
   sig4LambdaVersionParamName: string;
-  //sig4LambdaArnParamName: string;
   sig4LambdaRoleArn: string;
   demoWebsite: boolean;
 }

@@ -35,9 +35,7 @@ export class CustomResourceLambdaEdge extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    const accountId = Aws.ACCOUNT_ID;
-
-    const ssmSig4VersionArn = new custom_resources.AwsCustomResource(
+     const ssmSig4VersionArn = new custom_resources.AwsCustomResource(
       this,
       "SSMParameterVersion",
       {
@@ -53,7 +51,7 @@ export class CustomResourceLambdaEdge extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ["ssm:GetParameter*"],
             resources: [
-              `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${props.sig4LambdaVersionParamName}`,
+              `arn:aws:ssm:${Aws.REGION}:${Aws.ACCOUNT_ID}:parameter/${props.sig4LambdaVersionParamName}`,
             ],
           }),
         ]),
@@ -138,7 +136,7 @@ export class CustomResourceLambdaEdge extends Construct {
 
     const createPolicytStatement = new iam.PolicyStatement({
       actions: ["iam:CreatePolicy"],
-      resources: [`arn:aws:iam::${accountId}:policy/*`],
+      resources: [`arn:aws:iam::${Aws.ACCOUNT_ID}:policy/*`],
     });
 
     const updateRoleStatement = new iam.PolicyStatement({

@@ -99,15 +99,11 @@ npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_di
 
 cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}.assets.json | grep -o '[^"]*$' | head -1 `
 echo "cdk_bucket_name=$cdk_bucket_name"
-cdk_bucket_name_useast1=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}UsEast1Stack.assets.json | grep -o '[^"]*$' | head -1 `
-echo "cdk_bucket_name_useast1=$cdk_bucket_name_useast1"
 
 new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
 
 #update asset bucket name in main template
 sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}.template.json
-#update asset bucket name in us-east-1 template
-sed -i'' -e s"#\"$cdk_bucket_name_useast1\"#$new_bucket_name#" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
 
 
 #replace bucket name in policy [ ":s3:::cdk-bucket-xxxxx" ] -> [ ":s3:::", "my-bucket-xxxxxx", "-", {"Ref": "AWS::Region"} ]
@@ -168,7 +164,6 @@ for cdk_key in `ls  | grep '^asset'`; do
     fi
 
     sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
-    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/${stack_name}UsEast1Stack.template.json
 
 
     let "i+=1"

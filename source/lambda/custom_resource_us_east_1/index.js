@@ -13,10 +13,22 @@ const ROLE_ARN = process.env.ROLE_ARN;
 const STACK_NAME = process.env.STACK_NAME;
 const LAMBDA_VERSION = process.env.LAMBDA_VERSION;
 const LAMBDA_ARN = process.env.LAMBDA_ARN;
+const DEPLOY_LE = process.env.DEPLOY_LE;
 
 exports.handler = async (event, context) => {
 
     console.log("Event=" + JSON.stringify(event));
+
+    await  createWafRuleGroup();
+
+    if(parseInt(DEPLOY_LE)==1){
+        //deploy Lambda Edge only if the user selected API module in the wizard
+        await  createLambdaEdge();
+    }
+
+}
+
+async function createLambdaEdge(){
     let functionArn = '';
     var code_path = path.resolve(__dirname, './le.zip')
     try {
@@ -70,7 +82,9 @@ exports.handler = async (event, context) => {
         console.error(error);
         throw Error('Publishing Edge Lambda version failed.');
     }
+}
 
+async function createWafRuleGroup(){
     try {
         // Creates WAF Rule Group
         var params = {
@@ -94,10 +108,7 @@ exports.handler = async (event, context) => {
         console.error(error);
         throw Error('Creating WAF Rule group failed.');
       }
-
-
 }
-
 
 async function saveToSSM(paramName, paramValue) {
     console.log('Saving to SSM...');

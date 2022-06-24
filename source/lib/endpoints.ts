@@ -40,8 +40,7 @@ export interface IConfigProps {
   generateTokenLambdaFunction: IFunction;
   saveSessionToDDBLambdaFunction: IFunction;
   sig4LambdaVersionParamName: string;
-  sig4LambdaArnParamName: string;
-  sig4LambdaRoleArnParamName: string;
+  sig4LambdaRoleArn: string;
   demoWebsite: boolean;
 }
 
@@ -164,13 +163,14 @@ export class Endpoints extends Construct {
 
     const apiArn = `arn:aws:execute-api:${region}:*:${httpApi.apiId}/*`;
 
+
     const customResourceLE = new CustomResourceLambdaEdge(
       this,
       "CustomResourceLE",
       {
         sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
-        sig4LambdaArnParamName: props.sig4LambdaArnParamName,
-        sig4LambdaRoleArnParamName: props.sig4LambdaRoleArnParamName,
+        //sig4LambdaArnParamName: props.sig4LambdaArnParamName,
+        sig4LambdaRoleArn: props.sig4LambdaRoleArn,
         apiArn,
       }
     );
@@ -184,6 +184,12 @@ export class Endpoints extends Construct {
       "CfLambdaEdge",
       customResourceLE.lambdaEdgeVersionArn
     );
+
+    /*const sig4Function = new cloudfront.experimental.EdgeFunction(this, 'MySig4Function', {
+      runtime: lambda.Runtime.NODEJS_14_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('lambda/sig4'),
+    });*/
 
     const s3origin = new origins.S3Origin(hostingBucket);
 

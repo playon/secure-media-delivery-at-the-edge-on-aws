@@ -112,17 +112,27 @@ export class SecureMediaStreamingStack extends Stack {
       ],
     });
 
+    const archiverLayer = new lambda.LayerVersion(
+      this,
+      "ZipLocalLayer",
+      {
+        compatibleRuntimes: [lambda.Runtime.NODEJS_16_X,],
+        code: lambda.Code.fromAsset("lambda/layers/ziplocal"),
+        description: "Layer used to zip lambda edge file",
+      }
+    );
+
     const myTriggerLE = new triggers.TriggerFunction(this, 'UsEast1Trigger', {
       functionName: Aws.STACK_NAME + "_CustomResourceUsEast1",
-      runtime: lambda.Runtime.NODEJS_14_X,
+      runtime: lambda.Runtime.NODEJS_16_X,
       handler: "index.handler",
       timeout: Duration.seconds(600),
       code: lambda.Code.fromAsset("lambda/custom_resource_us_east_1"),
+      layers: [archiverLayer],
       environment: {
         'ROLE_ARN': roleToPass.roleArn,
         'STACK_NAME': Aws.STACK_NAME,
         'LAMBDA_VERSION' : this.LAMBDA_EDGE_VERSION_SSM_PARAM,
-        //'LAMBDA_ARN' :Aws.STACK_NAME + "_sig4lambdaArn",
         'WCU': config.main ? config.main?.wcu.toString() : '100',
         'RULE_NAME': this.WAF_RULE_NAME_SSM_PARAM,
         'DEPLOY_LE': config.api ? '1' : '0'

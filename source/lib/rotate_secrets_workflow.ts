@@ -299,7 +299,11 @@ export class RotateSecretsWorkflow extends Construct {
     map.iterator(getLastModifiedTimeJob.next(updatePropagated));
     // Step function to orchestrate generating a new secret
 
-    const logGroup = new logs.LogGroup(this, "RotateSecretsGroup");
+    const logGroup = new logs.LogGroup(this, "RotateSecretsGroup", {
+      logGroupName: "/aws/vendedlogs/states/" + Aws.STACK_NAME + "-RotateSecrets",
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: logs.RetentionDays.ONE_MONTH,
+    });
     addCfnSuppressRules(logGroup, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
 
     //StepFunction used to coordinate tasks to swap secrets:

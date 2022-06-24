@@ -1,5 +1,6 @@
 let fs = require("fs");
 let path = require("path");
+const zipLocal = require("zip-local");
 
 
 var AWS = require('aws-sdk');
@@ -19,19 +20,29 @@ exports.handler = async (event, context) => {
 
     console.log("Event=" + JSON.stringify(event));
 
-    await  createWafRuleGroup();
+    await createWafRuleGroup();
 
-    if(parseInt(DEPLOY_LE)==1){
+    if (parseInt(DEPLOY_LE) == 1) {
         //deploy Lambda Edge only if the user selected API module in the wizard
-        await  createLambdaEdge();
+        await createLambdaEdge();
     }
 
 }
 
-async function createLambdaEdge(){
+async function createLambdaEdge() {
     let functionArn = '';
-    var code_path = path.resolve(__dirname, './le.zip')
+    const le_zip_path = "/tmp/lambda_edge.zip";
+    const le_path = "./le.js";
+    const tmp_le_path = "/tmp/le.js";
+    var code_path = path.resolve(le_zip_path)
     try {
+        //zipping le.js
+        console.log("copy " + le_path + " to " + tmp_le_path);
+        fs.copyFileSync(le_path, tmp_le_path);
+
+        console.log("zipping " + tmp_le_path + " into " + le_zip_path)
+        zipLocal.sync.zip(tmp_le_path).compress().save(le_zip_path);
+        console.log("zip created")
         // Creates Edge Lambda
         var params = {
             Code: {
@@ -48,9 +59,9 @@ async function createLambdaEdge(){
         functionArn = result.FunctionArn;
         await publishLEVersion(functionArn);
     } catch (error) {
-        if(error.name === "ResourceConflictException"){
+        if (error.name === "ResourceConflictException") {
             console.log("LambdaEdge exist already. Nothing to do.")
-        }else{
+        } else {
             console.error(error);
             throw Error('Creating Edge Lambda failed.');
         }
@@ -60,53 +71,53 @@ async function createLambdaEdge(){
 
 }
 
-async function publishLEVersion(functionArn){
- // Publishes Edge Lambda version
- try {
-    let isFunctionStateActive = false
-    let retry = 0
-    let delayinMilliseconds = 5000;
-    while (!isFunctionStateActive) {
-        let response = await lambda.getFunctionConfiguration({
-            FunctionName: functionArn
-        }).promise();
-        console.log(`Response from get function configuration ${JSON.stringify(response)}`)
-        if (response.State === 'Active' || retry > 10) {
-            isFunctionStateActive = true
-        } else {
-            await waitForTime(delayinMilliseconds)
-            retry++
-            delayinMilliseconds += 5000;
+async function publishLEVersion(functionArn) {
+    // Publishes Edge Lambda version
+    try {
+        let isFunctionStateActive = false
+        let retry = 0
+        let delayinMilliseconds = 5000;
+        while (!isFunctionStateActive) {
+            let response = await lambda.getFunctionConfiguration({
+                FunctionName: functionArn
+            }).promise();
+            console.log(`Response from get function configuration ${JSON.stringify(response)}`)
+            if (response.State === 'Active' || retry > 10) {
+                isFunctionStateActive = true
+            } else {
+                await waitForTime(delayinMilliseconds)
+                retry++
+                delayinMilliseconds += 5000;
+            }
         }
+
+        let params = {
+            FunctionName: functionArn
+        };
+
+        let result = await lambda.publishVersion(params).promise();
+        await saveToSSM(LAMBDA_VERSION, `${functionArn}:${result.Version}`)
+
+    } catch (error) {
+        console.error(error);
+        throw Error('Publishing Edge Lambda version failed.');
     }
-
-    let params = {
-        FunctionName: functionArn
-    };
-
-    let result = await lambda.publishVersion(params).promise();
-    await saveToSSM(LAMBDA_VERSION, `${functionArn}:${result.Version}`)
-
-} catch (error) {
-    console.error(error);
-    throw Error('Publishing Edge Lambda version failed.');
-}
 }
 
-async function createWafRuleGroup(){
+async function createWafRuleGroup() {
     try {
         // Creates WAF Rule Group
         var params = {
-          Capacity: parseInt(WCU),
-          Name: RULE_NAME + '13',
-          Scope: 'CLOUDFRONT',
-          VisibilityConfig: {
-            CloudWatchMetricsEnabled: false,
-            MetricName: "metricName",
-            SampledRequestsEnabled: false,
-          },
-          Description: "Revoked sessions",
-          Rules: [],
+            Capacity: parseInt(WCU),
+            Name: RULE_NAME + '13',
+            Scope: 'CLOUDFRONT',
+            VisibilityConfig: {
+                CloudWatchMetricsEnabled: false,
+                MetricName: "metricName",
+                SampledRequestsEnabled: false,
+            },
+            Description: "Revoked sessions",
+            Rules: [],
         };
 
         let result = await wafv2.createRuleGroup(params).promise();
@@ -115,11 +126,11 @@ async function createWafRuleGroup(){
     } catch (error) {
         if (error.name === "WAFDuplicateItemException") {
             console.log("The rule group exist already. Nothing to do.")
-        }else{
+        } else {
             console.error(error);
             throw Error('Creating WAF Rule group failed.');
         }
-      }
+    }
 }
 
 async function saveToSSM(paramName, paramValue) {

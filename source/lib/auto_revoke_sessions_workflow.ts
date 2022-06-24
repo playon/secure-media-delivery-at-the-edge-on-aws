@@ -171,7 +171,11 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       )
       .otherwise(done);
 
-    const logGroup = new logs.LogGroup(this, "AthenaQueryGroup");
+    const logGroup = new logs.LogGroup(this, "AthenaQueryGroup",{
+      logGroupName: "/aws/vendedlogs/states/" + Aws.STACK_NAME + "-AthenaQuery",
+        removalPolicy: RemovalPolicy.DESTROY,
+        retention: logs.RetentionDays.ONE_MONTH,
+    });
     addCfnSuppressRules(logGroup, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
 
     // Step function to orchestrate Athena query to detect corrupted sessions and update DynamoDB Table with the results

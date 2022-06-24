@@ -51,6 +51,7 @@ export class CWDashboard extends Construct {
       title: "Verify JWT token",
       width: 9,
       height: 6,
+      region : "us-east-1",
       queryLines: [
         "fields @timestamp, @message",
         "filter @message like /X_JWT_CHECK/",
@@ -66,12 +67,14 @@ export class CWDashboard extends Construct {
       dimensionsMap: { FunctionName: props.cfFunctionName, Region: "Global" },
       label: "Compute usage",
       statistic: "avg",
+      region: "us-east-1"
     });
 
     const cffInvocationsMetric = new cloudwatch.Metric({
       namespace: "AWS/CloudFront",
       metricName: "FunctionInvocations",
       period: Duration.minutes(5),
+      region : "us-east-1",
       dimensionsMap: { FunctionName: props.cfFunctionName, Region: "Global" },
       label: "Invocations",
       statistic: "sum",

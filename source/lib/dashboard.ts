@@ -40,7 +40,7 @@ export class CWDashboard extends Construct {
     super(scope, id);
 
     this.dashboard = new cloudwatch.Dashboard(this, "MonitoringDashboard", {
-      dashboardName: Aws.STACK_NAME + +"-Secure-Media-Stream-Delivery",
+      dashboardName: Aws.STACK_NAME + "-Secure-Media-Stream-Delivery",
     });
   }
 

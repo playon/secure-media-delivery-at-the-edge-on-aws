@@ -13,19 +13,23 @@ var response401 = {
     statusDescription: 'Unauthorized'
 };
 
+function logToConsole(message){
+    if(DEBUG) console.log(message);
+}
 
-function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVerify) {
+
+function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, noVerify) {
     // check token and uri -> obligatory inputs
     if (!token ) {
-        throw new Error('No token supplied');
+        throw 'No token supplied';
     }
     if ( !uri ) {
-        throw new Error('No uri supplied');
+        throw 'No uri supplied';
     }
     // check segments
     var segments = token.split('.');
     if (segments.length !== 3) {
-        throw new Error('Not enough or too many segments in JWT token');
+        throw 'Not enough or too many segments in JWT token';
     }
 
     // All segment should be base64url
@@ -46,24 +50,24 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
             signingMethod = 'sha256';
             signingType = 'hmac';
         } else {
-            throw new Error('Missing or unsupported signing algorithm in JWT header');
+            throw 'Missing or unsupported signing algorithm in JWT header';
         }
 
         // Verify signature. `sign` will return base64 string.
         var signingInput = [headerSeg, payloadSeg].join('.');
 
         if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {
-            throw new Error('JWT signature verification failed');
+            throw 'JWT signature verification failed';
         }
 
         if (payload.exp && Date.now() > payload.exp*1000) {
-            if(DEBUG) console.log(`JWT expiry: ${payload.exp}, current time: ${Date.now}`);
-            throw new Error('Token expired');
+            logToConsole(`JWT expiry: ${payload.exp}, current time: ${Date.now}`);
+            throw 'Token expired';
         }
 
         if (payload.nbf && Date.now() < payload.nbf*1000) {
-            if(DEBUG) console.log(`JWT nbf: ${payload.nbf}, current time: ${Date.now}`);
-            throw new Error('Token not yet valid');
+            logToConsole(`JWT nbf: ${payload.nbf}, current time: ${Date.now}`);
+            throw 'Token not yet valid';
         }
 
 
@@ -83,14 +87,14 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
             }
         }
         if (!uri_match) {
-            if(DEBUG) console.log(`request uri: ${uri}`)
-            throw new Error('URI path doesn\'t match any path in the token');
+            logToConsole(`request uri: ${uri}`)
+            throw 'URI path doesn\'t match any path in the token';
         }
 
         var full_ip;
         if(payload['ip']){
             if(!payload['ip_ver']) throw "Missing ip_ver claim required when ip claim is set to true";
-            if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw "Incorrect ip_ver claim value. Must be either 4 or 6"
+            if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw "Incorrect ip_ver claim value. Must be either 4 or 6";
             if(ip.includes('.')){
                 if(payload['ip_ver'] != 4) throw "Viewer's IP version (4) doesn't match ip_ver claim";
                 full_ip = ip;
@@ -104,12 +108,11 @@ function jwt_verify(token, uri, session_id, http_headers, querystrings, ip, noVe
         }
 
         if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, full_ip)) {
-            throw new Error('Internal signature verification failed');
+            throw 'Internal signature verification failed';
         }
 
     }
 
-    return true;
 }
 
 
@@ -121,7 +124,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         if (request_ip){
             indirect_attr += (request_ip + ':');
         } else {
-            throw new Error('intsig reference error: Request IP is missing');
+            throw 'intsig reference error: Request IP is missing';
         }
     }
 
@@ -129,7 +132,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         if (request_headers['cloudfront-viewer-country']){
             indirect_attr += (request_headers['cloudfront-viewer-country'].value + ':');
         } else {
-            throw new Error('intsig reference error: cloudfront-viewer-country header is missing');
+            throw 'intsig reference error: cloudfront-viewer-country header is missing';
         }
     }
 
@@ -137,7 +140,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         if (request_headers['cloudfront-viewer-city']){
             indirect_attr += (request_headers['cloudfront-viewer-city'].value + ':');
         } else {
-            throw new Error('intsig reference error: cloudfront-viewer-city header is missing');
+            throw 'intsig reference error: cloudfront-viewer-city header is missing';
         }
     }
 
@@ -145,7 +148,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         if (sessionId){
             indirect_attr += sessionId + ':';
         } else {
-            throw new Error('intsig reference error: Session id is missing');
+            throw 'intsig reference error: Session id is missing';
         }
 
     }
@@ -164,7 +167,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
     indirect_attr = indirect_attr.slice(0,-1);
 
     if (indirect_attr && !_verify_signature(indirect_attr, intsig_key, method, type, payload_jwt['intsig'])) {
-        if(DEBUG) console.log("Indirect attributes input string:" + indirect_attr);
+        logToConsole("Indirect attributes input string:" + indirect_attr);
         return false;
     } else {
         return true;
@@ -177,7 +180,7 @@ function _verify_signature(input, key, method, type, signature) {
         return (signature === _sign(input, key, method));
     }
     else {
-        throw new Error('Algorithm type not recognized');
+        throw 'Algorithm type not recognized';
     }
 }
 
@@ -191,22 +194,23 @@ function _base64urlDecode(str) {
     return String.bytesFrom(str, 'base64url')
 }
 
+function processJWTToken(myEvent){
 
-function handler(event) {
-    console.log(event);
-    var request = event.request;
-    var headers = request.headers;
-    var querystrings = request.querystring;
-    var uri = request.uri;
-    var viewer_ip = event.viewer.ip;
+    var headers = myEvent.request.headers;
+
+    var querystrings = myEvent.request.querystring;
+    var uri = myEvent.request.uri;
+    var viewer_ip = myEvent.viewer.ip;
+
+
     var sessionId;
+
     var pathArray = uri.split('/');
 
     //initial checks if token is present
     var auth_sequence = pathArray[1];
     if(!auth_sequence || pathArray.length < 3){
-        if(DEBUG) console.log("Error: No token is present");
-        return response401;
+        throw "Error: No token is present";
     }
 
     //inputs grooming and setting internal variables
@@ -216,8 +220,7 @@ function handler(event) {
 
     //sanity check of the JWT token length
     if (jwtToken.length < 60) {
-        if(DEBUG) console.log("Error: No JWT in the path");
-        return response401;
+        throw "Error: Invalid JWT token in the path";
     }
 
     //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
@@ -225,14 +228,28 @@ function handler(event) {
     var newUri = pathArray.join("/")
 
     try{
-        jwt_verify(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
+        checkJWTToken(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
+        return newUri;
     }
     catch(e) {
-        if(DEBUG) console.log(e);
+        logToConsole(e);
+        throw "Error validating the token";
+    }
+}
+
+function handler(event) {
+    logToConsole(event);
+    try{
+        var request = event.request;
+        var newUri = processJWTToken(event);
+        //returning original playback URL to continue on the request path
+        request.uri = newUri
+        console.log("X_JWT_CHECK VALID");
+        return request;
+    }catch(error){
+        logToConsole(error);
+        console.log("X_JWT_CHECK INVALID");
         return response401;
     }
 
-    //returining original playback URL to continue on the request path
-    request.uri = newUri
-    return request;
 }

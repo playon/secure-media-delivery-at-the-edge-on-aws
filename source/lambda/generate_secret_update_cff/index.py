@@ -110,7 +110,7 @@ def handler(event, context):
         Name=cff_name,
         IfMatch=etag,
         FunctionConfig={
-            'Comment': 'string',
+            'Comment': 'CloudFront Function used to check a JWT token',
             'Runtime': 'cloudfront-js-1.0'
         },
         FunctionCode=str.encode(replaced_content)

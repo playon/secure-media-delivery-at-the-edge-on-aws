@@ -1,7 +1,9 @@
 :root {
     --jumbotron-padding-y: 3rem;
 }
-
+.bg-dark {
+  background-color: #202c3d!important;
+}
 .jumbotron {
   padding-top: var(--jumbotron-padding-y);
   padding-bottom: var(--jumbotron-padding-y);
@@ -32,7 +34,7 @@ footer p {
   margin-bottom: .25rem;
 }
 
-.box-shadow { box-shadow: 0 .25rem .75rem rgba(0, 0, 0, .05); }
+.box-shadow { box-shadow: 0 .25rem .75rem rgba(208, 52, 52, 0.05); }
 
 
 .form-signin {
@@ -66,8 +68,8 @@ footer p {
 }
 
 pre {
-  background-color: ghostwhite;
-  border: 1px solid silver;
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgb(230, 230, 230);
   padding: 10px 20px;
   margin: 20px;
   }
@@ -88,6 +90,11 @@ pre {
   color: black !important;
   background-color: #13d622 !important;
   border-color: #13d622 !important;
+}
+
+.btn .i{
+  color: white !important;
+  border-color: white !important;
 }
 
 #hls {

@@ -1,9 +1,91 @@
+'use strict';
 
-const videoHls = document.getElementById('videoPlayer');
-const hls = new Hls();
-const playerDash = dashjs.MediaPlayer().create();
-var currentStream = "hls";
-var dash_initialized = false;
+var player = videojs('my_video_1');
+
+const HLS_STREAM = "hls";
+const DASH_STREAM = "dash";
+var CURRENT_STREAM = "";
+
+
+$('#hls').on('change', function () {
+ console.log(HLS_STREAM);
+ CURRENT_STREAM = HLS_STREAM;
+ load(HLS_STREAM);
+
+});
+
+$('#dash').on('change', function () {
+  console.log(DASH_STREAM);
+  CURRENT_STREAM = DASH_STREAM;
+  load(DASH_STREAM);
+
+});
+
+function load(type) {
+  putStreamTypeLabel(type)
+  resetAllDivText();
+  const idAsset = type == HLS_STREAM ? 1 : 2;
+  const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
+  player.src('');
+  $.ajax({
+    type: 'GET',
+    url: urlToGet,
+    success: function (data, status, xhr) {
+      showResultDiv();
+      showVideo();
+      hideErrorDiv();
+
+      var manifest_url = data;
+      var l = getLocation(manifest_url);
+      var tokens = l.pathname.substring(1, l.pathname.indexOf('/', 1)).split(".");
+      const jwtHeader = library.json.prettyPrint(JSON.parse(atob(tokens[1])));
+      const jwtPayload = library.json.prettyPrint(JSON.parse(atob(tokens[2])));
+
+      showVideoMetadata(urlToGet, data, jwtHeader, jwtPayload);
+
+      player.src({
+        src: manifest_url
+      });
+      player.play();
+
+    },
+    error: function (data, status, xhr) {
+
+      if (data.status == 404) {
+        //not found
+        showVideoError("Video asset not configured for " + type.toUpperCase()+ " !")
+        showVideoErrorDiv();
+        showResultDiv();
+        hideVideo();
+
+      } else {
+        //different error
+        $("#errorAsset").text("Unknown error!");
+
+        showVideoErrorDiv();
+        showResultDiv();
+
+      }
+      resetAllDivText();
+
+    }
+  });
+
+
+}
+
+function putStreamTypeLabel(stream_type) {
+  $("#stream_type").text(stream_type.toUpperCase() + ' stream');
+
+}
+
+function resetAllDivText() {
+  $("#request_url_value").text('');
+  $("#playback_url_value").text('');
+  $('#jwt_header').text('');
+  $('#jwt_payload').html('');
+}
+
 
 var getLocation = function (href) {
   var l = document.createElement("a");
@@ -35,84 +117,6 @@ library.json = {
   }
 };
 
-function playHLS(url) {
-
-  if (dash_initialized) {
-    playerDash.reset();
-  }
-
-  // bind them together
-  hls.attachMedia(videoHls);
-  hls.on(Hls.Events.MEDIA_ATTACHED, function () {
-    hls.loadSource(url);
-    hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
-    });
-
-    videoHls.play();
-  });
-
-}
-
-function playDASH(url) {
-  dash_initialized = true;
-  hls.detachMedia();
-  playerDash.initialize(document.querySelector("#videoPlayer"), url, true);
-}
-
-function load(type) {
-
-  resetAllDivText();
-  const idAsset = type == 'hls' ? 1 : 2;
-  const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
-
-  $.ajax({
-    type: 'GET',
-    url: urlToGet,
-    success: function (data, status, xhr) {
-      showResultDiv();
-      showVideo();
-      hideErrorDiv();
-
-      var manifest_url = data;
-      var l = getLocation(manifest_url);
-      var tokens = l.pathname.substring(1, l.pathname.indexOf('/', 1)).split(".");
-      const jwtHeader = library.json.prettyPrint(JSON.parse(atob(tokens[1])));
-      const jwtPayload = library.json.prettyPrint(JSON.parse(atob(tokens[2])));
-
-      showVideoMetadata(urlToGet, data, jwtHeader, jwtPayload);
-
-      if (type == 'hls') {
-        playHLS(manifest_url);
-      } else {
-        playDASH(manifest_url);
-      }
-
-    },
-    error: function (data, status, xhr) {
-
-      if (data.status == 404) {
-        //not found
-        showVideoError("Video asset not configured for " + type.toUpperCase()+ " !")
-        showVideoErrorDiv();
-        showResultDiv();
-        hideVideo();
-
-      } else {
-        //different error
-        $("#errorAsset").text("Unknown error!");
-
-        showVideoErrorDiv();
-        showResultDiv();
-
-      }
-      destroyPlayers();
-      resetAllDivText();
-
-    }
-  });
-
-
-}
 
 function showVideoMetadata(requestUrl, playbackUrl, jwtHeader, jwtPayload) {
   $("#request_url_value").text(requestUrl);
@@ -126,7 +130,6 @@ function showVideoError(errorMsg) {
 }
 function showResultDiv() {
   $("#result").removeClass('d-none');
-  $("#video_div").removeClass('d-none');
   $("#metadataDiv").removeClass('d-none');
 }
 
@@ -147,24 +150,6 @@ function hideErrorDiv() {
   $("#errorMsg").addClass('d-none');
   $("#errorAsset").addClass('d-none');
 }
-function enableSubmitButton() {
-  $('#submit').prop('disabled', false);
-  $("#submit").text("Sign in");
-}
-
-function resetAllDivText() {
-  $("#request_url_value").text('');
-  $("#playback_url_value").text('');
-  $('#jwt_header').text('');
-  $('#jwt_payload').html('');
-}
-function destroyPlayers() {
-  hls.detachMedia();
-  if (dash_initialized) {
-    playerDash.reset();
-  }
-
-}
 
 function enableRevokeSessionButton() {
   $('#sessionrevoke').prop('disabled', false);
@@ -176,21 +161,11 @@ function loadingRevokeSessionButton() {
   $("#sessionrevoke").text("Submitting...");
 }
 
-$('#hls').on('change', function () {
-  currentStream = "hls";
-  load('hls');
 
-});
-
-$('#dash').on('change', function () {
-  currentStream = "dash";
-  load('dash');
-
-});
 
 $('#refreshtoken').on('click', function () {
 
-  if(currentStream =='hls'){
+  if(CURRENT_STREAM =='hls'){
     load('hls');
   }else{
     load('dash');
@@ -227,8 +202,6 @@ $('#sessionrevoke').on('click', function () {
   });
 
 });
-
-load('hls');
 
 
 

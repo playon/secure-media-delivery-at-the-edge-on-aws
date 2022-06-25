@@ -12,7 +12,7 @@ const app = new cdk.App();
   // The stack configuration.
   const config = await getOpts();
 
-  const stackSynthesizer = config.main?.rotate_secrets_pattern === 'P' ?  new DefaultStackSynthesizer({  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}"}) : new DefaultStackSynthesizer()
+  const stackSynthesizer = config.main?.assets_bucket_name ?  new DefaultStackSynthesizer({  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}"}) : new DefaultStackSynthesizer()
 
   const coreStack = new SecureMediaStreamingStack(
     app,

@@ -23,12 +23,11 @@ import { addCfnSuppressRules } from "./utils";
 
 export interface IConfigProps {
   sig4LambdaVersionParamName: string;
-  //sig4LambdaArnParamName: string;
   sig4LambdaRoleArn: string;
   apiArn: string;
 }
 
-export class CustomResourceLambdaEdge extends Construct {
+export class CRUpdateLERole extends Construct {
   public readonly lambdaEdgeVersionArn: string;
 
   constructor(scope: Construct, id: string, props: IConfigProps) {

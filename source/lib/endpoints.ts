@@ -32,7 +32,7 @@ import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import { HttpLambdaIntegration } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
-import { CustomResourceLambdaEdge } from "./custom_resources_lambda_edge";
+import { CRUpdateLERole } from "./cr_update_le_role";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
 import { addCfnSuppressRules } from "./utils";
 
@@ -57,13 +57,22 @@ export class Endpoints extends Construct {
         blockPublicPolicy: true,
         blockPublicAcls: true,
         ignorePublicAcls: true,
-        restrictPublicBuckets: true
-       }),
+        restrictPublicBuckets: true,
+      }),
     });
 
-    addCfnSuppressRules(s3Logs, [{ id: 'W35', reason: 'It is a log bucket, not need to have access logging enabled.' }]);
-    addCfnSuppressRules(s3Logs, [{ id: 'W51', reason: 'It is a log bucket, not need for a bucket policy.' }]);
-
+    addCfnSuppressRules(s3Logs, [
+      {
+        id: "W35",
+        reason: "It is a log bucket, not need to have access logging enabled.",
+      },
+    ]);
+    addCfnSuppressRules(s3Logs, [
+      {
+        id: "W51",
+        reason: "It is a log bucket, not need for a bucket policy.",
+      },
+    ]);
 
     const hostingBucket = new s3.Bucket(this, "HostingBucket", {
       /*serverAccessLogsBucket: s3Logs,
@@ -76,10 +85,16 @@ export class Endpoints extends Construct {
        }),*/
     });
 
-    addCfnSuppressRules(hostingBucket, [{ id: 'W35', reason: 'It is a log bucket, not need to have access logging enabled.' }]);
+    addCfnSuppressRules(hostingBucket, [
+      {
+        id: "W35",
+        reason: "It is a log bucket, not need to have access logging enabled.",
+      },
+    ]);
 
-    addCfnSuppressRules(hostingBucket, [{ id: 'W41', reason: 'Encryption done' }]);
-
+    addCfnSuppressRules(hostingBucket, [
+      { id: "W41", reason: "Encryption done" },
+    ]);
 
     const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";
 
@@ -91,7 +106,7 @@ export class Endpoints extends Construct {
     const authorizer = new HttpIamAuthorizer();
 
     const httpApi = new apigwv2.HttpApi(this, "HttpApi", {
-      apiName:  Aws.STACK_NAME + "_SecureMediaStreamDemoAPI",
+      apiName: Aws.STACK_NAME + "_SecureMediaStreamDemoAPI",
       description: "Secure Media Stream Demo API",
       defaultAuthorizer: authorizer,
     });
@@ -102,8 +117,13 @@ export class Endpoints extends Construct {
       retention: logs.RetentionDays.ONE_MONTH,
     });
 
-    addCfnSuppressRules(log, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
-
+    addCfnSuppressRules(log, [
+      {
+        id: "W84",
+        reason:
+          "We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.",
+      },
+    ]);
 
     const stage = <CfnStage>httpApi.defaultStage!.node.defaultChild;
     stage.accessLogSettings = {
@@ -148,32 +168,40 @@ export class Endpoints extends Construct {
       }
     );
 
-    const myResponseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, 'ResponseHeadersPolicy', {
-      responseHeadersPolicyName: Aws.STACK_NAME+'SecureStreamingPolicy',
-      comment: 'ResponseHeadersPolicy for Secure Media Streaming',
-      securityHeadersBehavior: {
-        //contentSecurityPolicy: { contentSecurityPolicy: "default-src 'none'; script-src 'self' https://unpkg.com https://code.jquery.com https://cdn.jsdelivr.net; style-src 'self' https://unpkg.com https://cdn.jsdelivr.net; img-src 'self'; connect-src *; media-src blob:; worker-src blob:", override: true },
-        contentTypeOptions: { override: true },
-        frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
-        referrerPolicy: { referrerPolicy: cloudfront.HeadersReferrerPolicy.SAME_ORIGIN, override: true },
-        strictTransportSecurity: { accessControlMaxAge: Duration.seconds(31536000), includeSubdomains: true, override: true },
-        xssProtection: { protection: true, modeBlock: true, override: true },
-      },
-    });
+    const myResponseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(
+      this,
+      "ResponseHeadersPolicy",
+      {
+        responseHeadersPolicyName: Aws.STACK_NAME + "SecureStreamingPolicy",
+        comment: "ResponseHeadersPolicy for Secure Media Streaming",
+        securityHeadersBehavior: {
+          //contentSecurityPolicy: { contentSecurityPolicy: "default-src 'none'; script-src 'self' https://unpkg.com https://code.jquery.com https://cdn.jsdelivr.net; style-src 'self' https://unpkg.com https://cdn.jsdelivr.net; img-src 'self'; connect-src *; media-src blob:; worker-src blob:", override: true },
+          contentTypeOptions: { override: true },
+          frameOptions: {
+            frameOption: cloudfront.HeadersFrameOption.DENY,
+            override: true,
+          },
+          referrerPolicy: {
+            referrerPolicy: cloudfront.HeadersReferrerPolicy.SAME_ORIGIN,
+            override: true,
+          },
+          strictTransportSecurity: {
+            accessControlMaxAge: Duration.seconds(31536000),
+            includeSubdomains: true,
+            override: true,
+          },
+          xssProtection: { protection: true, modeBlock: true, override: true },
+        },
+      }
+    );
 
     const apiArn = `arn:aws:execute-api:${region}:*:${httpApi.apiId}/*`;
 
-
-    const customResourceLE = new CustomResourceLambdaEdge(
-      this,
-      "CustomResourceLE",
-      {
-        sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
-        //sig4LambdaArnParamName: props.sig4LambdaArnParamName,
-        sig4LambdaRoleArn: props.sig4LambdaRoleArn,
-        apiArn,
-      }
-    );
+    const customResourceLE = new CRUpdateLERole(this, "CustomResourceLE", {
+      sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
+      sig4LambdaRoleArn: props.sig4LambdaRoleArn,
+      apiArn,
+    });
 
     const httpApiOrigin = new origins.HttpOrigin(
       `${httpApi.apiId}.execute-api.${region}.amazonaws.com`
@@ -184,12 +212,6 @@ export class Endpoints extends Construct {
       "CfLambdaEdge",
       customResourceLE.lambdaEdgeVersionArn
     );
-
-    /*const sig4Function = new cloudfront.experimental.EdgeFunction(this, 'MySig4Function', {
-      runtime: lambda.Runtime.NODEJS_14_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset('lambda/sig4'),
-    });*/
 
     const s3origin = new origins.S3Origin(hostingBucket);
 
@@ -213,7 +235,6 @@ export class Endpoints extends Construct {
           viewerProtocolPolicy:
             cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
-
         },
         "/tokengenerate": {
           origin: httpApiOrigin,
@@ -252,8 +273,12 @@ export class Endpoints extends Construct {
       },
     });
 
-    addCfnSuppressRules(distribution, [{ id: 'W70', reason: 'CloudFront has the setting to use minimum TLS version 1.2.' }]);
-
+    addCfnSuppressRules(distribution, [
+      {
+        id: "W70",
+        reason: "CloudFront has the setting to use minimum TLS version 1.2.",
+      },
+    ]);
 
     new CfnOutput(this, "HostingBucketName", {
       value: hostingBucket.bucketName,

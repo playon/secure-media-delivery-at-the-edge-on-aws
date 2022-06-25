@@ -38,10 +38,9 @@ export class AutoSessionRevocationStack extends Stack {
     scope: Construct,
     id: string,
     configuration: IConfiguration,
-    sessionsTable: ITable,
-    props: StackProps
+    sessionsTable: ITable
   ) {
-    super(scope, id, props);
+    super(scope, id);
 
     const sqlQueryBucket = new s3.Bucket(this, "SqlQuery", {
       encryption: s3.BucketEncryption.S3_MANAGED,

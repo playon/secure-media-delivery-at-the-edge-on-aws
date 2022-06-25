@@ -4,6 +4,7 @@ import { getOpts } from "../helpers/opts";
 
 import { SecureMediaStreamingStack } from "../lib/secure_media_stream_stack";
 import { AutoSessionRevocationStack } from "../lib/auto_session_revocation";
+import { Aws, DefaultStackSynthesizer } from "aws-cdk-lib";
 
 const app = new cdk.App();
 
@@ -20,19 +21,13 @@ const app = new cdk.App();
     process.env.CDK_DEPLOY_REGION ||
     process.env.CDK_DEFAULT_REGION;
 
-
-console.log(cdk.Fn.sub("my-bucket-${AWS::Region}"))
-
+  const stackSynthesizer = config.main?.rotate_secrets_pattern == 'P' ?  new DefaultStackSynthesizer({  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}"}) : new DefaultStackSynthesizer()
   const coreStack = new SecureMediaStreamingStack(
     app,
     config.main?.stack_name!,
     config,
     {
-      env: {
-        account: account,
-        region: region,
-      }
-
+      synthesizer: stackSynthesizer
     }
   );
   //coreStack.addDependency(usEast1Stack);

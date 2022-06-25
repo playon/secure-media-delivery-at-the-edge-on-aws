@@ -82,63 +82,20 @@ cd "$source_dir"
 
 chmod +x ./install_dependencies.sh && ./install_dependencies.sh
 
+#replace assets_bucket_name
+sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
+
+
 echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
+
 
 npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-############ Tweak template #############
-#
-# 1. CDK generated template uses a CDK generated bucket for assets. Replacing this bucket with BUILD_OUTPUT_BUCKET in both templates
-# 2. The assets are folder on the disk (and some are already zipped).
-#         1 - zipping all assets folder
-#         2 - renaming the zip
-#         3 - update the template to use the zip name and to use BUILD_OUTPUT_BUCKET as bucket
-#         4 - upload the zips to BUILD_OUTPUT_BUCKET
-# 2. Some policies have a hardcoded AccountID; Replacing it with "AWS::AccountId" so that this template can be deployed in any AWS account
-# 3. Some policies have a hardcoded Region; Replacing it with "AWS::Region" so that this template can be deployed in any AWS region
 
-cdk_bucket_name=`grep -o '"bucketName": "[^"]*' $staging_dist_dir/${stack_name}.assets.json | grep -o '[^"]*$' | head -1 `
-echo "cdk_bucket_name=$cdk_bucket_name"
+# DELETED CODE
 
-new_bucket_name="{\"Fn::Sub\": \"$BUILD_OUTPUT_BUCKET-\${AWS::Region}\" }"
-
-#update asset bucket name in main template
-sed -i'' -e s"/\"$cdk_bucket_name\"/$new_bucket_name/" $staging_dist_dir/${stack_name}.template.json
-
-
-#replace bucket name in policy [ ":s3:::cdk-bucket-xxxxx" ] -> [ ":s3:::", "my-bucket-xxxxxx", "-", {"Ref": "AWS::Region"} ]
-str_to_replace1=":s3:::${cdk_bucket_name}"
-string1=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"} "
-sed -i'' -e s"#\"$str_to_replace1\"#$string1#" $staging_dist_dir/${stack_name}.template.json
-
-
-#replace bucket name in policy [ ":s3:::cdk-bucket-xxxxx/*" ] -> [ ":s3:::", "$BUILD_OUTPUT_BUCKET", "-", {"Ref": "AWS::Region"} ]
-str_to_replace2=":s3:::${cdk_bucket_name}/\*"
-string2=" \":s3:::\", \"$BUILD_OUTPUT_BUCKET\", \"-\", {\"Ref\": \"AWS::Region\"}, \"/\*\" "
-sed -i'' -e s"#\"$str_to_replace2\"#$string2#" $staging_dist_dir/${stack_name}.template.json
-
-#replace policy this [ "states.MY_REGION.amazonaws.com" ] -> [ { "Fn::Sub": "states.${AWS::Region}.amazonaws.com" } ]
-str_to_replace3="states.us-west-2.amazonaws.com"
-string3="{ \"Fn::Sub\": \"states.\${AWS::Region}.amazonaws.com\" } "
-sed -i'' -e s"#\"$str_to_replace3\"#$string3#" $staging_dist_dir/${stack_name}.template.json
-
-
-#replace policy [":execute-api:MY_REGION:MY_ACCOUNT_ID:"] -> [ ":execute-api:", {"Ref": "AWS::Region"}, ":", {"Ref": "AWS::AccountId"} , ":" ]
-DATA=`more ${staging_dist_dir}/${stack_name}.template.json`
-echo "replace policy for api gw"
-if [[ "$DATA" =~ :execute-api:([^:\n]*):([^:\n]*): ]]; then
-	my_region=${BASH_REMATCH[1]}
-	my_account_id=${BASH_REMATCH[2]}
-
-    echo "region=$my_region"
-    echo "my_account_id=$my_account_id"
-
-	str_to_replace4=":execute-api:${my_region}:${my_account_id}:"
-    echo "str_to_replace4=$str_to_replace4"
-	string4=" \":execute-api:\",{\"Ref\": \"AWS::Region\"}, \":\", {\"Ref\": \"AWS::AccountId\"} , \":\" "
-	sed -i'' -e s"#\"$str_to_replace4\"#$string4#" ${staging_dist_dir}/${stack_name}.template.json
-fi;
-
+#replace assets_bucket_name
+sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
 #zipping the assets
 i=1

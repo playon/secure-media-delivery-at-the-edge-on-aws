@@ -20,7 +20,7 @@ export interface IConfigProps {
   functionName: string;
 }
 
-export class InitSecrets extends Construct {
+export class CrInitSecrets extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 

@@ -27,8 +27,8 @@ import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
-import { AutoRevokeSessionsWorkflow } from "./auto_revoke_sessions_workflow";
-import { LoadSqlParams } from "./load_athena_config_table";
+import { AutoRevokeSessionsWorkflow } from "./autorevocation/auto_revoke_sessions_workflow";
+import { CrLoadSqlParams } from "./load_athena_config_table";
 import { addCfnSuppressRules } from "./utils";
 
 export class AutoSessionRevocationStack extends Stack {
@@ -68,7 +68,7 @@ export class AutoSessionRevocationStack extends Stack {
     addCfnSuppressRules(sqlConfigTable, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);
 
 
-    new LoadSqlParams(this, "SqlConfig", {
+    new CrLoadSqlParams(this, "SqlConfig", {
       table: sqlConfigTable,
       configuration: configuration,
     });

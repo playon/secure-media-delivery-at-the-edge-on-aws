@@ -21,13 +21,13 @@ import {
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
-import { IConfiguration } from "../helpers/validators/configuration";
-import { Secrets } from "./secrets";
-import { LoadAssetsTable } from "./load_assets_table";
-import { CWDashboard } from "./dashboard";
-import { Endpoints } from "./endpoints";
-import { addCfnSuppressRules } from "./utils";
-import { GetInputParameters } from "./input_parameters";
+import { IConfiguration } from "../../helpers/validators/configuration";
+import { Secrets } from "../main/secrets";
+import { CrLoadAssetsTable } from "../custom_resources/cr_load_assets_table";
+import { CWDashboard } from "../dashboard";
+import { Endpoints } from "../endpoints";
+import { addCfnSuppressRules } from "../utils";
+import { GetInputParameters } from "../cfn/input_parameters";
 import { AssetCode } from "aws-cdk-lib/aws-lambda";
 
 export interface IConfigProps {
@@ -110,7 +110,7 @@ export class Api extends Construct {
 
 
     //load the DDB table with 2 items (one for HLS and one for DASH)
-    new LoadAssetsTable(this, "AssetsTable", {
+    new CrLoadAssetsTable(this, "AssetsTable", {
       table: demoAssetsTable,
       configuration: props.configuration,
     });

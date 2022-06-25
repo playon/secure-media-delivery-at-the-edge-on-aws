@@ -23,7 +23,7 @@ export interface IConfigProps {
   configuration: IConfiguration;
 }
 
-export class LoadSqlParams extends Construct {
+export class CrLoadSqlParams extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 

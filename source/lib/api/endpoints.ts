@@ -32,9 +32,9 @@ import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import { HttpLambdaIntegration } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
-import { CRUpdateLERole } from "./cr_update_le_role";
+import { CRUpdateLERole } from "../custom_resources/cr_update_le_role";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
-import { addCfnSuppressRules } from "./utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
 
 export interface IConfigProps {
   generateTokenLambdaFunction: IFunction;
@@ -75,14 +75,14 @@ export class Endpoints extends Construct {
     ]);
 
     const hostingBucket = new s3.Bucket(this, "HostingBucket", {
-      /*serverAccessLogsBucket: s3Logs,
+      serverAccessLogsBucket: s3Logs,
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: new s3.BlockPublicAccess({
         blockPublicPolicy: true,
         blockPublicAcls: true,
         ignorePublicAcls: true,
         restrictPublicBuckets: true
-       }),*/
+       }),
     });
 
     addCfnSuppressRules(hostingBucket, [

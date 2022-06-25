@@ -23,7 +23,7 @@ export interface IConfigProps {
   configuration: IConfiguration;
 }
 
-export class LoadAssetsTable extends Construct {
+export class CrLoadAssetsTable extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 

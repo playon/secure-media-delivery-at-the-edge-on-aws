@@ -30,7 +30,7 @@ import { JsonPath } from "aws-cdk-lib/aws-stepfunctions";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
-import { InitSecrets } from "./init_secrets";
+import { CrInitSecrets } from "./custom_resources/cr_init_secrets";
 import { Secrets } from "./secrets";
 import { addCfnSuppressRules } from "./utils";
 
@@ -185,7 +185,7 @@ export class RotateSecretsWorkflow extends Construct {
     addCfnSuppressRules(cffLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
 
 
-    new InitSecrets(this, "Init", {
+    new CrInitSecrets(this, "Init", {
       functionArn: generateSecretUpdateCff.functionArn,
       functionName: generateSecretUpdateCff.functionName,
     });

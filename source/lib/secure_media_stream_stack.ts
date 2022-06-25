@@ -162,13 +162,16 @@ export class SecureMediaStreamingStack extends Stack {
     this.sessionToRevoke = sessionToRevoke;
 
     //session revocation resources
-    new SessionRevocation(this, "SessionRevocation", {
+    const sessionRevocation = new SessionRevocation(this, "SessionRevocation", {
       sessionToRevoke: sessionToRevoke,
       gsi_index_name: this.GSI_NAME,
       wcu: config.main?.wcu!,
       retention: config.main?.retention!,
       ruleGroupParamName: this.WAF_RULE_NAME_SSM_PARAM,
     });
+
+    sessionRevocation.node.addDependency(crCreateLEWafRule);
+
 
     //workflow used to rotate secrets (on a frequency selected by the user in the wizard)
     const rotateSecretsWorkflow = new RotateSecretsWorkflow(

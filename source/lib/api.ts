@@ -28,6 +28,7 @@ import { CWDashboard } from "./dashboard";
 import { Endpoints } from "./endpoints";
 import { addCfnSuppressRules } from "./utils";
 import { GetInputParameters } from "./input_parameters";
+import { AssetCode } from "aws-cdk-lib/aws-lambda";
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -44,55 +45,55 @@ export class Api extends Construct {
     super(scope, id);
 
     var runtime: lambda.Runtime;
-    var language: string;
+    var layerCode: AssetCode;
+    var lambdaCode: AssetCode;
 
     console.log("here1")
     console.log(props.configuration.api?.language);
 
+    const nodejsLayerAsset = lambda.Code.fromAsset(
+      "lambda/layers/aws_secure_media_delivery_nodejs"
+    );
+
+    const pythonLayerAsset = lambda.Code.fromAsset(
+      "lambda/layers/aws_secure_media_delivery_python"
+    );
+
+    const pythonLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/python")
+    const nodejsLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/nodejs")
+
+
+
     runtime = lambda.Runtime.NODEJS_14_X;
-    language = "nodejs";
+    layerCode = nodejsLayerAsset;
+    lambdaCode = nodejsLambdaAsset;
+
     var cdkSupportedRuntime = ['nodejs', 'python'];
+
+
     if(cdkSupportedRuntime.includes(props.configuration.api?.language!)){
-      //cdk deploy
-      console.log("cdk deploy")
+
+      console.log("cdk deploy");
+      runtime = props.configuration.api?.language! === "nodejs" ? lambda.Runtime.NODEJS_14_X : lambda.Runtime.PYTHON_3_7;
+      layerCode = props.configuration.api?.language! === "nodejs" ? nodejsLayerAsset : pythonLayerAsset;
+      lambdaCode = props.configuration.api?.language! === "nodejs" ? nodejsLambdaAsset : pythonLambdaAsset;
+
     }else{
-      console.log("cfn synth");
-      language = "nodejs"
+
+      console.log("deploy through CFN template");
       runtime = lambda.Runtime.NODEJS_14_X;
-    }
-
-    /*
-    //set the runtime based on the user selection in the wizard
-    if (props.configuration.api?.language === "A"){
-      console.log("here")
-      //deploy one-click from AWS Solutions, so the language needs to be retrieved from the parameters
-      language = props.parameters.customInputParameters.api?.language!
-      runtime = language=='nodejs' ? lambda.Runtime.NODEJS_14_X : lambda.Runtime.PYTHON_3_7;
-    }else{
-      console.log("here 2")
-      language = props.configuration.api?.language!
-      if (language == "nodejs") {
-        runtime = lambda.Runtime.NODEJS_14_X;
-      } else {
-        runtime = lambda.Runtime.PYTHON_3_7;
-      }
+      layerCode = nodejsLayerAsset;
+      lambdaCode = nodejsLambdaAsset
 
     }
 
-*/
-
-
-    console.log("runtime="+runtime);
-    console.log("language="+language);
     //build a layer with required libs
     const cloudfrontTokenLayer = new lambda.LayerVersion(
       this,
       "GenerateTokenLayer",
       {
         compatibleRuntimes: [runtime],
-        code: lambda.Code.fromAsset(
-          "lambda/layers/aws_secure_media_delivery_" + language
-        ),
+        code: layerCode,
         description: "Layer used by generate new secret lambda",
       }
     );
@@ -118,7 +119,7 @@ export class Api extends Construct {
     const generateToken = new lambda.Function(this, "GenerateToken", {
       functionName: Aws.STACK_NAME + "_GenerateToken",
       runtime: runtime,
-      code: lambda.Code.fromAsset("lambda/generate_token/" + language),
+      code: lambdaCode,
       handler: "index.handler",
       environment: {
         STACK_NAME: Aws.STACK_NAME,

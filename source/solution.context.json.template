@@ -8,7 +8,7 @@
     "retention": 5
   },
   "api": {
-    "language": "A",
+    "language": "nodejs",
     "demo": true
 
   },

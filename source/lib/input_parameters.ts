@@ -306,36 +306,14 @@ export class GetInputParameters extends Construct {
       }
     }
     if (configuration.api) {
-      if (configuration.api?.language === "A") {
-        const api_language = new CfnParameter(this, "MM", {
-          type: "String",
-          description: "Choose the programming language for API code ",
-          allowedValues: ["nodejs", "python"],
-        });
+      returnObject.api = {
+        language: configuration.api?.language!,
+        demo: true,
+      };
 
-        addParametersToInterface({
-          params: [
-            {
-              scope: this,
-              parameter: api_language,
-              groupLabel: "APIs",
-              parameterLabel: "Choose the programming language for the Lambdas",
-            },
-          ],
-        });
-
-        returnObject.api = {
-          language: api_language.valueAsString,
-          demo: true,
-        };
-      } else {
-        returnObject.api = {
-          language: configuration.api?.language!,
-          demo: true,
-        };
-      }
     }
 
+    console.log(returnObject);
     this.customInputParameters = returnObject;
   }
 }

@@ -28,8 +28,8 @@ import {
 import { IBucket } from "aws-cdk-lib/aws-s3";
 
 import { Construct } from "constructs";
-import { IConfiguration } from "../helpers/validators/configuration";
-import { addCfnSuppressRules } from "./utils";
+import { IConfiguration } from "../../helpers/validators/configuration";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
 
 export interface IConfigProps {
   bucket: IBucket;

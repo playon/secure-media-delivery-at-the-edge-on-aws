@@ -16,7 +16,7 @@ import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
 import { Construct } from "constructs";
 import * as fs from "fs";
-import { IConfiguration } from "../helpers/validators/configuration";
+import { IConfiguration } from "../../helpers/validators/configuration";
 
 export interface IConfigProps {
   table: ITable;

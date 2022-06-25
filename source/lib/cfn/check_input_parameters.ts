@@ -13,7 +13,7 @@
 
 import { CfnParameter, Stack } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { IConfiguration } from "../helpers/validators/configuration";
+import { IConfiguration } from "../../helpers/validators/configuration";
 import { addParametersToInterface } from "./cfn_parameters";
 
 //Construct used to implement input parameters when the user deploys the stack using CloudFormation template and not using the wizard and CDK
@@ -313,7 +313,6 @@ export class GetInputParameters extends Construct {
 
     }
 
-    console.log(returnObject);
     this.customInputParameters = returnObject;
   }
 }

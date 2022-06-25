@@ -29,10 +29,10 @@ import {
 import { JsonPath } from "aws-cdk-lib/aws-stepfunctions";
 
 import { Construct } from "constructs";
-import { IConfiguration } from "../helpers/validators/configuration";
-import { CrInitSecrets } from "./custom_resources/cr_init_secrets";
+import { IConfiguration } from "../../helpers/validators/configuration";
+import { CrInitSecrets } from "../custom_resources/cr_init_secrets";
 import { Secrets } from "./secrets";
-import { addCfnSuppressRules } from "./utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
 
 /**
  * The properties expected by the config construct.

@@ -24,10 +24,10 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../../helpers/validators/configuration";
 import { Secrets } from "../main/secrets";
 import { CrLoadAssetsTable } from "../custom_resources/cr_load_assets_table";
-import { CWDashboard } from "../dashboard";
-import { Endpoints } from "../endpoints";
-import { addCfnSuppressRules } from "../utils";
-import { GetInputParameters } from "../cfn/input_parameters";
+import { CWDashboard } from "../main/dashboard";
+import { Endpoints } from "./endpoints";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
+import { GetInputParameters } from "../cfn/check_input_parameters";
 import { AssetCode } from "aws-cdk-lib/aws-lambda";
 
 export interface IConfigProps {
@@ -48,8 +48,6 @@ export class Api extends Construct {
     var layerCode: AssetCode;
     var lambdaCode: AssetCode;
 
-    console.log("here1")
-    console.log(props.configuration.api?.language);
 
     const nodejsLayerAsset = lambda.Code.fromAsset(
       "lambda/layers/aws_secure_media_delivery_nodejs"
@@ -73,14 +71,14 @@ export class Api extends Construct {
 
     if(cdkSupportedRuntime.includes(props.configuration.api?.language!)){
 
-      console.log("cdk deploy");
+      //cdk deploy
       runtime = props.configuration.api?.language! === "nodejs" ? lambda.Runtime.NODEJS_14_X : lambda.Runtime.PYTHON_3_7;
       layerCode = props.configuration.api?.language! === "nodejs" ? nodejsLayerAsset : pythonLayerAsset;
       lambdaCode = props.configuration.api?.language! === "nodejs" ? nodejsLambdaAsset : pythonLambdaAsset;
 
     }else{
 
-      console.log("deploy through CFN template");
+      //deploy through CFN template
       runtime = lambda.Runtime.NODEJS_14_X;
       layerCode = nodejsLayerAsset;
       lambdaCode = nodejsLambdaAsset
@@ -164,7 +162,6 @@ export class Api extends Construct {
 
     props.secrets.primarySecret.grantRead(generateToken);
     props.secrets.secondarySecret.grantRead(generateToken);
-    console.log("props.configuration.api?.demo="+props.configuration.api?.demo)
     //endpoint creation using a CloudFront Distribution in front of an HTTP API
     new Endpoints(this, "Endpoints", {
       generateTokenLambdaFunction: generateToken,

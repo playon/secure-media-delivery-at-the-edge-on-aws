@@ -27,9 +27,9 @@ import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
-import { AutoRevokeSessionsWorkflow } from "./autorevocation/auto_revoke_sessions_workflow";
-import { CrLoadSqlParams } from "./load_athena_config_table";
-import { addCfnSuppressRules } from "./utils";
+import { AutoRevokeSessionsWorkflow } from "./autorevocation/auto_revocation_workflow";
+import { CrLoadSqlParams } from "./custom_resources/cr_load_athena_config_table";
+import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_suppress_rule.utils";
 
 export class AutoSessionRevocationStack extends Stack {
   private readonly params_filename = "athena_query_params.json";

@@ -19,7 +19,7 @@ import {
   Duration,
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
-import { addCfnSuppressRules } from "./utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
 
 export class Secrets extends Construct {
   public readonly primarySecret: secretsmanager.ISecret;

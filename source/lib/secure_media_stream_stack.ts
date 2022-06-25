@@ -29,14 +29,14 @@ import {
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
-import { Api } from "./api";
-import { CRCreateLEWafRule } from "./cr_create_le_rule";
-import { CWDashboard } from "./dashboard";
-import { GetInputParameters } from "./input_parameters";
-import { RotateSecretsWorkflow } from "./rotate_secrets_workflow";
-import { Secrets } from "./secrets";
-import { SessionRevocation } from "./session_revocation";
-import { addCfnSuppressRules } from "./utils";
+import { Api } from "./api/api";
+import { CRCreateLEWafRule } from "./custom_resources/cr_create_le_rule";
+import { CWDashboard } from "./main/dashboard";
+import { GetInputParameters } from "./cfn/check_input_parameters";
+import { RotateSecretsWorkflow } from "./main/rotate_secrets_workflow";
+import { Secrets } from "./main/secrets";
+import { SessionRevocation } from "./main/session_revocation";
+import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_suppress_rule.utils";
 
 export class SecureMediaStreamingStack extends Stack {
   public readonly sessionToRevoke: ddb.ITable;

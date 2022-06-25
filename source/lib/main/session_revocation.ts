@@ -25,7 +25,7 @@ import {
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
-import { addCfnSuppressRules } from "./utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
 
 export interface IConfigProps {
   sessionToRevoke: ITable;

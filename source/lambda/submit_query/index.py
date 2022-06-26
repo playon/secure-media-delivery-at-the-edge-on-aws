@@ -1,11 +1,8 @@
-import json
 import boto3
 import os
 import datetime
 
 secrets_client = boto3.client('secretsmanager')
-bucket_name = os.environ['BUCKET_NAME']
-params_filename = os.environ['PARAMS_FILENAME']
 s3 = boto3.client('s3')
 athena = boto3.client('athena')
 
@@ -178,17 +175,26 @@ def generate_athena_query(query_param):
 
 def handler(event, context):
 
-
-    local_params_filename = '/tmp/' + params_filename
-
-    #Download template file from S3
-    s3.download_file(bucket_name, params_filename, local_params_filename)
-
-    # Opening JSON file
-    f = open(local_params_filename)
-    data = json.load(f)
-    f.close()
-
-    params = json.loads(data)
-    query = generate_athena_query(params).replace('\n', '')
-    return query
+   params = {
+            'ip_penalty': int(os.environ['ip_penalty']),
+            'referer_penalty': int(os.environ['referer_penalty']),
+            'ua_penalty': int(os.environ['ua_penalty']),
+            'ip_rate': int(os.environ['ip_rate']),
+            'uri_column_name': os.environ['uri_column_name'],
+            'referer_column_name': os.environ['referer_column_name'],
+            'ua_column_name': os.environ['ua_column_name'],
+            'request_ip_column': os.environ['request_ip_column'],
+            'status_column_name': os.environ['status_column_name'],
+            'response_bytes_column_name': os.environ['response_bytes_column_name'],
+            'date_column_name': os.environ['date_column_name'],
+            'time_column_name': os.environ['time_column_name'],
+            'db_name': os.environ['db_name'],
+            'table_name': os.environ['table_name'],
+            'min_sessions_number': int(os.environ['min_sessions_number']),
+            'min_session_duration': int(os.environ['min_session_duration']),
+            'score_threshold': float(os.environ['score_threshold']),
+            'partitioned': int(os.environ['partitioned']),
+            'lookback_period': int(os.environ['lookback_period'])
+   }
+   query = generate_athena_query(params).replace('\n', '')
+   return query

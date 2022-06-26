@@ -36,7 +36,7 @@ import { GetInputParameters } from "./cfn/check_input_parameters";
 import { RotateSecretsWorkflow } from "./main/rotate_secrets_workflow";
 import { Secrets } from "./main/secrets";
 import { SessionRevocation } from "./main/session_revocation";
-import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_suppress_rule.utils";
+import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_utils";
 
 export class SecureMediaStreamingStack extends Stack {
   public readonly sessionToRevoke: ddb.ITable;

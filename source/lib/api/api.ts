@@ -26,7 +26,7 @@ import { Secrets } from "../main/secrets";
 import { CrLoadAssetsTable } from "../custom_resources/cr_load_assets_table";
 import { CWDashboard } from "../main/dashboard";
 import { Endpoints } from "./endpoints";
-import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 import { GetInputParameters } from "../cfn/check_input_parameters";
 import { AssetCode } from "aws-cdk-lib/aws-lambda";
 
@@ -171,12 +171,10 @@ export class Api extends Construct {
       demoWebsite: props.configuration.api?.demo as boolean
     });
 
-    const region = Aws.REGION;
-
     //build a CloudWatch Dashboard to display some metrics from generateToken Lambda
     props.dashboard.buildApiDashboard({
       lambdaFunctionName: generateToken.functionName,
-      region: region,
+      region: Aws.REGION,
     });
   }
 }

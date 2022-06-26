@@ -19,7 +19,7 @@ import {
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
-import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 
 export interface IConfigProps {
   sig4LambdaVersionParamName: string;

@@ -25,11 +25,12 @@ import {
   aws_iam as iam,
   aws_logs as logs,
 } from "aws-cdk-lib";
+import { IFunction } from "aws-cdk-lib/aws-lambda";
 import { IBucket } from "aws-cdk-lib/aws-s3";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../../helpers/validators/configuration";
-import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 
 export interface IConfigProps {
   bucket: IBucket;
@@ -37,12 +38,14 @@ export interface IConfigProps {
   configuration: IConfiguration;
 }
 
+
 export class AutoRevokeSessionsWorkflow extends Construct {
+
+  public submitQueryFunction : IFunction;
   constructor(
     scope: Construct,
     id: string,
-    props: IConfigProps,
-    params_filename: string
+    props: IConfigProps
   ) {
     super(scope, id);
 
@@ -51,11 +54,9 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       runtime: lambda.Runtime.PYTHON_3_7,
       code: lambda.Code.fromAsset("lambda/submit_query"),
       handler: "index.handler",
-      environment: {
-        BUCKET_NAME: props.bucket.bucketName,
-        PARAMS_FILENAME: params_filename,
-      },
     });
+
+    this.submitQueryFunction = submitAthenaQuery;
 
     addCfnSuppressRules(submitAthenaQuery, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
     addCfnSuppressRules(submitAthenaQuery, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
@@ -107,7 +108,6 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         ],
       })
     );
-    props.bucket.grantRead(submitAthenaQuery);
 
     const prepareQueryJob = new tasks.LambdaInvoke(
       this,

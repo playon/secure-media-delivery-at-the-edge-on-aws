@@ -20,8 +20,8 @@ import {
   aws_lambda as lambda,
   aws_logs as logs,
   aws_sqs as sqs,
-  aws_lambda_event_sources as event_source,
-  StackProps,
+  aws_iam as iam,
+  aws_lambda_event_sources as event_source
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
@@ -29,10 +29,9 @@ import { Construct } from "constructs";
 import { IConfiguration } from "../helpers/validators/configuration";
 import { AutoRevokeSessionsWorkflow } from "./autorevocation/auto_revocation_workflow";
 import { CrLoadSqlParams } from "./custom_resources/cr_load_athena_config_table";
-import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_suppress_rule.utils";
+import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_utils";
 
 export class AutoSessionRevocationStack extends Stack {
-  private readonly params_filename = "athena_query_params.json";
 
   constructor(
     scope: Construct,
@@ -68,12 +67,19 @@ export class AutoSessionRevocationStack extends Stack {
     addCfnSuppressRules(sqlConfigTable, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);
 
 
-    new CrLoadSqlParams(this, "SqlConfig", {
-      table: sqlConfigTable,
-      configuration: configuration,
-    });
+    const autoRevocationWorflow  = new AutoRevokeSessionsWorkflow(
+      this,
+      "GetSessions",
+      {
+        bucket: sqlQueryBucket,
+        dynamodbTable: sessionsTable,
+        configuration: configuration,
+      }
+    );
 
-    //When DynamoDB table holding the configuration for Athena query is modified, the Lambda is triggered and generate a JSON file to be used by
+
+
+    //When DynamoDB table holding the configuration for Athena query is modified, the Lambda is triggered and updates the env params for SubmitQuery Lambda
     //the StepFunction when running the query against CloudFront logs
     const updateSql = new lambda.Function(this, "ExportParams", {
       runtime: lambda.Runtime.PYTHON_3_7,
@@ -81,11 +87,31 @@ export class AutoSessionRevocationStack extends Stack {
       code: lambda.Code.fromAsset("lambda/export_params"),
       handler: "index.handler",
       environment: {
-        TABLE_NAME: sqlConfigTable.tableName,
-        BUCKET_NAME: sqlQueryBucket.bucketName,
-        PARAMS_FILENAME: this.params_filename,
+        SUBMIT_QUERY_FUNCTION : autoRevocationWorflow.submitQueryFunction.functionName
       },
     });
+
+    updateSql.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "lambda:UpdateFunctionConfiguration"
+        ],
+        resources: [autoRevocationWorflow.submitQueryFunction.functionArn],
+      })
+    );
+
+
+
+
+    const crLoadSqlParams = new CrLoadSqlParams(this, "SqlConfig", {
+      table: sqlConfigTable,
+      configuration: configuration,
+    });
+
+    //wait to create the table and lambda
+    crLoadSqlParams.node.addDependency(sqlConfigTable);
+    crLoadSqlParams.node.addDependency(updateSql);
 
     addCfnSuppressRules(updateSql, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
     addCfnSuppressRules(updateSql, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
@@ -121,15 +147,8 @@ export class AutoSessionRevocationStack extends Stack {
       })
     );
 
-    new AutoRevokeSessionsWorkflow(
-      this,
-      "GetSessions",
-      {
-        bucket: sqlQueryBucket,
-        dynamodbTable: sessionsTable,
-        configuration: configuration,
-      },
-      this.params_filename
-    );
+
+
+
   }
 }

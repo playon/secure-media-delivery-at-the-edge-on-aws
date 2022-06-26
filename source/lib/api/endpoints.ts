@@ -34,7 +34,7 @@ import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
 import { CRUpdateLERole } from "../custom_resources/cr_update_le_role";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
-import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_suppress_rule.utils";
+import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 
 export interface IConfigProps {
   generateTokenLambdaFunction: IFunction;

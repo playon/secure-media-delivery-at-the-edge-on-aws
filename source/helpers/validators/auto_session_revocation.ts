@@ -11,7 +11,7 @@ export interface ISessionRevocation {
    * to be sent when the actual budget is superior
    * to the limit value.
    */
-    trigger_workflow_frequency: number;
+    trigger_workflow_frequency: number ;
     db_name: string;
     table_name: string;
     request_ip_column: string;

@@ -160,7 +160,7 @@ export class Endpoints extends Construct {
         headerBehavior: cloudfront.OriginRequestHeaderBehavior.allowList(
           "CloudFront-Viewer-Address",
           "CloudFront-Viewer-Country",
-          "CloudFront-Viewer-City",
+          "CloudFront-Viewer-Country-Region",
           "Referer",
           "User-Agent"
         ),
@@ -182,7 +182,7 @@ export class Endpoints extends Construct {
             override: true,
           },
           referrerPolicy: {
-            referrerPolicy: cloudfront.HeadersReferrerPolicy.SAME_ORIGIN,
+            referrerPolicy: cloudfront.HeadersReferrerPolicy.ORIGIN,
             override: true,
           },
           strictTransportSecurity: {

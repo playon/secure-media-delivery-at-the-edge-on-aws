@@ -131,16 +131,22 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
     if (payload_jwt['co']){
         if (request_headers['cloudfront-viewer-country']){
             indirect_attr += (request_headers['cloudfront-viewer-country'].value + ':');
+        } else if(payload_jwt['co_fallback']) {
+            logToConsole("Viewer country header missing but co_fallback set to true. Skipping internal signature verification");
+            return true;
         } else {
             throw 'intsig reference error: cloudfront-viewer-country header is missing';
         }
     }
 
-    if (payload_jwt['cty']){
-        if (request_headers['cloudfront-viewer-city']){
-            indirect_attr += (request_headers['cloudfront-viewer-city'].value + ':');
+    if (payload_jwt['reg']){
+        if (request_headers['cloudfront-viewer-country-region']){
+            indirect_attr += (request_headers['cloudfront-viewer-country-region'].value + ':');
+        } else if(payload_jwt['reg_fallback']) {
+            logToConsole("Viewer country region header missing but reg_fallback set to true. Skipping internal signature verification");
+            return true;
         } else {
-            throw 'intsig reference error: cloudfront-viewer-city header is missing';
+            throw 'intsig reference error: cloudfront-viewer-country-region header is missing';
         }
     }
 

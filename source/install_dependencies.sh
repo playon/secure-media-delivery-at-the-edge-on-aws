@@ -16,9 +16,6 @@ python3 -m venv .venv
 echo "Activate your virtualenv"
 source .venv/bin/activate
 
-echo "Install jsonpath Python dependencies for AWS Lambda"
-pip install -r lambda/layers/jsonpath/requirements.txt -t lambda/layers/jsonpath/python
-
 echo "Copy aws_secure_media_delivery python lib to AWS Lambda Layer"
 cp resources/sdk/python/v1/aws_secure_media_delivery.py lambda/layers/aws_secure_media_delivery_python/python
 

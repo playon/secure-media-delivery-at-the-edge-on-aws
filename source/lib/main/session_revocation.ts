@@ -32,7 +32,8 @@ export interface IConfigProps {
   gsi_index_name: string;
   wcu: number;
   retention: number;
-  ruleGroupParamName: string;
+  ruleNameParamName: string;
+  ruleIdParamName: string;
 }
 
 export class SessionRevocation extends Construct {
@@ -41,27 +42,26 @@ export class SessionRevocation extends Construct {
     super(scope, id);
 
     const accountId = Aws.ACCOUNT_ID;
-
     //Getting the RuleGroup ID create in us-east-1 region (in a different stack)
     const ssmRuleGroupParameterId = new custom_resources.AwsCustomResource(
       this,
       "SSMParameter",
       {
-        onUpdate: {
+        onCreate: {
           service: "SSM",
           action: "getParameter",
-          parameters: { Name: `${config.ruleGroupParamName}` },
+          parameters: { Name: config.ruleIdParamName },
           region: Aws.REGION,
           physicalResourceId: custom_resources.PhysicalResourceId.of(
-            `${config.ruleGroupParamName}-${Aws.REGION}`
+            `${config.ruleIdParamName}-${Aws.REGION}`
           ),
         },
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ["ssm:GetParameter*"],
+            actions: ["ssm:GetParameter"],
             resources: [
-              `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${config.ruleGroupParamName}`,
+              `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${config.ruleIdParamName}`,
             ],
           }),
         ]),
@@ -84,8 +84,8 @@ export class SessionRevocation extends Construct {
         code: lambda.Code.fromAsset("lambda/update_rulegroup"),
         handler: "index.handler",
         environment: {
-          RULE_GROUP_ID: ssmRuleGroupId,
-          RULE_GROUP_NAME: config.ruleGroupParamName,
+          RULE_ID: ssmRuleGroupId,
+          RULE_NAME: config.ruleNameParamName,
           RETENTION: config.retention.toString(),
           TABLE_NAME: config.sessionToRevoke.tableName,
           MAX_SESSIONS: (config.wcu / 2).toString(),
@@ -115,7 +115,7 @@ export class SessionRevocation extends Construct {
           "wafv2:ListRuleGroups",
         ],
         resources: [
-          `arn:aws:wafv2:us-east-1:${accountId}:global/rulegroup/${config.ruleGroupParamName}/${ssmRuleGroupId}`,
+          `arn:aws:wafv2:us-east-1:${accountId}:global/rulegroup/${config.ruleNameParamName}/${ssmRuleGroupId}`,
         ],
       })
     );

@@ -44,6 +44,7 @@ export class SecureMediaStreamingStack extends Stack {
 
   private readonly LAMBDA_EDGE_VERSION_SSM_PARAM = Aws.STACK_NAME + "_sig4lambdaVersion";
   private readonly WAF_RULE_NAME_SSM_PARAM = Aws.STACK_NAME + "_BlockSessions";
+  private readonly WAF_RULE_ID_SSM_PARAM = this.WAF_RULE_NAME_SSM_PARAM + '_ID';
 
   constructor(
     scope: Construct,
@@ -58,8 +59,13 @@ export class SecureMediaStreamingStack extends Stack {
       WCU: config.main?.wcu!,
       LAMBDA_EDGE_VERSION_SSM_PARAM: this.LAMBDA_EDGE_VERSION_SSM_PARAM,
       WAF_RULE_NAME_SSM_PARAM: this.WAF_RULE_NAME_SSM_PARAM,
+      WAF_RULE_ID_SSM_PARAM: this.WAF_RULE_ID_SSM_PARAM,
       DEPLOY_LE: config.api ? true: false
     })
+
+    /*
+    ############## IT IS RECOMMENDED TO ACTIVATE CLOUDTRAIL #################
+    #########################################################################
 
     const s3Logs = new s3.Bucket(this, "CloudTrailLogsBucket", {
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -77,6 +83,7 @@ export class SecureMediaStreamingStack extends Stack {
     new cloudtrail.Trail(this, 'CloudTrail', {
       bucket: s3Logs
     });
+    */
 
 
     const parameters = new GetInputParameters(this, "InputParameters", config);
@@ -167,7 +174,8 @@ export class SecureMediaStreamingStack extends Stack {
       gsi_index_name: this.GSI_NAME,
       wcu: config.main?.wcu!,
       retention: config.main?.retention!,
-      ruleGroupParamName: this.WAF_RULE_NAME_SSM_PARAM,
+      ruleNameParamName: this.WAF_RULE_NAME_SSM_PARAM,
+      ruleIdParamName: this.WAF_RULE_ID_SSM_PARAM,
     });
 
     sessionRevocation.node.addDependency(crCreateLEWafRule);

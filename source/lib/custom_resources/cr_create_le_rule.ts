@@ -26,6 +26,7 @@ export interface IConfigProps {
   WCU: number;
   LAMBDA_EDGE_VERSION_SSM_PARAM: string;
   WAF_RULE_NAME_SSM_PARAM: string;
+  WAF_RULE_ID_SSM_PARAM: string;
   DEPLOY_LE: boolean;
 }
 
@@ -135,6 +136,7 @@ export class CRCreateLEWafRule extends Construct {
         STACK_NAME: Aws.STACK_NAME,
         LAMBDA_VERSION: props.LAMBDA_EDGE_VERSION_SSM_PARAM,
         WCU: props.WCU.toString(),
+        RULE_ID: props.WAF_RULE_ID_SSM_PARAM,
         RULE_NAME: props.WAF_RULE_NAME_SSM_PARAM,
         DEPLOY_LE: props.DEPLOY_LE ? "1" : "0",
       },

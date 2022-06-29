@@ -15,19 +15,19 @@ waf_client = boto3.client('wafv2', config=my_config)
 
 dynamodb = boto3.resource('dynamodb')
 
-rule_group_id = os.environ['RULE_GROUP_ID']
-rule_group_name = os.environ['RULE_GROUP_NAME']
-table_name = os.environ['TABLE_NAME']
-max_sessions = os.environ['MAX_SESSIONS']
-gsi_index_name = os.environ['GSI_INDEX_NAME']
-retention = os.environ['RETENTION']
+RULE_ID = os.environ['RULE_ID']
+RULE_NAME = os.environ['RULE_NAME']
+TABLE_NAME = os.environ['TABLE_NAME']
+MAX_SESSIONS = os.environ['MAX_SESSIONS']
+GSI_INDEX_NAME = os.environ['GSI_INDEX_NAME']
+RETENTION = os.environ['RETENTION']
 
-sessions_table = dynamodb.Table(table_name)
+sessions_table = dynamodb.Table(TABLE_NAME)
 
 
-def get_formatted_rule_config(session_id, rule_name, priority):
+def get_formatted_rule_config(session_id, RULE_NAME, priority):
    return {
-            "Name":rule_name,
+            "Name":RULE_NAME,
             "Priority":priority,
             "Statement":{
                "ByteMatchStatement":{
@@ -61,17 +61,17 @@ def get_formatted_rule_config(session_id, rule_name, priority):
 def get_current_rules():
 
    response = waf_client.get_rule_group(
-      Name=rule_group_name,
+      Name=RULE_NAME,
       Scope='CLOUDFRONT',
-      Id=rule_group_id
+      Id=RULE_ID
    )
 
    return response
 
 def update_rules(visibility, lock_token, rules):
    response = waf_client.update_rule_group(
-         Name = rule_group_name,
-         Id = rule_group_id,
+         Name = RULE_NAME,
+         Id = RULE_ID,
          Description = "TokenRevoke",
          Scope = "CLOUDFRONT",
          VisibilityConfig = visibility,
@@ -83,12 +83,12 @@ def update_rules(visibility, lock_token, rules):
    return response
 def query_sessions():
 
-   retentionDateTime = datetime.datetime.today() - datetime.timedelta(days=int(retention))
-   retentionEpochTimestamp = int(time.mktime(retentionDateTime.timetuple()))
+   RETENTIONDateTime = datetime.datetime.today() - datetime.timedelta(days=int(RETENTION))
+   RETENTIONEpochTimestamp = int(time.mktime(RETENTIONDateTime.timetuple()))
 
    response = sessions_table.query(
-      IndexName=gsi_index_name,
-      KeyConditionExpression=Key('reason').eq('COMPROMISED') & Key('last_updated').gte(retentionEpochTimestamp)
+      IndexName=GSI_INDEX_NAME,
+      KeyConditionExpression=Key('reason').eq('COMPROMISED') & Key('last_updated').gte(RETENTIONEpochTimestamp)
    )
    return response['Items']
 
@@ -112,9 +112,9 @@ def handler(event, context):
 
       for item in manual_sessions:
 
-         if global_index <= int(max_sessions):
-            rule_name = str(get_random_alphanumeric_string(8))
-            current_rule = get_formatted_rule_config(item['session_id'], rule_name, global_index)
+         if global_index <= int(MAX_SESSIONS):
+            RULE_NAME = str(get_random_alphanumeric_string(8))
+            current_rule = get_formatted_rule_config(item['session_id'], RULE_NAME, global_index)
             rules.append(current_rule)
             global_index += 1
             local_index +=1
@@ -126,9 +126,9 @@ def handler(event, context):
       local_index = 1
 
       for item in sorted_auto_sessions:
-         if global_index <= int(max_sessions):
-            rule_name = str(get_random_alphanumeric_string(8))
-            current_rule = get_formatted_rule_config(item['session_id'], rule_name, global_index)
+         if global_index <= int(MAX_SESSIONS):
+            RULE_NAME = str(get_random_alphanumeric_string(8))
+            current_rule = get_formatted_rule_config(item['session_id'], RULE_NAME, global_index)
             rules.append(current_rule)
             global_index += 1
             local_index +=1

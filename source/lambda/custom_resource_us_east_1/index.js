@@ -12,6 +12,7 @@ const WCU = process.env.WCU;
 const RULE_NAME = process.env.RULE_NAME;
 const ROLE_ARN = process.env.ROLE_ARN;
 const STACK_NAME = process.env.STACK_NAME;
+const RULE_ID = process.env.RULE_ID;
 const LAMBDA_VERSION = process.env.LAMBDA_VERSION;
 //const LAMBDA_ARN = process.env.LAMBDA_ARN;
 const DEPLOY_LE = process.env.DEPLOY_LE;
@@ -121,7 +122,7 @@ async function createWafRuleGroup() {
         };
 
         let result = await wafv2.createRuleGroup(params).promise();
-        await saveToSSM(RULE_NAME, result.Summary.Id)
+        await saveToSSM(RULE_ID, result.Summary.Id)
 
     } catch (error) {
         if (error.name === "WAFDuplicateItemException") {

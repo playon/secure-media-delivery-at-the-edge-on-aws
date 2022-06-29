@@ -96,43 +96,6 @@ export class RotateSecretsWorkflow extends Construct {
     addCfnSuppressRules(myLogs, [{ id: 'W84', reason: 'CloudWatch log group is always encrypted by default.' }]);
 
 
-    const getLastModifiedTime = new lambda.Function(
-      this,
-      "GetLastModifiedTime",
-      {
-        functionName: Aws.STACK_NAME + "_GetLastModifiedTime",
-        runtime: lambda.Runtime.PYTHON_3_7,
-        code: lambda.Code.fromAsset("lambda/get_last_modified_time"),
-        handler: "index.handler",
-        environment: {
-          MAX_ITERATIONS: "5",
-        },
-      }
-    );
-
-    addCfnSuppressRules(getLastModifiedTime, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
-    addCfnSuppressRules(getLastModifiedTime, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
-    addCfnSuppressRules(getLastModifiedTime, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
-
-
-    getLastModifiedTime.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ["cloudfront:Get*"],
-        resources: ["*"],
-        //
-      })
-    );
-
-    // Set Lambda Logs Retention and Removal Policy
-    const myLogsTs =new logs.LogGroup(this, "LastModifiedTimeLogs", {
-      logGroupName: "/aws/lambda/" + getLastModifiedTime.functionName,
-      removalPolicy: RemovalPolicy.DESTROY,
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    addCfnSuppressRules(myLogsTs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
-
     new CrInitSecrets(this, "Init", {
       functionArn: generateSecretUpdateCff.functionArn,
       functionName: generateSecretUpdateCff.functionName,
@@ -203,7 +166,7 @@ export class RotateSecretsWorkflow extends Construct {
         Name: props.checkTokenFunction.functionName,
         Stage: 'LIVE'
       },
-      iamResources: ['*'],
+      iamResources: [`arn:aws:cloudfront::${Aws.ACCOUNT_ID}:function/${props.checkTokenFunction.functionName}`],
       iamAction: 'cloudfront:describeFunction',
     });
 

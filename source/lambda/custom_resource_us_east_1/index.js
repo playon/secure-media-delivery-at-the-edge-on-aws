@@ -109,7 +109,7 @@ async function createWafRuleGroup() {
         // Creates WAF Rule Group
         var params = {
             Capacity: parseInt(WCU),
-            Name: RULE_NAME + '13',
+            Name: RULE_NAME,
             Scope: 'CLOUDFRONT',
             VisibilityConfig: {
                 CloudWatchMetricsEnabled: false,

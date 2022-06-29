@@ -49,15 +49,6 @@ export class RotateSecretsWorkflow extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    //jsonpath layer used by Lambda to parse JSON
-    const jsonPathLayer = new lambda.LayerVersion(this, "JsonPathLayer", {
-      compatibleRuntimes: [lambda.Runtime.PYTHON_3_7],
-      code: lambda.Code.fromAsset("lambda/layers/jsonpath"),
-      description: "Layer with jsonpath lib",
-    });
-
-    const accountId = Aws.ACCOUNT_ID;
-
     //Lambda used to generate new secrets:
     // 1 - generate 2 secrets when deploying the stacck
     // 2 - generate a new secret at each execution
@@ -142,49 +133,6 @@ export class RotateSecretsWorkflow extends Construct {
 
     addCfnSuppressRules(myLogsTs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
 
-
-    const getDistributionsForCff = new lambda.Function(
-      this,
-      "getDistributionsList",
-      {
-        functionName: Aws.STACK_NAME + "_GetDistributionsForCff",
-        runtime: lambda.Runtime.PYTHON_3_7,
-        code: lambda.Code.fromAsset("lambda/get_distributions_for_cff"),
-        handler: "index.handler",
-        timeout: Duration.seconds(300),
-        environment: {
-          CFF_NAME: props.checkTokenFunction.functionName,
-          ACCOUNT_ID: accountId,
-        },
-        layers: [jsonPathLayer],
-      }
-    );
-
-    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
-    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
-    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
-    addCfnSuppressRules(getDistributionsForCff, [{ id: 'W12', reason: 'Lambda needs to have permissions to read all CF distribution configuration' }]);
-
-
-    getDistributionsForCff.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ["cloudfront:List*"],
-        resources: ["*"],
-        //
-      })
-    );
-
-    // Set Lambda Logs Retention and Removal Policy
-    const cffLogs = new logs.LogGroup(this, "updateCFFLogs", {
-      logGroupName: "/aws/lambda/" + getDistributionsForCff.functionName,
-      removalPolicy: RemovalPolicy.DESTROY,
-      retention: logs.RetentionDays.ONE_MONTH,
-    });
-
-    addCfnSuppressRules(cffLogs, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
-
-
     new CrInitSecrets(this, "Init", {
       functionArn: generateSecretUpdateCff.functionArn,
       functionName: generateSecretUpdateCff.functionName,
@@ -235,17 +183,6 @@ export class RotateSecretsWorkflow extends Construct {
     props.secrets.secondarySecret.grantWrite(swapSecrets);
     props.secrets.secondarySecret.grantRead(swapSecrets);
 
-    const generateNewSecretJob = new tasks.LambdaInvoke(
-      this,
-      "Get distributions for CloudFront Function",
-      {
-        lambdaFunction: getDistributionsForCff,
-        outputPath: "$",
-        resultSelector: {
-          "Output.$": "$.Payload",
-        },
-      }
-    );
 
     const updateCloudFrontFunctionJob = new tasks.LambdaInvoke(
       this,
@@ -259,17 +196,16 @@ export class RotateSecretsWorkflow extends Construct {
       }
     );
 
-    const getLastModifiedTimeJob = new tasks.LambdaInvoke(
-      this,
-      "Get Last Modified Time",
-      {
-        lambdaFunction: getLastModifiedTime,
-        outputPath: "$.Output",
-        resultSelector: {
-          "Output.$": "$.Payload",
-        },
-      }
-    );
+    const getCFFStatus = new tasks.CallAwsService(this, 'Get CloudFront Function Status', {
+      service: 'cloudfront',
+      action: 'describeFunction',
+      parameters: {
+        Name: props.checkTokenFunction.functionName,
+        Stage: 'LIVE'
+      },
+      iamResources: ['*'],
+      iamAction: 'cloudfront:describeFunction',
+    });
 
     const swapSecretsJob = new tasks.LambdaInvoke(this, "Swap secrets", {
       lambdaFunction: swapSecrets,
@@ -279,25 +215,11 @@ export class RotateSecretsWorkflow extends Construct {
       time: sfn.WaitTime.duration(Duration.minutes(1)),
     });
 
-    const map = new sfn.Map(this, "Map State", {
-      maxConcurrency: 1,
-      inputPath: sfn.JsonPath.stringAt("$.Output.distributions"),
-      resultPath: sfn.JsonPath.DISCARD,
-    });
 
-    const checkConditions = new sfn.Choice(this, "Keep waiting?")
-      .when(
-        sfn.Condition.booleanEquals("$.continue", false),
-        new sfn.Fail(this, "Fail propagating")
-      )
-      .otherwise(wait.next(getLastModifiedTimeJob));
+    const updatePropagated = new sfn.Choice(this, "Status = DEPLOYED ?")
+    .when(sfn.Condition.stringEquals('$.FunctionSummary.Status', 'IN_PROGRESS'), wait.next(getCFFStatus))
+    .otherwise(swapSecretsJob)
 
-    const updatePropagated = new sfn.Choice(this, "Update propagated?")
-      .when(sfn.Condition.booleanEquals("$.propagated", false), checkConditions)
-      .otherwise(new sfn.Succeed(this, "Propagation OK"));
-
-    map.iterator(getLastModifiedTimeJob.next(updatePropagated));
-    // Step function to orchestrate generating a new secret
 
     const logGroup = new logs.LogGroup(this, "RotateSecretsGroup", {
       logGroupName: "/aws/vendedlogs/states/" + Aws.STACK_NAME + "-RotateSecrets",
@@ -308,16 +230,15 @@ export class RotateSecretsWorkflow extends Construct {
 
     //StepFunction used to coordinate tasks to swap secrets:
     // 1 - generate new secrets
-    // 2 - get the list of all distributions associated with our CloudFront Function
     // 3 - update the CloudFront Function with the new secret
-    // 4 - wait until all distribution are updated with the new CloudFront Function
+    // 4 - wait until CloudFront Function passes from IN_PROGRESS to DEPLOYED
     // 5 - Move secret 1 -> secret 2, new secret -> secret 1
     const workflow = new sfn.StateMachine(this, "Rotate", {
       stateMachineName: Aws.STACK_NAME + "_RotateSecret",
-      definition: generateNewSecretJob
-        .next(updateCloudFrontFunctionJob)
-        .next(map)
-        .next(swapSecretsJob),
+      definition:
+        updateCloudFrontFunctionJob
+        .next(getCFFStatus)
+        .next(updatePropagated),
       timeout: Duration.minutes(60),
       logs: {
         destination: logGroup,

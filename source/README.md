@@ -90,3 +90,17 @@ Below is the architecture diagram.
   <img src="assets/diagrams/architecture.drawio.png" />
   <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
 </div>
+
+### Rotate Secrets
+
+<div align="center">
+  <img src="assets/diagrams/rotate_secrets_sf.png" />
+  <div align="center"><sub>Rotate secrets (click to enlarge)</sub></div>
+</div>
+
+### Automatic session invalidation
+
+<div align="center">
+  <img src="assets/diagrams/detect_corrupted_sessions_sf.png" />
+  <div align="center"><sub>Automatic session invalidation (click to enlarge)</sub></div>
+</div>

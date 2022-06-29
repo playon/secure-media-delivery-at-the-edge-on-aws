@@ -149,7 +149,7 @@ export class RotateSecretsWorkflow extends Construct {
 
     const updateCloudFrontFunctionJob = new tasks.LambdaInvoke(
       this,
-      "Generate secrets & update CloudFront Function",
+      "Generate new secret & update CloudFront Function",
       {
         lambdaFunction: generateSecretUpdateCff,
         resultPath: JsonPath.DISCARD,
@@ -174,8 +174,8 @@ export class RotateSecretsWorkflow extends Construct {
       lambdaFunction: swapSecrets,
     });
 
-    const wait = new sfn.Wait(this, "Wait 1 minute", {
-      time: sfn.WaitTime.duration(Duration.minutes(1)),
+    const wait = new sfn.Wait(this, "Wait 20 seconds", {
+      time: sfn.WaitTime.duration(Duration.seconds(20)),
     });
 
 

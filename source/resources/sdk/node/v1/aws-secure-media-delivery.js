@@ -253,15 +253,16 @@ class Session{
         this.suspicion_score = suspicion_score;
     }
 
-    async revoke(reason='COMPROMISED'){
+    async revoke(expiry_period=86400,reason='COMPROMISED'){
         if(!Session._ddbClient) throw "DynamoDB client hasn't been initialized";
         if(!Session.revocationTable) throw "Revocation Table name must be set";
         let currentTimestamp = Math.floor(Date.now()/1000);
-        let expiryTime = currentTimestamp + 86400;
-        //TO-DO: add suspicion score
+        let expiryTime = currentTimestamp + expiry_period;
+		
         let item= {
             'session_id': { 'S': this.id},
             'type': { 'S': 'MANUAL' },
+			'score': {'N': this.suspicion_score.toString()},
             'reason': { 'S': reason },
             'last_updated' : { 'N': currentTimestamp.toString() },
             'ttl': { 'N': expiryTime.toString()}
@@ -271,13 +272,20 @@ class Session{
             Item: item,
             TableName: Session.revocationTable
         };
-        let prom = Session._ddbClient.putItem(params).promise();
-        return prom;
-        //TO-DO: check if promise was resolved
+		
+		let result;
+		try{
+			result = await Session._ddbClient.putItem(params).promise();
+		} catch(e){
+			logger(`Manual session revoke operation failed when updating DynamoDB table: ${e}`);
+			result = false;
+		}
+		
+        return result?true:false;
 
     } 
 
-    static _initDBClient(params={}){
+    static initDBClient(params={}){
         let ddb_creds;
         let ddb_region;
         if(params['profile']){

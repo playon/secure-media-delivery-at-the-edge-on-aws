@@ -114,7 +114,7 @@ def handler(event, context):
 
          if global_index <= int(MAX_SESSIONS):
             RULE_NAME = str(get_random_alphanumeric_string(8))
-            current_rule = get_formatted_rule_config(item['session_id'], RULE_NAME, global_index)
+            current_rule = get_formatted_rule_config('/' + item['session_id'], RULE_NAME, global_index)
             rules.append(current_rule)
             global_index += 1
             local_index +=1

@@ -30,23 +30,22 @@ def handler(event, context):
     primary_secret_key_value = list(json.loads(primary_secret_as_json).values())[0]
 
     #set primary value to secondary secret
-    response_secret = secrets_client.put_secret_value(
+    secrets_client.put_secret_value(
         SecretId=secondary_key_name,
         SecretString=json.dumps({primary_secret_key_name: primary_secret_key_value}),
     )
 
     #set temporary value to primary secret
-    response_secret = secrets_client.put_secret_value(
+    secrets_client.put_secret_value(
         SecretId=primary_key_name,
         SecretString=json.dumps({temporary_secret_key_name: temporary_secret_key_value}),
     )
 
     #delete the temporary keys
-    response_secret = secrets_client.put_secret_value(
+    secrets_client.put_secret_value(
         SecretId=temporary_key_name,
         SecretString=json.dumps({"INITIALIZED_KEY": "INITIALIZED_VALUE"}),
     )
 
     return "ok"
-    #raise Exception('Something went wrong')
-
+    

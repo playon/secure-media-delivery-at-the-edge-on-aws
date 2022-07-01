@@ -63,7 +63,7 @@ async function createLambdaEdge() {
             console.log("LambdaEdge exist already. Nothing to do.")
         } else {
             console.error(error);
-            throw Error('Creating Edge Lambda failed.');
+            throw new Error('Creating Edge Lambda failed.');
         }
 
     }

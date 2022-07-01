@@ -73,13 +73,10 @@ def handler(event, context):
 
     #update CloudFront Function
 
-    #update cloudfront function code
     replaced_content = ""
-    #looping through the file
     print("Read CloudFront Function code")
     file = open("index.js", "r")
 
-    #content = file.read()
     for line in file:
 
         #stripping line break
@@ -119,7 +116,7 @@ def handler(event, context):
     etag = response_cf['ETag']
 
     print("Publish CloudFront Function")
-    response_cf = cf_client.publish_function(
+    cf_client.publish_function(
         Name=cff_name,
         IfMatch=etag
     )
@@ -129,13 +126,13 @@ def generate_secret_key():
 
     now = datetime.now()
     letters = string.ascii_lowercase
-    random_key_suffix = ''.join(secrets.choice(letters) for i in range(10))
+    random_key_suffix = ''.join(secrets.choice(letters) for _ in range(10))
 
     return  now.strftime("%Y%m%d") + '_'+random_key_suffix
 
 def generate_secret_value():
 
     letters_and_digits = string.ascii_letters + string.digits
-    new_primary_secret_value = ''.join((secrets.choice(letters_and_digits) for i in range(64)))
+    new_primary_secret_value = ''.join((secrets.choice(letters_and_digits) for _ in range(64)))
 
     return new_primary_secret_value

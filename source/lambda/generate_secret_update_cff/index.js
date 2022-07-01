@@ -21,15 +21,15 @@ function logToConsole(message){
 function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, noVerify) {
     // check token and uri -> obligatory inputs
     if (!token ) {
-        throw 'No token supplied';
+        throw new Error('No token supplied');
     }
     if ( !uri ) {
-        throw 'No uri supplied';
+        throw new Error('No uri supplied');
     }
     // check segments
     var segments = token.split('.');
     if (segments.length !== 3) {
-        throw 'Not enough or too many segments in JWT token';
+        throw new Error('Not enough or too many segments in JWT token');
     }
 
     // All segment should be base64url
@@ -43,7 +43,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     var header = JSON.parse(_base64urlDecode(headerSeg));
     var payload = JSON.parse(_base64urlDecode(payloadSeg));
     } catch(e){
-        throw 'malformed JWT token';
+        throw new Error('malformed JWT token');
     }
 
     if (!noVerify) {
@@ -55,24 +55,24 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
             signingMethod = 'sha256';
             signingType = 'hmac';
         } else {
-            throw 'Missing or unsupported signing algorithm in JWT header';
+            throw new Error('Missing or unsupported signing algorithm in JWT header');
         }
 
         // Verify signature. `sign` will return base64 string.
         var signingInput = [headerSeg, payloadSeg].join('.');
 
         if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {
-            throw 'JWT signature verification failed';
+            throw new Error('JWT signature verification failed');
         }
 
         if (payload.exp && Date.now() > payload.exp*1000) {
             logToConsole(`JWT expiry: ${payload.exp}, current time: ${Date.now}`);
-            throw 'Token expired';
+            throw new Error('Token expired');
         }
 
         if (payload.nbf && Date.now() < payload.nbf*1000) {
             logToConsole(`JWT nbf: ${payload.nbf}, current time: ${Date.now}`);
-            throw 'Token not yet valid';
+            throw new Error('Token not yet valid');
         }
 
 
@@ -85,35 +85,35 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
         //validate if the request URL matches paths covered by the token
         var uri_match = false;
-        for (var i=0; i<payload.paths.length; i++){
-            if (uri.startsWith(payload.paths[i])) {
+        for (var j=0; j<payload.paths.length; j++){
+            if (uri.startsWith(payload.paths[j])) {
                 uri_match = true;
                 break;
             }
         }
         if (!uri_match) {
             logToConsole(`request uri: ${uri}`)
-            throw 'URI path doesn\'t match any path in the token';
+            throw new Error('URI path doesn\'t match any path in the token');
         }
 
         var full_ip;
         if(payload['ip']){
-            if(!payload['ip_ver']) throw "Missing ip_ver claim required when ip claim is set to true";
-            if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw "Incorrect ip_ver claim value. Must be either 4 or 6";
+            if(!payload['ip_ver']) throw new Error("Missing ip_ver claim required when ip claim is set to true");
+            if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw new Error("Incorrect ip_ver claim value. Must be either 4 or 6");
             if(ip.includes('.')){
-                if(payload['ip_ver'] != 4) throw "Viewer's IP version (4) doesn't match ip_ver claim";
+                if(payload['ip_ver'] != 4) throw new Error("Viewer's IP version (4) doesn't match ip_ver claim");
                 full_ip = ip;
             } else if(ip.includes(':')){
-                if(payload['ip_ver'] != 6) throw "Viewer's IP version (6) doesn't match ip_ver claim";
+                if(payload['ip_ver'] != 6) throw new Error("Viewer's IP version (6) doesn't match ip_ver claim");
                 var hextets = ip.split(':').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
                 full_ip = hextets.join(':');
             } else {
-                throw "Viewer's IP version not recognized";
+                throw new Error("Viewer's IP version not recognized");
             }
         }
 
         if (payload['intsig'] && !_verify_intsig(payload, secrets[header.kid], signingMethod, signingType, session_id, http_headers, querystrings, full_ip)) {
-            throw 'Internal signature verification failed';
+            throw new Error('Internal signature verification failed');
         }
 
     }
@@ -129,7 +129,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         if (request_ip){
             indirect_attr += (request_ip + ':');
         } else {
-            throw 'intsig reference error: Request IP is missing';
+            throw new Error('intsig reference error: Request IP is missing');
         }
     }
 
@@ -140,7 +140,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
             logToConsole("Viewer country header missing but co_fallback set to true. Skipping internal signature verification");
             return true;
         } else {
-            throw 'intsig reference error: cloudfront-viewer-country header is missing';
+            throw new Error('intsig reference error: cloudfront-viewer-country header is missing');
         }
     }
 
@@ -151,7 +151,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
             logToConsole("Viewer country region header missing but reg_fallback set to true. Skipping internal signature verification");
             return true;
         } else {
-            throw 'intsig reference error: cloudfront-viewer-country-region header is missing';
+            throw new Error('intsig reference error: cloudfront-viewer-country-region header is missing');
         }
     }
 
@@ -159,7 +159,7 @@ function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, reques
         if (sessionId){
             indirect_attr += sessionId + ':';
         } else {
-            throw 'intsig reference error: Session id is missing';
+            throw new Error('intsig reference error: Session id is missing');
         }
 
     }
@@ -191,7 +191,7 @@ function _verify_signature(input, key, method, type, signature) {
         return (signature === _sign(input, key, method));
     }
     else {
-        throw 'Algorithm type not recognized';
+        throw new Error('Algorithm type not recognized');
     }
 }
 
@@ -221,7 +221,7 @@ function processJWTToken(myEvent){
     //initial checks if token is present
     var auth_sequence = pathArray[1];
     if(!auth_sequence || pathArray.length < 3){
-        throw "Error: No token is present";
+        throw new Error("Error: No token is present");
     }
 
     //inputs grooming and setting internal variables
@@ -231,7 +231,7 @@ function processJWTToken(myEvent){
 
     //sanity check of the JWT token length
     if (jwtToken.length < 60) {
-        throw "Error: Invalid JWT token in the path";
+        throw new Error("Error: Invalid JWT token in the path");
     }
 
     //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
@@ -244,7 +244,7 @@ function processJWTToken(myEvent){
     }
     catch(e) {
         logToConsole(e);
-        throw "Error validating the token";
+        throw new Error("Error validating the token");
     }
 }
 

@@ -69,9 +69,9 @@ class Secret{
         this.stackName = stackName;
         this._smClient = null;
         this.ttl = ttl;
-        this.retrieveMode = retrieveMode,
-        this.retrieveFunction = retrieveFunction,
-        this.retrieveFunctionArgs = retrieveFunctionArgs
+        this.retrieveMode = retrieveMode;
+        this.retrieveFunction = retrieveFunction;
+        this.retrieveFunctionArgs = retrieveFunctionArgs;
     }
 
     initSMClient(params={}){
@@ -110,7 +110,7 @@ class Secret{
             primarySecret_json = Secret._getSecretKV(smResponses[0]);
             secondarySecret_json = Secret._getSecretKV(smResponses[1]);
         } catch (e){
-            throw `Couldn't retrieve SecretsManager secrets: ${e}`
+            throw new Error(`Couldn't retrieve SecretsManager secrets: ${e}`);
         }        
 
         let keys = {
@@ -159,7 +159,7 @@ class Secret{
                         this.keys = provisional_keys;
                         this._last_updated = Math.floor(Date.now()/1000);
                     } else {
-                        throw "Invalid format of the returned keys";
+                        throw new Error("Invalid format of the returned keys");
                     }
                 } else if(this.retrieveMode == 'custom'){
                     //TO-DO: add timeout
@@ -168,7 +168,7 @@ class Secret{
                         this.keys = provisional_keys;
                         this._last_updated = Math.floor(Date.now()/1000);
                     } else {
-                        throw "Invalid format of the returned keys";
+                        throw new Error("Invalid format of the returned keys");
                     }
                 }
             } catch(e){
@@ -183,7 +183,7 @@ class Secret{
                     return this.keys[key_alias];
                 }
             } else {
-                throw "Key retrival failed and no previously set key is available";
+                throw new Error("Key retrival failed and no previously set key is available");
             }
         } else {
             if(key_alias == 'all'){
@@ -243,7 +243,7 @@ class Session{
             if((sessionLength=parseInt(id)) > 6) {
                 this.id = Session._autoGenerate(sessionLength);
             } else{
-                throw "Invalid id input while autogenerate set to true. It must be a number greater than 6";
+                throw new Error("Invalid id input while autogenerate set to true. It must be a number greater than 6");
             }
         } else if(id) {
             this.id = id;
@@ -254,8 +254,8 @@ class Session{
     }
 
     async revoke(expiry_period=86400,reason='COMPROMISED'){
-        if(!Session._ddbClient) throw "DynamoDB client hasn't been initialized";
-        if(!Session.revocationTable) throw "Revocation Table name must be set";
+        if(!Session._ddbClient) throw new Error("DynamoDB client hasn't been initialized");
+        if(!Session.revocationTable) throw new Error("Revocation Table name must be set");
         let currentTimestamp = Math.floor(Date.now()/1000);
         let expiryTime = currentTimestamp + expiry_period;
 		
@@ -331,7 +331,7 @@ class Token{
     
     async generate(viewer_attributes, playback_url=null, token_policy = self.defaultTokenPolicy, secret_alias = 'primary'){
         let keys = await this.secret.retrieveKeys();
-        if(!keys[secret_alias]) throw "Provided secret alias can't be found in the retrived secret";
+        if(!keys[secret_alias]) throw new Error("Provided secret alias can't be found in the retrived secret");
         let playback_url_qs = {};
         if(playback_url){
             playback_url_qs = qs.parse(playback_url);
@@ -362,7 +362,7 @@ class Token{
                 jwt_payload['ip_ver']=6;
                 fullIP = expandIPv6(viewer_attributes['ip']);
             } else {
-                throw "Invalid viewer's IP format";
+                throw new Error("Invalid viewer's IP format");
             }
             jwt_payload['ip']=true;
             intsig_input += fullIP + ':';
@@ -429,14 +429,14 @@ class Token{
             } else if(token_policy['exp'].endsWith('m')){
                 jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*60;
             } else {
-                throw "Invalid exp format";
+                throw new Error("Invalid exp format");
             }
         } else {
             let parsedExp = parseInt(token_policy['exp']);
             if(parsedExp > 0){
                 jwt_payload['exp'] = parsedExp;
             } else {
-                throw "Invalid exp format";
+                throw new Error("Invalid exp format");
             }
         }
 

@@ -99,7 +99,7 @@ export class SecureMediaStreamingStack extends Stack {
     });
 
     //CloudFront Function used to fix the redirect for Media Tailor
-    const mediatailorRedirect = new cloudfront.Function(
+    new cloudfront.Function(
       this,
       "RedirectMediaTailorFunction",
       {

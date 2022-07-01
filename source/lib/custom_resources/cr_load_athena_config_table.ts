@@ -27,7 +27,7 @@ export class CrLoadSqlParams extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    const cr = new custom_resources.AwsCustomResource(this, "initDBResource", {
+    new custom_resources.AwsCustomResource(this, "initDBResource", {
       onCreate: {
         service: "DynamoDB",
         action: "putItem",

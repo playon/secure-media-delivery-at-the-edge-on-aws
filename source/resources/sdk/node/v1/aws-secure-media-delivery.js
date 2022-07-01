@@ -113,7 +113,7 @@ class Secret{
             throw new Error(`Couldn't retrieve SecretsManager secrets: ${e}`);
         }        
 
-        return keys = {
+        return {
             'primary': {
                 'uuid': Object.keys(primarySecret_json)[0],
                 'value': Object.values(primarySecret_json)[0]
@@ -310,7 +310,7 @@ class Session{
 
     static _autoGenerate(output_length){
         const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
-        return result_str = Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
+        return Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
     }
 
 }

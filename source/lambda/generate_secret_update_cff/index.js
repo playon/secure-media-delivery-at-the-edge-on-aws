@@ -38,8 +38,13 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     var signatureSeg = segments[2];
 
     // base64url decode and parse JSON
+
+    try{    
     var header = JSON.parse(_base64urlDecode(headerSeg));
     var payload = JSON.parse(_base64urlDecode(payloadSeg));
+    } catch(e){
+        throw 'malformed JWT token';
+    }
 
     if (!noVerify) {
         var alg = header['alg'];

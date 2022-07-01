@@ -311,7 +311,7 @@ class Session{
 
     static _autoGenerate(output_length){
         const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
-        let result_str = Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
+        let result_str = Array.from({length: output_length}, ()=>chars.charAt(crypto.randomInt(0,chars.length))).join('');
         return result_str;
     }
 

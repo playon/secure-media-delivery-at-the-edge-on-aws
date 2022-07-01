@@ -16,7 +16,6 @@ import {
   CfnOutput,
   Duration,
   RemovalPolicy,
-  Stack,
   aws_lambda as lambda,
   aws_cloudfront as cloudfront,
   aws_logs as logs,

@@ -12,7 +12,6 @@
  */
 
 import {
-  Stack,
   Aws,
   RemovalPolicy,
   custom_resources,

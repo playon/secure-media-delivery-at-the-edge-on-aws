@@ -11,7 +11,7 @@
  *  and limitations under the License.
  */
 
-import { CfnParameter, Stack } from "aws-cdk-lib";
+import { CfnParameter } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { IConfiguration } from "../../helpers/validators/configuration";
 import { addParametersToInterface } from "./cfn_parameters";

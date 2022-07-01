@@ -21,9 +21,6 @@ import {
   aws_iam as iam,
   aws_cloudfront as cloudfront,
   aws_dynamodb as ddb,
-  aws_cloudtrail as cloudtrail,
-  aws_lambda as lambda,
-  aws_s3 as s3,
 } from "aws-cdk-lib";
 
 
@@ -99,7 +96,7 @@ export class SecureMediaStreamingStack extends Stack {
     });
 
     //CloudFront Function used to fix the redirect for Media Tailor
-    const mediatailorRedirect = new cloudfront.Function(
+    new cloudfront.Function(
       this,
       "RedirectMediaTailorFunction",
       {

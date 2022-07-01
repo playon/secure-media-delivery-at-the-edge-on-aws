@@ -13,7 +13,6 @@
 
 import {
   Aws,
-  Stack,
   RemovalPolicy,
   aws_lambda as lambda,
   aws_dynamodb as ddb,

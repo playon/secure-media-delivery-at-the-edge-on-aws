@@ -69,9 +69,9 @@ class Secret{
         this.stackName = stackName;
         this._smClient = null;
         this.ttl = ttl;
-        this.retrieveMode = retrieveMode,
-        this.retrieveFunction = retrieveFunction,
-        this.retrieveFunctionArgs = retrieveFunctionArgs
+        this.retrieveMode = retrieveMode;
+        this.retrieveFunction = retrieveFunction;
+        this.retrieveFunctionArgs = retrieveFunctionArgs;
     }
 
     initSMClient(params={}){
@@ -110,10 +110,10 @@ class Secret{
             primarySecret_json = Secret._getSecretKV(smResponses[0]);
             secondarySecret_json = Secret._getSecretKV(smResponses[1]);
         } catch (e){
-            throw `Couldn't retrieve SecretsManager secrets: ${e}`
+            throw new Error(`Couldn't retrieve SecretsManager secrets: ${e}`);
         }        
 
-        let keys = {
+        return {
             'primary': {
                 'uuid': Object.keys(primarySecret_json)[0],
                 'value': Object.values(primarySecret_json)[0]
@@ -122,9 +122,8 @@ class Secret{
                 'uuid': Object.keys(secondarySecret_json)[0],
                 'value': Object.values(secondarySecret_json)[0]
             }
-        };
-        
-        return keys;
+        }
+                
     }
 
     getKeyValue(key_alias){
@@ -159,7 +158,7 @@ class Secret{
                         this.keys = provisional_keys;
                         this._last_updated = Math.floor(Date.now()/1000);
                     } else {
-                        throw "Invalid format of the returned keys";
+                        throw new Error("Invalid format of the returned keys");
                     }
                 } else if(this.retrieveMode == 'custom'){
                     //TO-DO: add timeout
@@ -168,7 +167,7 @@ class Secret{
                         this.keys = provisional_keys;
                         this._last_updated = Math.floor(Date.now()/1000);
                     } else {
-                        throw "Invalid format of the returned keys";
+                        throw new Error("Invalid format of the returned keys");
                     }
                 }
             } catch(e){
@@ -183,7 +182,7 @@ class Secret{
                     return this.keys[key_alias];
                 }
             } else {
-                throw "Key retrival failed and no previously set key is available";
+                throw new Error("Key retrival failed and no previously set key is available");
             }
         } else {
             if(key_alias == 'all'){
@@ -243,7 +242,7 @@ class Session{
             if((sessionLength=parseInt(id)) > 6) {
                 this.id = Session._autoGenerate(sessionLength);
             } else{
-                throw "Invalid id input while autogenerate set to true. It must be a number greater than 6";
+                throw new Error("Invalid id input while autogenerate set to true. It must be a number greater than 6");
             }
         } else if(id) {
             this.id = id;
@@ -254,8 +253,8 @@ class Session{
     }
 
     async revoke(expiry_period=86400,reason='COMPROMISED'){
-        if(!Session._ddbClient) throw "DynamoDB client hasn't been initialized";
-        if(!Session.revocationTable) throw "Revocation Table name must be set";
+        if(!Session._ddbClient) throw new Error("DynamoDB client hasn't been initialized");
+        if(!Session.revocationTable) throw new Error("Revocation Table name must be set");
         let currentTimestamp = Math.floor(Date.now()/1000);
         let expiryTime = currentTimestamp + expiry_period;
 		
@@ -311,8 +310,7 @@ class Session{
 
     static _autoGenerate(output_length){
         const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
-        let result_str = Array.from({length: output_length}, ()=>chars.charAt(crypto.randomInt(0,chars.length))).join('');
-        return result_str;
+        return Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
     }
 
 }
@@ -331,7 +329,7 @@ class Token{
     
     async generate(viewer_attributes, playback_url=null, token_policy = self.defaultTokenPolicy, secret_alias = 'primary'){
         let keys = await this.secret.retrieveKeys();
-        if(!keys[secret_alias]) throw "Provided secret alias can't be found in the retrived secret";
+        if(!keys[secret_alias]) throw new Error("Provided secret alias can't be found in the retrived secret");
         let playback_url_qs = {};
         if(playback_url){
             playback_url_qs = qs.parse(playback_url);
@@ -349,7 +347,7 @@ class Token{
             intsig: '',
             paths: [],
             exc: []
-        };
+        }
 
         let intsig_input = '';
 
@@ -362,27 +360,28 @@ class Token{
                 jwt_payload['ip_ver']=6;
                 fullIP = expandIPv6(viewer_attributes['ip']);
             } else {
-                throw "Invalid viewer's IP format";
+                throw new Error("Invalid viewer's IP format");
             }
             jwt_payload['ip']=true;
             intsig_input += fullIP + ':';
-        };
+        }
+
         if (token_policy['co']){
             jwt_payload['co']=true;
             intsig_input += viewer_attributes['co'] + ':';
             if(token_policy['co_fallback']) jwt_payload['co_fallback']=true;
-        };
+        }
 
         if (token_policy['cty']){
             jwt_payload['cty']=true;
             intsig_input += viewer_attributes['cty'] + ':';
-        }; 
+        }
 
         if (token_policy['reg']){
             jwt_payload['reg']=true;
             intsig_input += viewer_attributes['reg'] + ':';
             if(token_policy['reg_fallback']) jwt_payload['reg_fallback']=true;
-        }; 
+        } 
 
         if (token_policy['ssn']){
             jwt_payload['ssn']=true;
@@ -391,16 +390,16 @@ class Token{
             } else {
                 let session = new Session(token_policy['session_auto_generate'],true);
                 this.payloadSsn = session.id;
-            };
+            }
             intsig_input += this.payloadSsn + ':';
-        };
+        }
          
         if (token_policy['headers'] && token_policy['headers'].length){
             token_policy['headers'].forEach((header)=>{
                 jwt_payload['headers'].push(header);
                 if(viewer_attributes['headers'][header]) intsig_input += viewer_attributes['headers'][header] + ':';
             });
-        };
+        }
 
         if (token_policy['querystrings'] && token_policy['querystrings'].length){
             token_policy['querystrings'].forEach((qs_param)=>{
@@ -408,7 +407,7 @@ class Token{
                 let qs_value = playback_url_qs[qs_param] || viewer_attributes['qs'][qs_param];
                 if(qs_value) intsig_input += qs_value + ':';
             });
-        };
+        }
 
 		if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
@@ -416,7 +415,7 @@ class Token{
 			jwt_payload['intsig'] = this._sign(intsig_input, keys[secret_alias].value, 'sha256')
         } else {
 			delete jwt_payload['intsig'];
-		};
+		}
 
         jwt_payload['paths'] = token_policy['paths'];
         if (token_policy['exc']) jwt_payload['exc'] = token_policy['exc'];
@@ -429,14 +428,14 @@ class Token{
             } else if(token_policy['exp'].endsWith('m')){
                 jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*60;
             } else {
-                throw "Invalid exp format";
+                throw new Error("Invalid exp format");
             }
         } else {
             let parsedExp = parseInt(token_policy['exp']);
             if(parsedExp > 0){
                 jwt_payload['exp'] = parsedExp;
             } else {
-                throw "Invalid exp format";
+                throw new Error("Invalid exp format");
             }
         }
 

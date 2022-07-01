@@ -1,7 +1,7 @@
 import json
 import boto3
 import os
-import random
+import secrets
 import string
 
 from datetime import datetime
@@ -129,13 +129,13 @@ def generate_secret_key():
 
     now = datetime.now()
     letters = string.ascii_lowercase
-    random_key_suffix = ''.join(random.choice(letters) for i in range(10))
+    random_key_suffix = ''.join(secrets.choice(letters) for i in range(10))
 
     return  now.strftime("%Y%m%d") + '_'+random_key_suffix
 
 def generate_secret_value():
 
     letters_and_digits = string.ascii_letters + string.digits
-    new_primary_secret_value = ''.join((random.choice(letters_and_digits) for i in range(64)))
+    new_primary_secret_value = ''.join((secrets.choice(letters_and_digits) for i in range(64)))
 
     return new_primary_secret_value

@@ -14,9 +14,7 @@
 import {
   Aws,
   CfnOutput,
-  aws_secretsmanager as secretsmanager,
-  Stack,
-  Duration,
+  aws_secretsmanager as secretsmanager
 } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";

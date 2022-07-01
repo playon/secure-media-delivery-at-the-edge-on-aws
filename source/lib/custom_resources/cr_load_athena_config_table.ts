@@ -16,7 +16,6 @@ import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
 import { Construct } from "constructs";
 import { IConfiguration } from "../../helpers/validators/configuration";
-import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 
 export interface IConfigProps {
   table: ITable;

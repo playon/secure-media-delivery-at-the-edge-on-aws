@@ -113,7 +113,7 @@ class Secret{
             throw new Error(`Couldn't retrieve SecretsManager secrets: ${e}`);
         }        
 
-        let keys = {
+        return keys = {
             'primary': {
                 'uuid': Object.keys(primarySecret_json)[0],
                 'value': Object.values(primarySecret_json)[0]
@@ -122,9 +122,8 @@ class Secret{
                 'uuid': Object.keys(secondarySecret_json)[0],
                 'value': Object.values(secondarySecret_json)[0]
             }
-        };
-        
-        return keys;
+        }
+                
     }
 
     getKeyValue(key_alias){
@@ -311,8 +310,7 @@ class Session{
 
     static _autoGenerate(output_length){
         const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
-        let result_str = Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
-        return result_str;
+        return result_str = Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
     }
 
 }
@@ -349,7 +347,7 @@ class Token{
             intsig: '',
             paths: [],
             exc: []
-        };
+        }
 
         let intsig_input = '';
 
@@ -366,23 +364,24 @@ class Token{
             }
             jwt_payload['ip']=true;
             intsig_input += fullIP + ':';
-        };
+        }
+
         if (token_policy['co']){
             jwt_payload['co']=true;
             intsig_input += viewer_attributes['co'] + ':';
             if(token_policy['co_fallback']) jwt_payload['co_fallback']=true;
-        };
+        }
 
         if (token_policy['cty']){
             jwt_payload['cty']=true;
             intsig_input += viewer_attributes['cty'] + ':';
-        }; 
+        }
 
         if (token_policy['reg']){
             jwt_payload['reg']=true;
             intsig_input += viewer_attributes['reg'] + ':';
             if(token_policy['reg_fallback']) jwt_payload['reg_fallback']=true;
-        }; 
+        } 
 
         if (token_policy['ssn']){
             jwt_payload['ssn']=true;
@@ -391,16 +390,16 @@ class Token{
             } else {
                 let session = new Session(token_policy['session_auto_generate'],true);
                 this.payloadSsn = session.id;
-            };
+            }
             intsig_input += this.payloadSsn + ':';
-        };
+        }
          
         if (token_policy['headers'] && token_policy['headers'].length){
             token_policy['headers'].forEach((header)=>{
                 jwt_payload['headers'].push(header);
                 if(viewer_attributes['headers'][header]) intsig_input += viewer_attributes['headers'][header] + ':';
             });
-        };
+        }
 
         if (token_policy['querystrings'] && token_policy['querystrings'].length){
             token_policy['querystrings'].forEach((qs_param)=>{
@@ -408,7 +407,7 @@ class Token{
                 let qs_value = playback_url_qs[qs_param] || viewer_attributes['qs'][qs_param];
                 if(qs_value) intsig_input += qs_value + ':';
             });
-        };
+        }
 
 		if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
@@ -416,7 +415,7 @@ class Token{
 			jwt_payload['intsig'] = this._sign(intsig_input, keys[secret_alias].value, 'sha256')
         } else {
 			delete jwt_payload['intsig'];
-		};
+		}
 
         jwt_payload['paths'] = token_policy['paths'];
         if (token_policy['exc']) jwt_payload['exc'] = token_policy['exc'];

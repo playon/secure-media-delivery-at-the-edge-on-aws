@@ -23,7 +23,7 @@ def handler(event, context):
       #score_threshold must be > 1
       if(not float(db_item['score_threshold']['N'])>1):
           raise Exception("score_threshold is lower than 1")
-      response = lambda_client.update_function_configuration(
+      lambda_client.update_function_configuration(
             FunctionName=submit_query_function,
             Environment={
                 'Variables': {

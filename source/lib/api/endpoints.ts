@@ -14,7 +14,6 @@
 import {
   Aws,
   CfnOutput,
-  Stack,
   RemovalPolicy,
   aws_lambda as lambda,
   aws_s3_deployment as s3deploy,

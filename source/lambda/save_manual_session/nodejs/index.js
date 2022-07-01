@@ -4,10 +4,8 @@ const awsSMD = require("aws-secure-media-delivery");
 const tableName = process.env.TABLE_NAME;
 const TTL = process.env.TTL;
 
-awsSMD.setDEBUG(true);
-awsSMD.Session.revocationTable = tableName;
-awsSMD.Session.initDBClient();
-
+awsSMD.Session.setDEBUG(true);
+awsSMD.Session.initialize(tableName);
 
 const response400 = {
     statusCode: 400,

@@ -16,9 +16,10 @@ const response401 = {
     body: "Unauthorized"
 }
 
-awsSMD.setDEBUG(true);
+awsSMD.Secret.setDEBUG(true);
 let secret = new awsSMD.Secret(stackName,4);
 secret.initSMClient();
+awsSMD.Token.setDEBUG(true)
 let token = new awsSMD.Token(secret);
 
 exports.handler = async (event, context) => {

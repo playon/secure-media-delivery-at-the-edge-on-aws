@@ -4,14 +4,9 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const qs = require('querystring');
 
-let DEBUG = false;
 
-function setDEBUG(val){
-    DEBUG = val
-}
-
-function logger(message){
-    if(DEBUG) console.log("[DEBUG] " + message);
+function log(message){
+    if(this._debug || this._debug == undefined) console.log("[DEBUG] " + message);
 }
 
 function validateIPv4(address){
@@ -62,6 +57,15 @@ function expandIPv6(address){
 
 class Secret{
 
+    static _debug = false;
+    static logger = log;
+
+    static setDEBUG(val=true){
+        if(typeof(val)=='boolean'){
+            this._debug = val;
+        }
+    }
+
     constructor(stackName, ttl, retrieveMode = 'native', retrieveFunction = null, retrieveFunctionArgs = []){
         this.keys = null;
         this._last_updated = null;
@@ -91,7 +95,7 @@ class Secret{
         try{
             this._smClient = new aws.SecretsManager({credentials: sm_creds, region: sm_region});
         } catch(e) {
-            logger(`Couldn't create SecretsManager client: ${e}`);
+            Secret.logger(`Couldn't create SecretsManager client: ${e}`);
             return false;
         }
         return true;
@@ -135,7 +139,7 @@ class Secret{
     
     _checkIfExpired(){
         if(!this._last_updated){
-            logger('Keys have not been set yet');
+            Secret.logger('Keys have not been set yet');
             return null;
         } else if(Math.floor(Date.now()/1000)-this._last_updated  > this.ttl) {
             return true;
@@ -148,7 +152,7 @@ class Secret{
     async retrieveKeys(key_alias = 'all'){
         let isExpired = this._checkIfExpired();
         if((!this._last_updated) || (isExpired && (!this._lock))){
-            logger('Starting key retrival');
+            Secret.logger('Starting key retrival');
             this._lock = true;
             try{
                 if (this.retrieveMode == 'native') {
@@ -171,7 +175,7 @@ class Secret{
                     }
                 }
             } catch(e){
-                logger(`failed to retrieve the keys: ${e}`);
+                Secret.logger(`failed to retrieve the keys: ${e}`);
             } finally{
                 this._lock = false;
             }
@@ -232,9 +236,21 @@ class Secret{
 }
 
 class Session{
-
+    static _debug = false;
+    static logger = log;
     static _ddbClient = null;
     static revocationTable = '';
+
+    static setDEBUG(val=true){
+        if(typeof(val)=='boolean'){
+            this._debug = val;
+        }
+    }
+
+    static initialize(tableName, params={}){
+        this.revocationTable = tableName;
+        this.initDBClient(params);
+    }
 
     constructor(id=null, autogenerate=false, suspicion_score = 0){
         let sessionLength;
@@ -276,7 +292,7 @@ class Session{
 		try{
 			result = await Session._ddbClient.putItem(params).promise();
 		} catch(e){
-			logger(`Manual session revoke operation failed when updating DynamoDB table: ${e}`);
+			Session.logger(`Manual session revoke operation failed when updating DynamoDB table: ${e}`);
 			result = false;
 		}
 		
@@ -301,7 +317,7 @@ class Session{
         try{
             this._ddbClient = new aws.DynamoDB({credentials: ddb_creds, region: ddb_region});
         } catch(e) {
-            logger(`Couldn't create DynamoDB client: ${e}`);
+            Session.logger(`Couldn't create DynamoDB client: ${e}`);
             return false;
         }
         return true;
@@ -310,18 +326,26 @@ class Session{
 
     static _autoGenerate(output_length){
         const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
-        return Array.from({length: output_length}, ()=>chars.charAt(Math.floor(Math.random()*chars.length))).join('');
+        return Array.from({length: output_length}, ()=>chars.charAt(crypto.randomInt(0,chars.length))).join('');
     }
 
 }
 
 class Token{
-        
+    
+    static _debug = false;
+    static logger = log;
+    
     constructor(secret, defaultTokenPolicy=null){
         this.secret = secret;
         this.defaultTokenPolicy = defaultTokenPolicy;
     }
   
+    static setDEBUG(val=true){
+        if(typeof(val)=='boolean'){
+            this._debug = val;
+        }
+    }
 
     _sign(input, key, method){
         return b64url(crypto.createHmac(method, key).update(input).digest());
@@ -411,7 +435,7 @@ class Token{
 
 		if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
-			console.log("Input for internal signature: ", intsig_input); 
+			Token.logger("Input for internal signature: ", intsig_input); 
 			jwt_payload['intsig'] = this._sign(intsig_input, keys[secret_alias].value, 'sha256')
         } else {
 			delete jwt_payload['intsig'];
@@ -457,4 +481,3 @@ class Token{
 exports.Token = Token;
 exports.Secret = Secret;
 exports.Session = Session;
-exports.setDEBUG = setDEBUG;

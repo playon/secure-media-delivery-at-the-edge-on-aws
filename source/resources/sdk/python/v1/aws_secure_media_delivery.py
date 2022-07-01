@@ -10,7 +10,6 @@ import hmac
 import hashlib
 import base64
 import ipaddress
-#from aws_secretsmanager_caching import SecretCache, SecretCacheConfig
 from urllib.parse import urlparse, urldefrag, urlsplit
 
 
@@ -26,8 +25,6 @@ class Secret:
     @cachetools.func.ttl_cache(ttl=4)
     def __init__(self):
         #print ("Fetching Secret...")
-        #session = boto3.session.Session()
-
         if Secret.Profile:
              boto3.DEFAULT_SESSION = boto3.session.Session(profile_name=Secret.Profile)
 
@@ -50,11 +47,6 @@ class Secret:
             boto3.setup_default_session(region_name=Secret.Region_Name)
                
         print ("Region: " + boto3.DEFAULT_SESSION.region_name)
-
-        #client = boto3.client(
-        #        service_name='secretsmanager',
-        #        region_name=Secret.Region_Name
-        #)
 
         client = boto3.client(
                 service_name='secretsmanager'
@@ -83,7 +75,7 @@ class Secret:
         else:
             if 'SecretString' in primary_secret_value_response:
                 secret_data = json.loads(primary_secret_value_response['SecretString'])
-                #print (str(secret_data))
+
                 first_pair = next(iter((secret_data.items())) )
                 Secret.secret1 = first_pair[1]
                 Secret.uuid1 = first_pair[0]
@@ -156,17 +148,13 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	if "ip" in attributes:
 	  jwt_payload['ip'] = True
 	  try:
-	      #print ("Get IP")
-	      #addr = ipaddress.ip_address("24.214.5.1")
 	      addr = ipaddress.ip_address(attributes['ip'])
-	      #print ("IP: " + str(addr))
 	  except ValueError:
 	      return("Error: Invalid IP address")
 	      raise
 	  jwt_payload['ip_ver'] = int(addr.version)
 	  jwt_payload['ip'] = True
 	  full_ip = addr.exploded
-	  #print ("Full IP: " + str(full_ip))
 	  private_payload += full_ip + ":"
 	
 	if "co" in attributes:
@@ -180,7 +168,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	if "paths" in attributes:
 	  for path in attributes['paths']:
-	    #print ("PATH IS: " + path)
 	    jwt_payload['paths'].append(path)
 	
 	if "ssn" in attributes:
@@ -195,7 +182,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 
 	if "headers" in attributes:
 	  jwt_payload['headers'] = []
-	  #print ("HEADERS: " + str(attributes['headers']))
 	  for mykey,myvalue in attributes['headers'].items():
 	    LCkey = mykey.lower()
 	    jwt_payload['headers'].append(LCkey)
@@ -203,7 +189,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 
 	if "qs" in attributes:
 	  jwt_payload['qs'] = []
-	  #print (str(attributes['qs']))
 	  for mykey,myvalue in attributes['qs'].items():
 	    LCkey = mykey.lower()
 	    jwt_payload['qs'].append(LCkey)
@@ -222,7 +207,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	### Generate private payload
 	private_payload = private_payload.rstrip(":")
-	#print ("PRIVATE PAYLOAD" + private_payload)
 	private_payload_utf = private_payload.encode()
 	dig = hmac.new(key, msg=private_payload_utf, digestmod=hashlib.sha256).digest()
 	intsig = base64.urlsafe_b64encode(dig).decode().rstrip('=')
@@ -233,7 +217,6 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	
 	
 	### Convert string above to structure
-	#jwt_json=json.loads(jwt_payload)
 	
 	### Encode token
 	encoded_jwt = jwt.encode(jwt_payload, key, algorithm="HS256",headers={"kid": uuid},)

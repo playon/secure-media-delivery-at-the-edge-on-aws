@@ -307,7 +307,6 @@ export class GetInputParameters extends Construct {
     }
     if (configuration.api) {
       returnObject.api = {
-        language: configuration.api?.language!,
         demo: true,
       };
 

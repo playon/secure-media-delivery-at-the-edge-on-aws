@@ -11,7 +11,6 @@ export interface IApi {
    * to be sent when the actual budget is superior
    * to the limit value.
    */
-   language: string;
    demo: boolean;
 }
 
@@ -19,7 +18,6 @@ export interface IApi {
  * The `Joi` schema for validating the api configuration.
  */
 export const apiSchema = Joi.object().keys({
-  language: Joi.string().required(),
   demo: Joi.boolean().required(),
 
 });

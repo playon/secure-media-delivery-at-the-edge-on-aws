@@ -12,16 +12,6 @@ import { IHosting } from "../../../helpers/validators/hosting";
  */
 const apiQuestions = [
   {
-    type: "select",
-    name: "language",
-    message: "[API] --> Choose the programming language for API code",
-    choices: [
-      { title: "NodeJs", value: "nodejs" },
-      { title: "Python", value: "python" },
-    ],
-    initial: 0,
-  },
-  {
     type: "toggle",
     name: "demo",
     message: "[API] --> Do you want to deploy a demo website?",

@@ -27,7 +27,6 @@ import { CWDashboard } from "../main/dashboard";
 import { Endpoints } from "./endpoints";
 import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 import { GetInputParameters } from "../cfn/check_input_parameters";
-import { AssetCode } from "aws-cdk-lib/aws-lambda";
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -43,49 +42,15 @@ export class Api extends Construct {
   constructor(scope: Construct, id: string, props: IConfigProps) {
     super(scope, id);
 
-    var runtime: lambda.Runtime;
-    var layerCode: AssetCode;
-    var generateTokenCode: AssetCode;
-    var saveSessionCode: AssetCode;
-
-
-    const nodejsLayerAsset = lambda.Code.fromAsset(
-      "lambda/layers/aws_secure_media_delivery_nodejs"
-    );
-
-    const pythonLayerAsset = lambda.Code.fromAsset(
-      "lambda/layers/aws_secure_media_delivery_python"
-    );
-
-    const generateTokenPythonLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/python")
-    const generateTokenNodejsLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/nodejs")
-
-    const saveSessionPythonLambdaAsset = lambda.Code.fromAsset("lambda/save_manual_session/python")
-    const saveSessionNodejsLambdaAsset = lambda.Code.fromAsset("lambda/save_manual_session/nodejs")
-
-    if(props.configuration.api?.language! === "python"){
-
-      runtime = lambda.Runtime.PYTHON_3_7;
-      layerCode = pythonLayerAsset;
-      generateTokenCode = generateTokenPythonLambdaAsset;
-      saveSessionCode = saveSessionPythonLambdaAsset;
-
-    }else{
-
-      runtime = lambda.Runtime.NODEJS_14_X;
-      layerCode = nodejsLayerAsset;
-      generateTokenCode = generateTokenNodejsLambdaAsset;
-      saveSessionCode = saveSessionNodejsLambdaAsset;
-
-    }
-
     //build a layer with required libs
     const cloudfrontTokenLayer = new lambda.LayerVersion(
       this,
       "GenerateTokenLayer",
       {
-        compatibleRuntimes: [runtime],
-        code: layerCode,
+        compatibleRuntimes: [lambda.Runtime.NODEJS_14_X],
+        code: lambda.Code.fromAsset(
+          "lambda/layers/aws_secure_media_delivery_nodejs"
+        ),
         description: "Layer used by generate new secret lambda",
       }
     );
@@ -110,8 +75,8 @@ export class Api extends Construct {
     //Lambda that will generate the token using the provided SDK
     const generateToken = new lambda.Function(this, "GenerateToken", {
       functionName: Aws.STACK_NAME + "_GenerateToken",
-      runtime: runtime,
-      code: generateTokenCode,
+      runtime: lambda.Runtime.NODEJS_14_X,
+      code: lambda.Code.fromAsset("lambda/generate_token/nodejs"),
       handler: "index.handler",
       environment: {
         STACK_NAME: Aws.STACK_NAME,
@@ -137,8 +102,8 @@ export class Api extends Construct {
     //Lambda used to add manually a session to be revoked into a DynamoDB Table
     const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
       functionName: Aws.STACK_NAME + "_SaveManualSession",
-      runtime: runtime,
-      code: saveSessionNodejsLambdaAsset,
+      runtime: lambda.Runtime.NODEJS_14_X,
+      code: lambda.Code.fromAsset("lambda/save_manual_session/nodejs"),
       handler: "index.handler",
       environment: {
         TABLE_NAME: props.sessionsTable.tableName,

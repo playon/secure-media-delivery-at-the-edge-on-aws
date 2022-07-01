@@ -22,7 +22,7 @@ exports.handler = async event => {
     if (request.origin.hasOwnProperty('custom'))
         originType = 'custom';
     else
-        throw("Unexpected origin type. Expected 'custom'. Got: " + JSON.stringify(request.origin));
+        throw Error("Unexpected origin type. Expected 'custom'. Got: " + JSON.stringify(request.origin));
 
     // Create a JSON object with the fields that should be included in the Sigv4 request,
     // including the X-Amz-Cf-Id header that CloudFront adds to every request forwarded

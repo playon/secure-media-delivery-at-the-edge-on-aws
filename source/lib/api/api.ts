@@ -46,7 +46,8 @@ export class Api extends Construct {
 
     var runtime: lambda.Runtime;
     var layerCode: AssetCode;
-    var lambdaCode: AssetCode;
+    var generateTokenCode: AssetCode;
+    var saveSessionCode: AssetCode;
 
 
     const nodejsLayerAsset = lambda.Code.fromAsset(
@@ -57,31 +58,25 @@ export class Api extends Construct {
       "lambda/layers/aws_secure_media_delivery_python"
     );
 
-    const pythonLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/python")
-    const nodejsLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/nodejs")
+    const generateTokenPythonLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/python")
+    const generateTokenNodejsLambdaAsset = lambda.Code.fromAsset("lambda/generate_token/nodejs")
 
+    const saveSessionPythonLambdaAsset = lambda.Code.fromAsset("lambda/save_manual_session/python")
+    const saveSessionNodejsLambdaAsset = lambda.Code.fromAsset("lambda/save_manual_session/nodejs")
 
+    if(props.configuration.api?.language! === "python"){
 
-    runtime = lambda.Runtime.NODEJS_14_X;
-    layerCode = nodejsLayerAsset;
-    lambdaCode = nodejsLambdaAsset;
-
-    var cdkSupportedRuntime = ['nodejs', 'python'];
-
-
-    if(cdkSupportedRuntime.includes(props.configuration.api?.language!)){
-
-      //cdk deploy
-      runtime = props.configuration.api?.language! === "nodejs" ? lambda.Runtime.NODEJS_14_X : lambda.Runtime.PYTHON_3_7;
-      layerCode = props.configuration.api?.language! === "nodejs" ? nodejsLayerAsset : pythonLayerAsset;
-      lambdaCode = props.configuration.api?.language! === "nodejs" ? nodejsLambdaAsset : pythonLambdaAsset;
+      runtime = lambda.Runtime.PYTHON_3_7;
+      layerCode = pythonLayerAsset;
+      generateTokenCode = generateTokenPythonLambdaAsset;
+      saveSessionCode = saveSessionPythonLambdaAsset;
 
     }else{
 
-      //deploy through CFN template
       runtime = lambda.Runtime.NODEJS_14_X;
       layerCode = nodejsLayerAsset;
-      lambdaCode = nodejsLambdaAsset
+      generateTokenCode = generateTokenNodejsLambdaAsset;
+      saveSessionCode = saveSessionNodejsLambdaAsset;
 
     }
 
@@ -117,7 +112,7 @@ export class Api extends Construct {
     const generateToken = new lambda.Function(this, "GenerateToken", {
       functionName: Aws.STACK_NAME + "_GenerateToken",
       runtime: runtime,
-      code: lambdaCode,
+      code: generateTokenCode,
       handler: "index.handler",
       environment: {
         STACK_NAME: Aws.STACK_NAME,
@@ -143,13 +138,14 @@ export class Api extends Construct {
     //Lambda used to add manually a session to be revoked into a DynamoDB Table
     const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
       functionName: Aws.STACK_NAME + "_SaveManualSession",
-      runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/save_manual_session/python"),
+      runtime: runtime,
+      code: saveSessionNodejsLambdaAsset,
       handler: "index.handler",
       environment: {
         TABLE_NAME: props.sessionsTable.tableName,
         TTL: "7",
       },
+      layers: [cloudfrontTokenLayer],
     });
 
     addCfnSuppressRules(saveSessionToDdb, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);

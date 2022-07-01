@@ -1,12 +1,11 @@
 #!/usr/bin/env node
-import * as cdk from "aws-cdk-lib";
+import  { App, DefaultStackSynthesizer } from "aws-cdk-lib";
 import { getOpts } from "../helpers/opts";
 
 import { SecureMediaStreamingStack } from "../lib/secure_media_stream_stack";
 import { AutoSessionRevocationStack } from "../lib/auto_revocation_stack";
-import { DefaultStackSynthesizer } from "aws-cdk-lib";
 
-const app = new cdk.App();
+const app = new App();
 
 (async () => {
   // The stack configuration.

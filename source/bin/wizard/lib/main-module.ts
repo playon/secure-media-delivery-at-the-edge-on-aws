@@ -5,7 +5,6 @@ import { PromptComponent } from "./prompt-component";
 import { onCancel } from "./handlers";
 import { IConfiguration } from "../../../helpers/validators/configuration";
 import { IMain } from "../../../helpers/validators/main";
-import { date } from "joi";
 
 /**
  * A question prompting the user for the session invalidation
@@ -132,7 +131,6 @@ export class MainModule implements PromptComponent {
           onCancel,
         });
         day_of_the_week = day.value;
-        day_of_the_month = "?";
       } else if (configuration.main.rotate_secrets_frequency === "1m") {
         //1m
         const answer_day_week = await prompts.prompt(
@@ -144,7 +142,6 @@ export class MainModule implements PromptComponent {
           { onCancel }
         );
 
-        day_of_the_month = "?";
         day_of_the_week = answer_day_week.value + "#" + answer_week_month.value;
       }
 

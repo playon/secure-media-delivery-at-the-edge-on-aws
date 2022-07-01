@@ -3,7 +3,7 @@ import boto3
 import secrets
 import string
 import os
-import time, calendar, datetime
+import time, datetime
 from boto3.dynamodb.conditions import Key
 from botocore.config import Config
 
@@ -16,18 +16,18 @@ waf_client = boto3.client('wafv2', config=my_config)
 dynamodb = boto3.resource('dynamodb')
 
 RULE_ID = os.environ['RULE_ID']
-RULE_NAME = os.environ['RULE_NAME']
-TABLE_NAME = os.environ['TABLE_NAME']
-MAX_SESSIONS = os.environ['MAX_SESSIONS']
-GSI_INDEX_NAME = os.environ['GSI_INDEX_NAME']
-RETENTION = os.environ['RETENTION']
+rule_name = os.environ['RULE_NAME']
+table_name = os.environ['TABLE_NAME']
+max_sessions = os.environ['MAX_SESSIONS']
+gsi_index_name = os.environ['GSI_INDEX_NAME']
+retention = os.environ['RETENTION']
 
-sessions_table = dynamodb.Table(TABLE_NAME)
+sessions_table = dynamodb.Table(table_name)
 
 
-def get_formatted_rule_config(session_id, RULE_NAME, priority):
+def get_formatted_rule_config(session_id, rule_name, priority):
    return {
-            "Name":RULE_NAME,
+            "Name":rule_name,
             "Priority":priority,
             "Statement":{
                "ByteMatchStatement":{
@@ -61,7 +61,7 @@ def get_formatted_rule_config(session_id, RULE_NAME, priority):
 def get_current_rules():
 
    response = waf_client.get_rule_group(
-      Name=RULE_NAME,
+      Name=rule_name,
       Scope='CLOUDFRONT',
       Id=RULE_ID
    )
@@ -70,7 +70,7 @@ def get_current_rules():
 
 def update_rules(visibility, lock_token, rules):
    response = waf_client.update_rule_group(
-         Name = RULE_NAME,
+         Name = rule_name,
          Id = RULE_ID,
          Description = "TokenRevoke",
          Scope = "CLOUDFRONT",
@@ -83,12 +83,12 @@ def update_rules(visibility, lock_token, rules):
    return response
 def query_sessions():
 
-   RETENTIONDateTime = datetime.datetime.today() - datetime.timedelta(days=int(RETENTION))
-   RETENTIONEpochTimestamp = int(time.mktime(RETENTIONDateTime.timetuple()))
+   retentionDateTime = datetime.datetime.today() - datetime.timedelta(days=int(retention))
+   retentionEpochTimestamp = int(time.mktime(retentionDateTime.timetuple()))
 
    response = sessions_table.query(
-      IndexName=GSI_INDEX_NAME,
-      KeyConditionExpression=Key('reason').eq('COMPROMISED') & Key('last_updated').gte(RETENTIONEpochTimestamp)
+      IndexName=gsi_index_name,
+      KeyConditionExpression=Key('reason').eq('COMPROMISED') & Key('last_updated').gte(retentionEpochTimestamp)
    )
    return response['Items']
 
@@ -112,9 +112,9 @@ def handler(event, context):
 
       for item in manual_sessions:
 
-         if global_index <= int(MAX_SESSIONS):
-            RULE_NAME = str(get_random_alphanumeric_string(8))
-            current_rule = get_formatted_rule_config('/' + item['session_id'], RULE_NAME, global_index)
+         if global_index <= int(max_sessions):
+            rule_name = str(get_random_alphanumeric_string(8))
+            current_rule = get_formatted_rule_config('/' + item['session_id'], rule_name, global_index)
             rules.append(current_rule)
             global_index += 1
             local_index +=1
@@ -126,9 +126,9 @@ def handler(event, context):
       local_index = 1
 
       for item in sorted_auto_sessions:
-         if global_index <= int(MAX_SESSIONS):
-            RULE_NAME = str(get_random_alphanumeric_string(8))
-            current_rule = get_formatted_rule_config(item['session_id'], RULE_NAME, global_index)
+         if global_index <= int(max_sessions):
+            rule_name = str(get_random_alphanumeric_string(8))
+            current_rule = get_formatted_rule_config(item['session_id'], rule_name, global_index)
             rules.append(current_rule)
             global_index += 1
             local_index +=1
@@ -155,5 +155,5 @@ def handler(event, context):
 
 def get_random_alphanumeric_string(length):
     letters_and_digits = string.ascii_letters + string.digits
-    result_str = ''.join((secrets.choice(letters_and_digits) for i in range(length)))
+    result_str = ''.join((secrets.choice(letters_and_digits) for _ in range(length)))
     return result_str

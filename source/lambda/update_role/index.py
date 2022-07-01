@@ -19,7 +19,7 @@ def handler(event, context):
 
     print("check if policy {} exist already".format(policy_arn))
     try:
-        response = iam.get_policy(
+        iam.get_policy(
             PolicyArn = policy_arn
         )
 
@@ -39,7 +39,7 @@ def handler(event, context):
                 }
             ]
         }
-        response = iam.create_policy(
+        iam.create_policy(
             PolicyName=policy_name,
             PolicyDocument=json.dumps(my_policy)
         )
@@ -47,7 +47,7 @@ def handler(event, context):
         role_name = ROLE_ARN.split(':')[5].split('/')[1]
 
         print("Attaching the new policy to the role {}".format(role_name))
-        response = iam.attach_role_policy(
+        iam.attach_role_policy(
             RoleName=role_name,
             PolicyArn=policy_arn
         )

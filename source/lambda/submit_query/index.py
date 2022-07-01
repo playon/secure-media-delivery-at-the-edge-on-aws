@@ -26,7 +26,6 @@ def build_second_part_query_string(lookback_minutes):
                AND CAST(hour AS INTEGER) between
                CAST(date_format(current_timestamp - interval '{lookback_minutes}' minute, '%H') AS INTEGER) and CAST(date_format(current_timestamp, '%H') AS INTEGER) """
 
-      #print("query1={}".format(query_string1))
     # different days - cross days query filter!
    elif (start_year == end_year):
       if (start_month == end_month):  # year and month are the same, but days are different
@@ -46,7 +45,6 @@ def build_second_part_query_string(lookback_minutes):
                      )
                      )
                      """
-         #print("query2={}".format(query_string2))
       else:  # years are the same, but months and days are different
          query_string = f"""
                      WHERE
@@ -65,7 +63,6 @@ def build_second_part_query_string(lookback_minutes):
                      )
                      )
                      """
-      #print("query3={}".format(query_string3))
 
    else:  # years are different
       query_string = f"""
@@ -87,7 +84,6 @@ def build_second_part_query_string(lookback_minutes):
                   )
                   """
 
-   #print("query4={}".format(query_string4))
 
    return query_string
 
@@ -104,12 +100,6 @@ def generate_athena_query(query_param):
                CAST((CAST({query_param['date_column_name']} AS VARCHAR) || ' ' || {query_param['time_column_name']}) AS TIMESTAMP) AS time_point
          FROM \"{query_param['db_name']}\".\"{query_param['table_name']}\" """
 
-   #print("query_string_first_part={}".format(query_string_first_part))
-
-
-
-   #et = datetime.datetime.fromtimestamp(end_time)
-   #st = et - datetime.timedelta(seconds=60*lookback_period)
    if query_param['partitioned']==1:
       query_string_second_part = build_second_part_query_string(query_param['lookback_period'])#st, et)
       third_part_preamble = 'AND '

@@ -64,7 +64,7 @@ exports.handler = async (event, context) => {
     if(token_policy['co']){
         if(headers['cloudfront-viewer-country']){
             viewer_attributes['co'] = headers['cloudfront-viewer-country'];
-        } else if(token_policy['co_fallback'] == false) {
+        } else if(!token_policy['co_fallback']) {
             return response400;
         }
     }
@@ -72,7 +72,7 @@ exports.handler = async (event, context) => {
     if(token_policy['reg']){
         if(headers['cloudfront-viewer-country-region']){
             viewer_attributes['reg'] = headers['cloudfront-viewer-country-region'];
-        } else if(token_policy['reg_fallback'] == false) {
+        } else if(!token_policy['reg_fallback']) {
             return response400;
         }
     }
@@ -80,7 +80,7 @@ exports.handler = async (event, context) => {
     if(token_policy['cty']){
         if(headers['cloudfront-viewer-city']){
             viewer_attributes['cty'] = headers['cloudfront-viewer-city'];
-        } else if(token_policy['cty_fallback'] == false) {
+        } else if(!token_policy['cty_fallback']) {
             return response400;
         }
     }
@@ -98,10 +98,9 @@ exports.handler = async (event, context) => {
 	
     let playback_url = await token.generate(viewer_attributes, `${endpoint_hostname}${video_url}`, token_policy);
 
-    var response = {
+    return {
     "statusCode": 200,
     "body": playback_url
     };
 
-    return response;
 };

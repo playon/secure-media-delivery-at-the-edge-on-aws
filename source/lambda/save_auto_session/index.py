@@ -13,7 +13,7 @@ def handler(event, context):
     print("Received event: " + json.dumps(event))
 
     week = datetime.datetime.today() + datetime.timedelta(days=int(ttl))
-    expiryDateTime = int(time.mktime(week.timetuple()))
+    expiry_date_time = int(time.mktime(week.timetuple()))
     current_timestamp = calendar.timegm(time.gmtime())
 
     for item in event[1:]:
@@ -30,7 +30,7 @@ def handler(event, context):
                     'referer_penalty' : { 'N': item['Data'][4]['VarCharValue']},
                     'ua_penalty' : { 'N': item['Data'][5]['VarCharValue']},
                     'last_updated' : { 'N': str(current_timestamp) },
-                    'ttl': { 'N': str(expiryDateTime)}
+                    'ttl': { 'N': str(expiry_date_time)}
                 }
             )
         print("Session ID={} inserted in dynamodb ".format(item['Data'][0]['VarCharValue']))

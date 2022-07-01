@@ -24,10 +24,10 @@ function validateIPv6(address){
     //validate if input address matches with expected IPv6 format. 
     let ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
     //Input is splitt into two parts assuming two-colon separator can exist then each side of the address is validated against regex
-    address_parts = address.split('::');
+    let address_parts = address.split('::');
     if(address_parts.length>2) return false; //only a single two-colon seperator is allowed
     let parts_groups_sum = 0;
-    for (part of address_parts){
+    for (let part of address_parts){
         let part_groups = part.split(':');
         parts_groups_sum += part_groups.length;
         if(part_groups.length == 1 && part_groups[0] == ''){
@@ -53,7 +53,7 @@ function expandIPv6(address){
         hextets_abbrev.shift();  //when prefix starts with :: this creates two empty elements in an array
     }
     //add leading zeros in extets and expand two-collon (::) notation
-    hextets = hextets_abbrev.map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
+    let hextets = hextets_abbrev.map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
     if(hextets.indexOf('')>-1) {
         hextets.splice.apply(hextets,[hextets.indexOf(''),1].concat(Array(9-hextets.length).fill('0000')));
     }

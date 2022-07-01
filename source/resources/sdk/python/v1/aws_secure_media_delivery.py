@@ -1,5 +1,5 @@
 import jwt
-import random
+import secrets
 import os
 import string
 import base64
@@ -188,7 +188,7 @@ def createtoken(attributes,secret_alias,playback_url,**kwargs):
 	  if "generate" in attributes['ssn']:
 	    sessionArr = attributes['ssn'].split("_")
 	    sessionLen = sessionArr[1]
-	    sessionPayload = ''.join(random.choice(string.ascii_lowercase) for _ in range(int(sessionLen)))
+	    sessionPayload = ''.join(secrets.choice(string.ascii_lowercase) for _ in range(int(sessionLen)))
 	  else:
 	    sessionPayload = attributes['ssn']
 	  private_payload += sessionPayload + ":"

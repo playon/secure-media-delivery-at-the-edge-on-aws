@@ -14,7 +14,6 @@ const ROLE_ARN = process.env.ROLE_ARN;
 const STACK_NAME = process.env.STACK_NAME;
 const RULE_ID = process.env.RULE_ID;
 const LAMBDA_VERSION = process.env.LAMBDA_VERSION;
-//const LAMBDA_ARN = process.env.LAMBDA_ARN;
 const DEPLOY_LE = process.env.DEPLOY_LE;
 
 exports.handler = async (event, context) => {

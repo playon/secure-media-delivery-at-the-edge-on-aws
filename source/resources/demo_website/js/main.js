@@ -26,7 +26,6 @@ function load(type) {
   resetAllDivText();
   const idAsset = type == HLS_STREAM ? 1 : 2;
   const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
-  player.src('');
   $.ajax({
     type: 'GET',
     url: urlToGet,

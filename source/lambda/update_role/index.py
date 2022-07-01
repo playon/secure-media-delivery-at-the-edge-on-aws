@@ -1,8 +1,7 @@
 import json
 import boto3
 import os
-import random
-import string
+import botocore
 
 lambda_client = boto3.client('lambda')
 iam = boto3.client('iam')
@@ -24,7 +23,7 @@ def handler(event, context):
         )
 
         print("Policy {} exists already".format(policy_name))
-    except:
+    except botocore.exceptions.NoSuchEntityException:
         print("Policy does not exists. Creating it")
 
         my_policy = {

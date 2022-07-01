@@ -175,15 +175,15 @@ class Secret{
                 logger(`failed to retrieve the keys: ${e}`);
             } finally{
                 this._lock = false;
-                if(this.keys){
-                    if(key_alias == 'all'){
-                        return this.keys;
-                    } else {
-                        return this.keys[key_alias];
-                    }
+            }
+            if(this.keys){
+                if(key_alias == 'all'){
+                    return this.keys;
                 } else {
-                    throw "Key retrival failed and no previously set key is available";
+                    return this.keys[key_alias];
                 }
+            } else {
+                throw "Key retrival failed and no previously set key is available";
             }
         } else {
             if(key_alias == 'all'){

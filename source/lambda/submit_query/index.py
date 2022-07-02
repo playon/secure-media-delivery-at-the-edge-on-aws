@@ -116,7 +116,7 @@ def generate_athena_query(query_param):
    Q2 AS (
       SELECT
          path_first_part_array[1] as session_id,
-         COUNT(*) AS request_cnt,
+         COUNT(DISTINCT(viewer_ip,uri)) AS request_cnt,
          date_diff(
                'second',
                MIN(time_point),

@@ -1,10 +1,4 @@
 {
-  "jest": {
-    "testPathIgnorePatterns" : [
-      "source/bin/wizard", 
-      "source/helpers"
-    ]
-  },
   "name": "cdk-solution",
   "version": "0.1.0",
   "bin": {

@@ -92,9 +92,8 @@ node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false 
 #replace assets_bucket_name
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
-cd cdk.out
 
-mv ./* $staging_dist_dir
+mv cdk.out/* $staging_dist_dir
 
 #zipping the assets
 i=1

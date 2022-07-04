@@ -35,10 +35,13 @@ run_javascript_test() {
   echo "------------------------------------------------------------------------------"
   #echo "cd $component_path"
   #cd $component_path
-
+  pwd
+  echo npm test
   # run unit tests
-  npm test
+  cd ../source
 
+  npm test
+  echo "after"
   # prepare coverage reports
   prepare_jest_coverage_report $component_name
 }
@@ -55,6 +58,7 @@ declare -a my_packages=(
 
 for one_package in "${my_packages[@]}"
 do
+  echo "here"
   run_javascript_test $source_dir/$one_package $one_package
 
   # Check the result of the test and exit if a failure is identified

@@ -12,7 +12,7 @@ const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN } = process.
 // Since the function is configured to be executed on origin request events, the handler
 // is executed every time CloudFront needs to go back to the origin, which is S3 here.
 exports.handler = async event => {
-    console.log("xx event=" + JSON.stringify(event))
+    console.log("event=" + JSON.stringify(event))
     // Retrieve the original request that CloudFront was going to send to S3
     const request = event.Records[0].cf.request;
 
@@ -22,7 +22,7 @@ exports.handler = async event => {
     if (request.origin.hasOwnProperty('custom'))
         originType = 'custom';
     else
-        throw("Unexpected origin type. Expected 'custom'. Got: " + JSON.stringify(request.origin));
+        throw new Error("Unexpected origin type. Expected 'custom'. Got: " + JSON.stringify(request.origin));
 
     // Create a JSON object with the fields that should be included in the Sigv4 request,
     // including the X-Amz-Cf-Id header that CloudFront adds to every request forwarded
@@ -98,8 +98,8 @@ function createCanonicalQS(input_qs){
 		canonicalQS += encodeQS(param)+'='+encodeQS(qsparsed[param])+'&'
 	});
 	canonicalQS = canonicalQS.slice(0, -1);
-	
-	return canonicalQS;	
+
+	return canonicalQS;
 }
 
 function encodeQS(input_str){

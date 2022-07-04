@@ -33,8 +33,8 @@ run_javascript_test() {
   echo "------------------------------------------------------------------------------"
   echo "[Test] Run javascript unit test with coverage for $component_name"
   echo "------------------------------------------------------------------------------"
-  echo "cd $component_path"
-  cd $component_path
+  #echo "cd $component_path"
+  #cd $component_path
 
   # run unit tests
   npm test

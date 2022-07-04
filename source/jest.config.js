@@ -6,7 +6,6 @@ module.exports = {
     "transform": {
       "^.+\\.tsx?$": "ts-jest"
     },
-    testPathIgnorePatterns: ["source/bin/wizard", "source/helpers"],
     coverageReporters: [
       "text",
       ["lcov", {"projectRoot": "../"}]

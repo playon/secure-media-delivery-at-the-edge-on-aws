@@ -93,6 +93,9 @@ echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/$stack_name.yaml
 
+ls 
+
+ls cdk.out/*
 # DELETED CODE
 
 #replace assets_bucket_name
@@ -167,7 +170,7 @@ rm *.yaml
 #done
 
 #cp $template_dist_dir/*.template $build_dist_dir/
-echo cp $staging_dist_dir/*.zip $build_dist_dir/
+echo cp $cdk synth --asset-metadata /*.zip $build_dist_dir/
 cp $staging_dist_dir/*.zip $build_dist_dir/
 
 

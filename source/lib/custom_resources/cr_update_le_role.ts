@@ -49,7 +49,7 @@ export class CRUpdateLERole extends Construct {
             effect: iam.Effect.ALLOW,
             actions: ["ssm:GetParameter*"],
             resources: [
-              `arn:aws:ssm:${Aws.REGION}:${Aws.ACCOUNT_ID}:parameter/${props.sig4LambdaVersionParamName}`,
+              `arn:aws:ssm:${Aws.REGION}:${Aws.ACCOUNT_ID}:parameter/*`,
             ],
           }),
         ]),
@@ -82,7 +82,7 @@ export class CRUpdateLERole extends Construct {
 
 
     const createPolicytStatement = new iam.PolicyStatement({
-      actions: ["iam:CreatePolicy"],
+      actions: ["iam:CreatePolicy", "iam:GetPolicy"],
       resources: [`arn:aws:iam::${Aws.ACCOUNT_ID}:policy/*`],
     });
 

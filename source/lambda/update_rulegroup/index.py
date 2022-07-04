@@ -83,12 +83,12 @@ def update_rules(visibility, lock_token, rules):
    return response
 def query_sessions():
 
-   retentionDateTime = datetime.datetime.today() - datetime.timedelta(days=int(retention))
-   retentionEpochTimestamp = int(time.mktime(retentionDateTime.timetuple()))
+   retention_date_time = datetime.datetime.today() - datetime.timedelta(days=int(retention))
+   retention_epoch_timestamp = int(time.mktime(retention_date_time.timetuple()))
 
    response = sessions_table.query(
       IndexName=gsi_index_name,
-      KeyConditionExpression=Key('reason').eq('COMPROMISED') & Key('last_updated').gte(retentionEpochTimestamp)
+      KeyConditionExpression=Key('reason').eq('COMPROMISED') & Key('last_updated').gte(retention_epoch_timestamp)
    )
    return response['Items']
 

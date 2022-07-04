@@ -85,9 +85,9 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
         //validate if the request URL matches paths covered by the token
         var uri_match = false;
-        for (var j=0; j<payload.paths.length; j++){
-            if (uri.startsWith(payload.paths[j])) {
-                uri_match = true;
+        for (var i=0; i<payload.paths.length; i++){
+            if (uri.startsWith(payload.paths[i])) {
+                    uri_match = true;
                 break;
             }
         }

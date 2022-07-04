@@ -12,7 +12,7 @@ const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN } = process.
 // Since the function is configured to be executed on origin request events, the handler
 // is executed every time CloudFront needs to go back to the origin, which is S3 here.
 exports.handler = async event => {
-    console.log("xx event=" + JSON.stringify(event))
+    console.log("event=" + JSON.stringify(event))
     // Retrieve the original request that CloudFront was going to send to S3
     const request = event.Records[0].cf.request;
 

@@ -103,6 +103,10 @@ sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
 
 cd cdk.out
+
+ls 
+
+
 #zipping the assets
 i=1
 cd $staging_dist_dir

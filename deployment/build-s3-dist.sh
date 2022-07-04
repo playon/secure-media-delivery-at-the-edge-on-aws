@@ -75,7 +75,7 @@ echo "npm install"
 npm install
 
 mv solution.context.json.template solution.context.json
-stack_name=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
+#stack_name=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
 # Run 'cdk synth' to generate raw solution outputs
 echo "cd "$source_dir""
 cd "$source_dir"
@@ -91,7 +91,7 @@ echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 #npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/$stack_name.yaml
+node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/SECURE_STREAM.yaml
 
 ls 
 
@@ -101,6 +101,8 @@ ls cdk.out/*
 #replace assets_bucket_name
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
+
+cd cdk.out
 #zipping the assets
 i=1
 cd $staging_dist_dir
@@ -135,6 +137,8 @@ done
 
 echo "Assets zipped"
 
+cd ..
+
 ############ End tweak template #############
 
 
@@ -157,10 +161,10 @@ ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 echo "cp $template_dir/*.template $template_dist_dir/"
 #cp $staging_dist_dir/*.template.json $template_dist_dir/
-cp $staging_dist_dir/$stack_name.yaml $template_dist_dir/$stack_name.template
+cp $staging_dist_dir/SECURE_STREAM.yaml $template_dist_dir/SECURE_STREAM.template
 
 
-rm *.yaml
+rm SECURE_STREAM.yaml
 
 # Rename all *.template.json files to *.template
 #echo "Rename all *.template.json to *.template"

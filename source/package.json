@@ -14,7 +14,9 @@
     "audit": "npm audit && npx cdk synth | cfn_nag",
     "bootstrap": "npx cdk bootstrap",
     "deploy": "npx cdk deploy --all",
-    "wizard": "node dist/bin/wizard/index.js"
+    "wizard": "node dist/bin/wizard/index.js",
+    "pretest": "npm run clean && npm install"
+
 
   },
   "devDependencies": {

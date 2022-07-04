@@ -75,8 +75,8 @@ echo "npm install"
 npm install
 
 mv solution.context.json.template solution.context.json
-#stack_name=`grep -o '"stack_name": "[^"]*' solution.context.json | grep -o '[^"]*$' | head -1 `
-# Run 'cdk synth' to generate raw solution outputs
+
+
 echo "cd "$source_dir""
 cd "$source_dir"
 
@@ -85,28 +85,15 @@ chmod +x ./install_dependencies.sh && ./install_dependencies.sh
 #replace assets_bucket_name
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
-
+# Run 'cdk synth' to generate raw solution outputs
 echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
-
-
-#npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
-
 node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/SECURE_STREAM.yaml
-
-ls 
-
-ls cdk.out/*
-# DELETED CODE
 
 #replace assets_bucket_name
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
-
 cd cdk.out
 
-pwd 
-
-ls 
 mv ./* $staging_dist_dir
 
 #zipping the assets
@@ -132,9 +119,7 @@ for cdk_key in `ls  | grep '^asset'`; do
         current_asset_name=$item.zip
     fi
 
-    #sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
     sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/SECURE_STREAM.yaml
-
 
     let "i+=1"
 
@@ -142,8 +127,6 @@ done
 
 
 echo "Assets zipped"
-
-cd ..
 
 ############ End tweak template #############
 
@@ -165,21 +148,13 @@ echo "--------------------------------------------------------------------------
 echo ls $staging_dist_dir/
 ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
+
 echo "cp $template_dir/*.template $template_dist_dir/"
-#cp $staging_dist_dir/*.template.json $template_dist_dir/
 cp $staging_dist_dir/SECURE_STREAM.yaml $template_dist_dir/SECURE_STREAM.template
 
 
 rm SECURE_STREAM.yaml
 
-# Rename all *.template.json files to *.template
-#echo "Rename all *.template.json to *.template"
-#echo "copy templates and rename"
-#for f in $template_dist_dir/*.template.json; do
-#    mv -- "$f" "${f%.template.json}.template"
-#done
-
-#cp $template_dist_dir/*.template $build_dist_dir/
 echo cp $cdk synth --asset-metadata /*.zip $build_dist_dir/
 cp $staging_dist_dir/*.zip $build_dist_dir/
 

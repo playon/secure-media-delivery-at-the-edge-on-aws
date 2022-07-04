@@ -127,7 +127,7 @@ for cdk_key in `ls  | grep '^asset'`; do
     fi
 
     #sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
-    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.yaml
+    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/SECURE_STREAM.yaml
 
 
     let "i+=1"

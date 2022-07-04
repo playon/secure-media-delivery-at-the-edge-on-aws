@@ -107,7 +107,7 @@ cd cdk.out
 pwd 
 
 ls 
-
+mv ./* $staging_dist_dir
 
 #zipping the assets
 i=1

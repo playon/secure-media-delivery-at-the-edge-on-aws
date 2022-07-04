@@ -58,9 +58,8 @@ export class SessionRevocation extends Construct {
         policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
           new iam.PolicyStatement({
             effect: iam.Effect.ALLOW,
-            actions: ["ssm:GetParameter"],
+            actions: ["ssm:GetParameter*"],
             resources: [
-              //`arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/${config.ruleIdParamName}`,
               `arn:aws:ssm:${Aws.REGION}:${accountId}:parameter/*`,
             ],
           }),

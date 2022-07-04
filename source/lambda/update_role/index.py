@@ -23,34 +23,38 @@ def handler(event, context):
         )
 
         print("Policy {} exists already".format(policy_name))
-    except botocore.exceptions.NoSuchEntityException:
-        print("Policy does not exists. Creating it")
+    except botocore.exceptions.ClientError as e:
+        print(e)
+        if e.response['Error']['Code'] == 'NoSuchEntity':
 
-        my_policy = {
-            "Version": "2012-10-17",
-            "Statement": [
-                {
-                    "Effect": "Allow",
-                    "Action": [
-                        "execute-api:Invoke"
-                    ],
-                "Resource": API_ARN
-                }
-            ]
-        }
-        iam.create_policy(
-            PolicyName=policy_name,
-            PolicyDocument=json.dumps(my_policy)
-        )
-        print("Policy created")
-        role_name = ROLE_ARN.split(':')[5].split('/')[1]
-
-        print("Attaching the new policy to the role {}".format(role_name))
-        iam.attach_role_policy(
-            RoleName=role_name,
-            PolicyArn=policy_arn
-        )
-
+            print("Policy does not exists. Creating it")
+    
+            my_policy = {
+                "Version": "2012-10-17",
+                "Statement": [
+                    {
+                        "Effect": "Allow",
+                        "Action": [
+                            "execute-api:Invoke"
+                        ],
+                    "Resource": API_ARN
+                    }
+                ]
+            }
+            iam.create_policy(
+                PolicyName=policy_name,
+                PolicyDocument=json.dumps(my_policy)
+            )
+            print("Policy created")
+            role_name = ROLE_ARN.split(':')[5].split('/')[1]
+    
+            print("Attaching the new policy to the role {}".format(role_name))
+            iam.attach_role_policy(
+                RoleName=role_name,
+                PolicyArn=policy_arn
+            )
+        else: # neither of those codes were right, so we re-raise the exception
+            raise
 
 
 

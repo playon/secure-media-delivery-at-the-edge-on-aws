@@ -8,13 +8,14 @@
     "postinstall": "npm run build",
     "build": "npx tsc",
     "watch": "npx tsc -w",
-    "test": "npx jest",
-    "clean": "rm -rf dist/",
+    "test": "jest --coverage --silent",
+    "clean": "rm -rf node_modules/ dist/ coverage/ package-lock.json",
     "lint": "npx eslint .",
     "audit": "npm audit && npx cdk synth | cfn_nag",
     "bootstrap": "npx cdk bootstrap",
     "deploy": "npx cdk deploy --all",
     "wizard": "node dist/bin/wizard/index.js"
+
   },
   "devDependencies": {
     "@types/joi": "^17.2.3",

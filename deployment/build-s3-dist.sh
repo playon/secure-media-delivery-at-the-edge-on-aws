@@ -89,8 +89,9 @@ sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 
-npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
+#npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
+node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/$stack_name.template
 
 # DELETED CODE
 
@@ -120,7 +121,8 @@ for cdk_key in `ls  | grep '^asset'`; do
         current_asset_name=$item.zip
     fi
 
-    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
+    #sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.template.json
+    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/$stack_name.yaml
 
 
     let "i+=1"
@@ -148,16 +150,18 @@ echo ls $staging_dist_dir/
 ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 echo "cp $template_dir/*.template $template_dist_dir/"
-cp $staging_dist_dir/*.template.json $template_dist_dir/
+#cp $staging_dist_dir/*.template.json $template_dist_dir/
+cp $staging_dist_dir/$stack_name.yaml $template_dist_dir/$stack_name.template
 
-rm *.template.json
+
+rm *.yaml
 
 # Rename all *.template.json files to *.template
-echo "Rename all *.template.json to *.template"
-echo "copy templates and rename"
-for f in $template_dist_dir/*.template.json; do
-    mv -- "$f" "${f%.template.json}.template"
-done
+#echo "Rename all *.template.json to *.template"
+#echo "copy templates and rename"
+#for f in $template_dist_dir/*.template.json; do
+#    mv -- "$f" "${f%.template.json}.template"
+#done
 
 #cp $template_dist_dir/*.template $build_dist_dir/
 echo cp $staging_dist_dir/*.zip $build_dist_dir/

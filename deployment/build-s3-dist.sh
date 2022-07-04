@@ -91,7 +91,7 @@ echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
 
 #npm run build && node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir --no-version-reporting
 
-node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/$stack_name.template
+node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/$stack_name.yaml
 
 # DELETED CODE
 

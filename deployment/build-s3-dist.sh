@@ -137,9 +137,12 @@ echo "Assets zipped"
 
 # Remove unnecessary output files
 echo "cd $staging_dist_dir"
+
 cd $staging_dist_dir
-echo "rm tree.json manifest.json cdk.out"
-rm tree.json manifest.json cdk.out
+ls
+
+#echo "rm tree.json manifest.json cdk.out"
+#rm tree.json manifest.json cdk.out
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Template artifacts"

@@ -77,7 +77,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
 
         //check if request URL is not in the exclusion list and omit remaining validations if so
-        for (let value of payload.exc) {
+        for (var i=0; i<payload.exc.length; i++){
             if (uri.startsWith(value)) {
                 return payload;
             }
@@ -85,7 +85,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
         //validate if the request URL matches paths covered by the token
         var uri_match = false;
-        for (let value of payload.paths) {
+        for (var i=0; i<payload.paths.length; i++){
             if (uri.startsWith(value)) {
                 uri_match = true;
                 break;

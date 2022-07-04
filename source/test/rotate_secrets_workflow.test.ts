@@ -5,7 +5,7 @@ import { RotateSecretsWorkflow } from '../lib/main/rotate_secrets_workflow';
 import { Secrets } from '../lib/main/secrets';
 import { IConfiguration } from '../helpers/validators/configuration';
 
-test('Secrets Created', () => {
+test('Rotate secrets workflow', () => {
   const stack = new Stack();
   // WHEN
   const secrets = new Secrets(stack, "Secrets");
@@ -30,5 +30,8 @@ test('Secrets Created', () => {
   const template = Template.fromStack(stack);
   template.resourceCountIs("AWS::StepFunctions::StateMachine", 1);
   template.resourceCountIs("AWS::Lambda::Function", 3);
+  template.resourceCountIs("Custom::AWS", 1);
+  template.resourceCountIs("AWS::Logs::LogGroup", 3);
+
 
 });

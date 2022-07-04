@@ -136,9 +136,6 @@ echo "cd $staging_dist_dir"
 cd $staging_dist_dir
 ls
 
-#echo "rm tree.json manifest.json cdk.out"
-#rm tree.json manifest.json cdk.out
-
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Template artifacts"
 echo "------------------------------------------------------------------------------"

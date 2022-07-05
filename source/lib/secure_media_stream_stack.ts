@@ -35,6 +35,10 @@ import { Secrets } from "./main/secrets";
 import { SessionRevocation } from "./main/session_revocation";
 import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_utils";
 
+export interface SecureMediaStreamStackProps extends StackProps {
+  readonly description: string
+}
+
 export class SecureMediaStreamingStack extends Stack {
   public readonly sessionToRevoke: ddb.ITable;
   private readonly GSI_NAME = "last_updated_index";
@@ -47,7 +51,7 @@ export class SecureMediaStreamingStack extends Stack {
     scope: Construct,
     id: string,
     config: IConfiguration,
-    props: StackProps
+    props: SecureMediaStreamStackProps
   ) {
     super(scope, id, props);
 

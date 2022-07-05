@@ -40,7 +40,8 @@ const getProps = (config: IConfiguration): SecureMediaStreamStackProps => {
       app,
       config.main?.stack_name! + "AutoSessionRevocation",
       config,
-      coreStack.sessionToRevoke
+      coreStack.sessionToRevoke,
+      getProps(config)
     );
   }
 })();

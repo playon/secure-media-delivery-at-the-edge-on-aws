@@ -21,7 +21,8 @@ import {
   aws_logs as logs,
   aws_sqs as sqs,
   aws_iam as iam,
-  aws_lambda_event_sources as event_source
+  aws_lambda_event_sources as event_source,
+  StackProps
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 
@@ -31,13 +32,18 @@ import { AutoRevokeSessionsWorkflow } from "./autorevocation/auto_revocation_wor
 import { CrLoadSqlParams } from "./custom_resources/cr_load_athena_config_table";
 import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_utils";
 
+export interface SecureMediaStreamStackProps extends StackProps {
+  readonly description: string
+}
+
 export class AutoSessionRevocationStack extends Stack {
 
   constructor(
     scope: Construct,
     id: string,
     configuration: IConfiguration,
-    sessionsTable: ITable
+    sessionsTable: ITable,
+    props: SecureMediaStreamStackProps
   ) {
     super(scope, id);
 

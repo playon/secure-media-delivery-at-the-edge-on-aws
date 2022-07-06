@@ -1,7 +1,7 @@
 const mockSecretData = {
   ARN: 'x',
   Name: 'my_secret',
-  SecretString: '{"20220704_abcdef":"azerty"}',
+  SecretString: '{"secret1_key_to_replace":"secret1_value_to_replace"}',
 }  
 class AWS {
   

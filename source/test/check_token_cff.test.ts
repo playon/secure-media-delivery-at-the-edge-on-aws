@@ -31,8 +31,8 @@ describe("Check token", () => {
       }
    };
      var result = cff.handler(cffEvent);
-     var expectedResult = {"statusCode": 401, "statusDescription": "Unauthorized"};
-     expect(result).toStrictEqual(expectedResult);
+     expect(result.statusCode).toBe(401);
+     expect(result.statusDescription).toBe("Unauthorized");
   });
 
 });

@@ -40,8 +40,8 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     // base64url decode and parse JSON
 
     try{    
-    var header = JSON.parse(_base64urlDecode(headerSeg));
-    var payload = JSON.parse(_base64urlDecode(payloadSeg));
+        var header = JSON.parse(atob(headerSeg));
+        var payload = JSON.parse(atob(payloadSeg));;
     } catch(e){
         throw new Error('malformed JWT token');
     }
@@ -201,9 +201,6 @@ function _sign(input, key, method) {
 }
 
 
-function _base64urlDecode(str) {
-    return String.bytesFrom(str, 'base64url')
-}
 
 function processJWTToken(myEvent){
 

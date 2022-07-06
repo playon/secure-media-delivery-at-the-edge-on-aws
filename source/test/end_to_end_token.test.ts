@@ -94,7 +94,7 @@ describe("Check token generation", () => {
       }
     };
 
-    var result = cff1.handler(cffEvent);
+    const result = cff1.handler(cffEvent);
     console.log(result);
     expect(result.method).toBe("POST");
 
@@ -179,7 +179,7 @@ describe("Check token generation", () => {
       }
     };
 
-    var result = cff1.handler(cffEvent);
+    const result = cff1.handler(cffEvent);
     expect(result.statusCode).toBe(401);
     expect(result.statusDescription).toBe("Unauthorized");
 
@@ -261,7 +261,7 @@ describe("Check token generation", () => {
       }
     };
 
-    var result = cff1.handler(cffEvent);
+    const result = cff1.handler(cffEvent);
     expect(result.statusCode).toBe(401);
     expect(result.statusDescription).toBe("Unauthorized");
 

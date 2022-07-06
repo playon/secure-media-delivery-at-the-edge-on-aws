@@ -386,7 +386,7 @@ describe("Check token generation", () => {
         "user-agent"
       ],
       "ip": false,
-      "nbf": "1688656681",
+      "nbf": "4118570281",
       "paths": [
         "/out/v1/00c6ff982d404e2f940b48495b243b3c/"
       ],

@@ -37,6 +37,7 @@ describe("Check token generation", () => {
         'via': '1.1 f9e2b62bbab7f16f69e97695da81e608.cloudfront.net (CloudFront)',
       }
     };
+
     var token_policy =
     {
       "co": false,
@@ -94,7 +95,8 @@ describe("Check token generation", () => {
     };
 
     var result = cff1.handler(cffEvent);
-    expect(result.method).toBe("GET");
+    console.log(result);
+    expect(result.method).toBe("POST");
 
   }, 70000);
 

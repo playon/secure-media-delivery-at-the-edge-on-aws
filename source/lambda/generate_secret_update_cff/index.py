@@ -85,6 +85,8 @@ def handler(event, context):
         #replacing the texts
         if line.startswith('var secrets = '):
             new_line = "var secrets = { \""+secret1_key +"\" : \""+secret1_value +"\", \""+secret2_key +"\": " + json.dumps(secret2_value) + " }"
+        elif line.startswith('exports.handler'):
+            new_line = ""
         else:
             new_line = line
 

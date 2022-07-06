@@ -264,3 +264,5 @@ function handler(event) {
     }
 
 }
+
+handler;

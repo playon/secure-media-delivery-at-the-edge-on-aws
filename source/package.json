@@ -8,14 +8,13 @@
     "postinstall": "npm run build",
     "build": "npx tsc",
     "watch": "npx tsc -w",
-    "test": "jest --coverage --silent",
+    "test": "jest --coverage ",
     "clean": "rm -rf node_modules/ dist/ coverage/ package-lock.json",
     "lint": "npx eslint .",
     "audit": "npm audit && npx cdk synth | cfn_nag",
     "bootstrap": "npx cdk bootstrap",
     "deploy": "npx cdk deploy --all",
-    "wizard": "node dist/bin/wizard/index.js",
-    "pretest": "npm run clean && npm install"
+    "wizard": "node dist/bin/wizard/index.js"
 
 
   },

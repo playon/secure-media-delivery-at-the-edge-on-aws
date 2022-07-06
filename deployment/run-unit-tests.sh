@@ -10,6 +10,18 @@
 [ "$DEBUG" == 'true' ] && set -x
 set -e
 
+cd ../source
+
+echo "Install node dependencies"
+npm install
+
+echo "Install NodeJs ws_secure_media_delivery layer dependencies for AWS Lambda"
+npm install --prefix resources/sdk/node/v1/
+
+
+cd ../deployment
+
+
 prepare_jest_coverage_report() {
   local component_name=$1
 
@@ -41,7 +53,7 @@ run_javascript_test() {
   cd ../source
 
   npm test
-  echo "after"
+  
   # prepare coverage reports
   prepare_jest_coverage_report $component_name
 }

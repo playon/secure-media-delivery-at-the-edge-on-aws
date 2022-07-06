@@ -12,6 +12,5 @@ test('Init secrets', () => {
   // THEN
 
   const template = Template.fromStack(stack);
-  console.log(template);
   template.resourceCountIs("Custom::AWS", 1);
 });

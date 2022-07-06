@@ -1,5 +1,5 @@
 import { Template } from 'aws-cdk-lib/assertions';
-import {  aws_dynamodb as dynamodb, Stack
+import {  Stack
 } from 'aws-cdk-lib';
 import { CRCreateLEWafRule } from '../lib/custom_resources/cr_create_le_rule';
 

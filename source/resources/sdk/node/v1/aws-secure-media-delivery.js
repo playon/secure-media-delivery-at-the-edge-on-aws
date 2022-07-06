@@ -89,7 +89,7 @@ class Secret{
 
         if(params['region']){
             sm_region = params['region'];
-        } else if(!aws.config.region){
+        } else if(aws.config && !aws.config.region){
             sm_region = 'us-east-1';
         }
         try{
@@ -113,6 +113,7 @@ class Secret{
             let smResponses = await Promise.all([sm_promise_primary,sm_promise_secondary]);
             primarySecret_json = Secret._getSecretKV(smResponses[0]);
             secondarySecret_json = Secret._getSecretKV(smResponses[1]);
+
         } catch (e){
             throw new Error(`Couldn't retrieve SecretsManager secrets: ${e}`);
         }        
@@ -175,6 +176,7 @@ class Secret{
                     }
                 }
             } catch(e){
+                console.log(e);
                 Secret.logger(`failed to retrieve the keys: ${e}`);
             } finally{
                 this._lock = false;
@@ -481,3 +483,4 @@ class Token{
 exports.Token = Token;
 exports.Secret = Secret;
 exports.Session = Session;
+exports.validateIPv6 = validateIPv6;

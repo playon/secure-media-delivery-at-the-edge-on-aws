@@ -1,7 +1,5 @@
 const cff = require("../lambda/generate_secret_update_cff/index.js");
 
-
-
 describe("Check token", () => {
     
   test('Empty event', () => {

@@ -4,6 +4,13 @@ const aws = require("aws-sdk") // we still need to require this
 const awsSMD = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
 jest.mock("aws-sdk") // jest will automatically find the mock
 
+awsSMD.Token.setDEBUG(true);
+awsSMD.Secret.setDEBUG(true);
+
+let secret = new awsSMD.Secret('MyStack', 4);
+secret.initSMClient();
+let token = new awsSMD.Token(secret);
+
 
 
 describe("Check IPv6", () => {
@@ -57,12 +64,6 @@ describe("Check token generation", () => {
 
   test("Without IP, token generated ", async () => {
 
-    awsSMD.Token.setDEBUG(true);
-    awsSMD.Secret.setDEBUG(true);
-
-    let secret = new awsSMD.Secret('test', 4);
-    secret.initSMClient();
-    let token = new awsSMD.Token(secret);
     var viewer_attributes = {
       "ip": "192.168.1.1",
       "co": "FRANCE",
@@ -110,12 +111,7 @@ describe("Check token generation", () => {
 
   test("With IP, token generated", async () => {
 
-    awsSMD.Token.setDEBUG(true);
-    awsSMD.Secret.setDEBUG(true);
 
-    let secret = new awsSMD.Secret('test', 4);
-    secret.initSMClient();
-    let token = new awsSMD.Token(secret);
     var viewer_attributes = {
       "ip": "192.168.1.1",
       "co": "FRANCE",
@@ -163,12 +159,7 @@ describe("Check token generation", () => {
 
   test("With country, token generated", async () => {
 
-    awsSMD.Token.setDEBUG(true);
-    awsSMD.Secret.setDEBUG(true);
 
-    let secret = new awsSMD.Secret('test', 4);
-    secret.initSMClient();
-    let token = new awsSMD.Token(secret);
     var viewer_attributes = {
       "ip": "192.168.1.1",
       "co": "FRANCE",

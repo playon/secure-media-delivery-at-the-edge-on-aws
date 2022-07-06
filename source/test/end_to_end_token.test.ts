@@ -1,23 +1,22 @@
-const aws = require("aws-sdk") // we still need to require this
-const awsSMD = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
-const cff = require("../lambda/generate_secret_update_cff/index.js");
+const aws1 = require("aws-sdk") // we still need to require this
+const awsSMD1 = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
+const cff1 = require("../lambda/generate_secret_update_cff/index.js");
+
+awsSMD1.Token.setDEBUG(true);
+awsSMD1.Secret.setDEBUG(true);
+
+let secret1 = new awsSMD1.Secret('MyStack', 4);
+secret1.initSMClient();
+let token1 = new awsSMD1.Token(secret1);
 
 jest.mock("aws-sdk") // jest will automatically find the mock
-
-
-
 
 
 describe("Check token generation", () => {
 
   test("Check token - valid token ", async () => {
 
-    awsSMD.Token.setDEBUG(true);
-    awsSMD.Secret.setDEBUG(true);
 
-    let secret = new awsSMD.Secret('test', 4);
-    secret.initSMClient();
-    let token = new awsSMD.Token(secret);
 
     const myIp = "MY_IP";
     const myReferer =  'https://mycloudfrontdomainname.cloudfront.net';
@@ -63,7 +62,7 @@ describe("Check token generation", () => {
 
     const cloudfrontDomainName = "https://videoassetcloudfrontdomainname.com";
     const mediaUrl = "/out/v1/00c6ff982d404e2f940b48495b243b3c/index.m3u";
-    const playbackUrl = await token.generate(viewer_attributes, `${cloudfrontDomainName}${mediaUrl}`, token_policy);
+    const playbackUrl = await token1.generate(viewer_attributes, `${cloudfrontDomainName}${mediaUrl}`, token_policy);
     var start = cloudfrontDomainName.length;
     const myPath = playbackUrl.substring(start);
 
@@ -95,20 +94,13 @@ describe("Check token generation", () => {
       }
     };
 
-    var result = cff.handler(cffEvent);
+    var result = cff1.handler(cffEvent);
     expect(result.method).toBe("GET");
 
   }, 70000);
 
 
   test("Check token - different user agent ", async () => {
-
-    awsSMD.Token.setDEBUG(true);
-    awsSMD.Secret.setDEBUG(true);
-
-    let secret = new awsSMD.Secret('test', 4);
-    secret.initSMClient();
-    let token = new awsSMD.Token(secret);
 
     const myIp = "MY_IP";
     const myReferer =  'https://mycloudfrontdomainname.cloudfront.net';
@@ -154,7 +146,7 @@ describe("Check token generation", () => {
 
     const cloudfrontDomainName = "https://videoassetcloudfrontdomainname.com";
     const mediaUrl = "/out/v1/00c6ff982d404e2f940b48495b243b3c/index.m3u";
-    const playbackUrl = await token.generate(viewer_attributes, `${cloudfrontDomainName}${mediaUrl}`, token_policy);
+    const playbackUrl = await token1.generate(viewer_attributes, `${cloudfrontDomainName}${mediaUrl}`, token_policy);
     var start = cloudfrontDomainName.length + 1;
     const myPath = playbackUrl.substring(start)
 
@@ -186,20 +178,13 @@ describe("Check token generation", () => {
       }
     };
 
-    var result = cff.handler(cffEvent);
+    var result = cff1.handler(cffEvent);
     expect(result.statusCode).toBe(401);
     expect(result.statusDescription).toBe("Unauthorized");
 
   }, 70000);
 
   test("Check token - different path ", async () => {
-
-    awsSMD.Token.setDEBUG(true);
-    awsSMD.Secret.setDEBUG(true);
-
-    let secret = new awsSMD.Secret('test', 4);
-    secret.initSMClient();
-    let token = new awsSMD.Token(secret);
 
     const myIp = "MY_IP";
     const myReferer =  'https://mycloudfrontdomainname.cloudfront.net';
@@ -245,7 +230,7 @@ describe("Check token generation", () => {
 
     const cloudfrontDomainName = "https://videoassetcloudfrontdomainname.com";
     const mediaUrl = "/out/v1/00c6ff982d404e2f940b48495b243b3c/index.m3u8";
-    const playBackurl = await token.generate(viewer_attributes, `${cloudfrontDomainName}${mediaUrl}`, token_policy);
+    const playBackurl = await token1.generate(viewer_attributes, `${cloudfrontDomainName}${mediaUrl}`, token_policy);
     var start = cloudfrontDomainName.length + 1;
     const myPath = playBackurl.substring(start)
     expect(playBackurl.startsWith(cloudfrontDomainName)).toBeTruthy();
@@ -275,7 +260,7 @@ describe("Check token generation", () => {
       }
     };
 
-    var result = cff.handler(cffEvent);
+    var result = cff1.handler(cffEvent);
     expect(result.statusCode).toBe(401);
     expect(result.statusDescription).toBe("Unauthorized");
 

@@ -12,11 +12,10 @@ let token1 = new awsSMD1.Token(secret1);
 jest.mock("aws-sdk") // jest will automatically find the mock
 
 
+
 describe("Check token generation", () => {
 
   test("Check token - valid token ", async () => {
-
-
 
     const myIp = "MY_IP";
     const myReferer =  'https://mycloudfrontdomainname.cloudfront.net';

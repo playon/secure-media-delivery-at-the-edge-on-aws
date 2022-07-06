@@ -96,7 +96,7 @@ describe("Check token generation", () => {
 
     const result = cff1.handler(cffEvent);
     console.log(result);
-    expect(result.method).toBe("POST");
+    expect(result.method).toBe("GET");
 
   }, 70000);
 

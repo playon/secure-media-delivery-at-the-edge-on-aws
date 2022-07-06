@@ -8,7 +8,7 @@
     "postinstall": "npm run build",
     "build": "npx tsc",
     "watch": "npx tsc -w",
-    "test": "jest --coverage ",
+    "test": "jest --coverage --silent",
     "clean": "rm -rf node_modules/ dist/ coverage/ package-lock.json",
     "lint": "npx eslint .",
     "audit": "npm audit && npx cdk synth | cfn_nag",

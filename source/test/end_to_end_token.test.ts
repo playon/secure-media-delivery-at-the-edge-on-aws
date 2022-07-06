@@ -352,7 +352,6 @@ describe("Check token generation", () => {
 
   }, 70000);
 
-
   test("Check token - different user agent ", async () => {
 
     const myIp = "MY_IP";

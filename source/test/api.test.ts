@@ -19,11 +19,36 @@ test('Create Api', () => {
   const myTable = new dynamodb.Table(stack, 'Table', {
     partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING }
   });
-  const parameters = new GetInputParameters(stack, "InputParameters", {} as IConfiguration,);
+  const myConfig = {
+    "main": {
+      "stack_name": "MYSTREAM",
+      "assets_bucket_name" : "MY_ASSETS_BUCKET_NAME",
+      "rotate_secrets_frequency": "1m",
+      "rotate_secrets_pattern": "P",
+      "wcu": 100,
+      "retention": 5
+    },
+    "api": {
+      "demo": true
+  
+    },
+    "hls": {
+      "hostname": "H",
+      "url_path": "U",
+      "ttl": "+3h"
+    },
+    "dash": {
+      "hostname": "H",
+      "url_path": "U",
+      "ttl": "+24h"
+    }
+  };
+  
+  const parameters = new GetInputParameters(stack, "InputParameters", myConfig as IConfiguration,);
 
-
+  
   new Api(stack, 'Api', {
-    configuration: {} as IConfiguration,
+    configuration: myConfig as IConfiguration,
     secrets: secrets,
     dashboard: dashboard,
     sessionsTable: myTable,

@@ -121,11 +121,6 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
 }
 
-function _base64urlDecode(str) {
-    return String.bytesFrom(str, 'base64url')
-}
-
-
 function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, request_headers, request_querystrings, request_ip) {
     var indirect_attr = '';
 

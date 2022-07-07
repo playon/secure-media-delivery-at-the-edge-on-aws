@@ -12,7 +12,7 @@ import { sessionRevocationSchema, ISessionRevocation } from './auto_session_revo
  */
  export interface IConfiguration {
 
-  main?: IMain;
+  main: IMain;
   sessionRevocation?: ISessionRevocation;
   api?: IApi;
   hls?: IHosting;
@@ -23,7 +23,7 @@ import { sessionRevocationSchema, ISessionRevocation } from './auto_session_revo
  * The `Joi` schema for validating the configuration.
  */
 export const schema = Joi.object().keys({
-  main: coreSchema,
+  main: coreSchema.required(),
   sessionRevocation: sessionRevocationSchema.optional(),
   api: apiSchema.optional(),
   hosting: hostingSchema.optional(),

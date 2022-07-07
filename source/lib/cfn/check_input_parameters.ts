@@ -25,7 +25,7 @@ export class GetInputParameters extends Construct {
 
     var returnObject: IConfiguration;
 
-    if (configuration.main?.rotate_secrets_pattern === "P") {
+    if (configuration.main.rotate_secrets_pattern === "P") {
       const hours = new CfnParameter(this, "AA", {
         type: "String",
         allowedValues: [
@@ -171,6 +171,7 @@ export class GetInputParameters extends Construct {
 
       returnObject = {
         main: {
+          stack_name: "MYSTREAM",
           rotate_secrets_frequency: "1m",
           rotate_secrets_pattern:
             minutes.valueAsString +
@@ -188,10 +189,11 @@ export class GetInputParameters extends Construct {
     } else {
       returnObject = {
         main: {
+          stack_name: "MYSTREAM",
           rotate_secrets_frequency: "1m",
-          rotate_secrets_pattern: configuration.main?.rotate_secrets_pattern!,
-          wcu: configuration.main?.wcu!,
-          retention: configuration.main?.retention!,
+          rotate_secrets_pattern: configuration.main.rotate_secrets_pattern!,
+          wcu: configuration.main.wcu!,
+          retention: configuration.main.retention!,
         },
       };
     }

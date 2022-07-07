@@ -40,8 +40,8 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     // base64url decode and parse JSON
 
     try{    
-        var header = JSON.parse(_base64urlDecode(headerSeg));
-        var payload = JSON.parse(_base64urlDecode(payloadSeg));
+        var header = JSON.parse(a2b(headerSeg));
+        var payload = JSON.parse(a2b(payloadSeg));
     } catch(e){
         console.log(e);
         throw new Error('malformed JWT token');
@@ -205,6 +205,13 @@ function _base64urlDecode(str) {
     return String.bytesFrom(str, 'base64url')
 }
 
+function a2b(a) {
+    var b, c, d, e = {}, f = 0, g = 0, h = "", i = String.fromCharCode, j = a.length;
+    for (b = 0; 64 > b; b++) e["ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".charAt(b)] = b;
+    for (c = 0; j > c; c++) for (b = e[a.charAt(c)], f = (f << 6) + b, g += 6; g >= 8; ) ((d = 255 & f >>> (g -= 8)) || j - 2 > c) && (h += i(d));
+    return h;
+  }
+  
 function processJWTToken(myEvent){
 
     var headers = myEvent.request.headers;

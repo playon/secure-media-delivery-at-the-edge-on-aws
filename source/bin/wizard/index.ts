@@ -51,7 +51,15 @@ const moduleMap: { [key: string]: PromptComponent } = {
  * returns the gathered configuration.
  */
 const getConfiguration = async (): Promise<IConfiguration> => {
-  const configuration: IConfiguration = {};
+  const configuration: IConfiguration = { 
+    "main": {
+      "stack_name": "MYSTREAM",
+      "rotate_secrets_frequency": "1m",
+      "rotate_secrets_pattern": "P",
+      "wcu": 100,
+      "retention": 5
+    }
+  };
 
   const mainComponent = new Array('a');
 

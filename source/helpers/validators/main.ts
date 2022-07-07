@@ -11,7 +11,7 @@ export interface IMain {
    * to be sent when the actual budget is superior
    * to the limit value.
    */
-   stack_name?: string;
+   stack_name: string;
    assets_bucket_name?: string;
    rotate_secrets_frequency: string;
    rotate_secrets_pattern: string;

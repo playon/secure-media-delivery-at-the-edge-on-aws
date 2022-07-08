@@ -26,25 +26,6 @@ describe("Generate a token", () => {
           'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:91.0) Gecko/20100101 Firefox/91.0',
         },
         queryStringParameters: { id: '1' },
-        requestContext: {
-          accountId: '867201269000',
-          apiId: 'f2utpitubd',
-          authorizer: { iam: [Object] },
-          domainName: 'f2utpitubd.execute-api.eu-west-1.amazonaws.com',
-          domainPrefix: 'f2utpitubd',
-          http: {
-            method: 'GET',
-            path: '/tokengenerate',
-            protocol: 'HTTP/1.1',
-            sourceIp: '52.94.36.25',
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:91.0) Gecko/20100101 Firefox/91.0'
-          },
-          routeKey: 'GET /tokengenerate',
-          stage: '$default',
-          time: '08/Jul/2022:07:53:32 +0000',
-          timeEpoch: 1657266812685
-        },
-        isBase64Encoded: false
       };
 
       var result = handler(myEvent)

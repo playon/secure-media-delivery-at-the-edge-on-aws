@@ -18,7 +18,8 @@ const response200 = {
 }
 
 exports.handler = async (event, context) => {
-    
+    console.log("event="+JSON.stringify(event));
+
     let id;
     
     if(event['queryStringParameters'] && event.queryStringParameters['sessionid']){
@@ -30,7 +31,6 @@ exports.handler = async (event, context) => {
     
     let revokeSession = new awsSMD.Session(id);
     let result = await revokeSession.revoke(TTL*86400);
-    
-    return result?response200:response400;
+    return result ? response200 : response400;
     
 };

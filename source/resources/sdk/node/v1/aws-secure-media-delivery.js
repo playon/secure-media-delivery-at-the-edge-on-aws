@@ -3,6 +3,7 @@ const b64url = require('base64url');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const qs = require('querystring');
+const { CloudFormationDeployStackSetAction } = require('aws-cdk-lib/aws-codepipeline-actions');
 
 
 function log(message){
@@ -270,7 +271,7 @@ class Session{
         this.suspicion_score = suspicion_score;
     }
 
-    async revoke(expiry_period=86400,reason='COMPROMISED'){
+    async revoke(expiry_period=86400, reason='COMPROMISED'){
         if(!Session._ddbClient) throw new Error("DynamoDB client hasn't been initialized");
         if(!Session.revocationTable) throw new Error("Revocation Table name must be set");
         let currentTimestamp = Math.floor(Date.now()/1000);
@@ -290,15 +291,14 @@ class Session{
             TableName: Session.revocationTable
         };
 		
-		let result;
 		try{
-			result = await Session._ddbClient.putItem(params).promise();
+			await Session._ddbClient.putItem(params).promise();
+            return true;
 		} catch(e){
+            console.log("ERROR: "+e)
 			Session.logger(`Manual session revoke operation failed when updating DynamoDB table: ${e}`);
-			result = false;
+            return false;
 		}
-		
-        return result?true:false;
 
     } 
 
@@ -313,7 +313,7 @@ class Session{
 
         if(params['region']){
             ddb_region = params['region'];
-        } else if(!aws.config.region){
+        } else if(aws.config && !aws.config.region){
             ddb_region = 'us-east-1';
         }
         try{

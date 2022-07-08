@@ -49,8 +49,12 @@ class AWS {
               }
           }
       };
-      } }));;
+      } }));
     }
+
+    putItem = jest.fn().mockImplementation(() => ({ promise:  function () {
+      return "";
+    } }));
 
   }
 

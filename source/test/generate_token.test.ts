@@ -4,7 +4,7 @@ jest.mock("aws-sdk")
 
 describe("Generate a token", () => {
 
-    test('generate token 200', () => {
+    test('generate token 200', async () => {
       // arrange and act
       var myEvent = {
         version: '2.0',
@@ -23,7 +23,7 @@ describe("Generate a token", () => {
         queryStringParameters: { id: '1' },
       };
 
-      var result = handler(myEvent)
+      var result = await handler(myEvent);
   
       expect(result.playback_url).toHaveLength;
 

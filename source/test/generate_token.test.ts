@@ -1,10 +1,5 @@
-const aws = require("aws-sdk") // we still need to require this
-const awsSMD = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
-
-//const generateToken = require('../lambda/generate_token/nodejs');
 const { handler } = require('../lambda/generate_token/nodejs');
-jest.mock("aws-sdk") // jest will automatically find the mock
-
+jest.mock("aws-sdk")
 
 
 describe("Generate a token", () => {

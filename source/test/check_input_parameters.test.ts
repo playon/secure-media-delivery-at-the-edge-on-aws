@@ -26,7 +26,6 @@ test('Check input param - cdk', () => {
   
   // THEN
   const template = Template.fromStack(stack);
-  console.log(template);
   expect(Object.keys(template.toJSON().Parameters).length).toEqual(1);
 
 });
@@ -66,3 +65,41 @@ test('Check input param - cfn', () => {
   const template = Template.fromStack(stack);
   expect(Object.keys(template.toJSON().Parameters).length).toEqual(11);
 });
+
+test('Check input param - cdk hls & dash', () => {
+  const stack = new Stack();
+  // WHEN
+
+  const myConfig = {
+    "main": {
+      "stack_name": "MYSTREAM",
+      "assets_bucket_name" : "MY_ASSETS_BUCKET_NAME",
+      "rotate_secrets_frequency": "1m",
+      "rotate_secrets_pattern": "m",
+      "wcu": 100,
+      "retention": 5
+    },
+    "api": {
+      "demo": true
+  
+    },
+    "hls": {
+      "hostname": "myhostname",
+      "url_path": "mypath",
+      "ttl": "+3h"
+    },
+    "dash": {
+      "hostname": "myhostname",
+      "url_path": "mypath",
+      "ttl": "+24h"
+    }
+  };
+
+  new GetInputParameters(stack, "InputParameters", myConfig as IConfiguration);
+
+  // THEN
+  const template = Template.fromStack(stack);
+  console.log(template)
+  expect(Object.keys(template.toJSON().Parameters).length).toEqual(1);
+});
+

@@ -25,6 +25,11 @@ test('Create CW dashboard with widgets', () => {
     region: Aws.REGION,
   });
 
+  myDashboard.buildApiDashboard({
+    lambdaFunctionName: generateToken.functionName,
+    region: Aws.REGION,
+  });
+
   // THEN
 
   const template = Template.fromStack(stack);

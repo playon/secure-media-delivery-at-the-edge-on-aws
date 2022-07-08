@@ -57,7 +57,7 @@ export class SecureMediaStreamingStack extends Stack {
 
 
     const crCreateLEWafRule = new CRCreateLEWafRule(this, "CRLEWAFRuleGroup", {
-      WCU: config.main?.wcu!,
+      WCU: config.main.wcu,
       LAMBDA_EDGE_VERSION_SSM_PARAM: this.LAMBDA_EDGE_VERSION_SSM_PARAM,
       WAF_RULE_NAME_SSM_PARAM: this.WAF_RULE_NAME_SSM_PARAM,
       WAF_RULE_ID_SSM_PARAM: this.WAF_RULE_ID_SSM_PARAM,

@@ -19,11 +19,19 @@ test('Rotate secrets workflow', () => {
       "CloudFront Function used to check a JWT token",
   });
 
+  const myConfig = {
+    "main": {
+      "stack_name": "CCCC1",
+      "wcu": 100,
+      "retention": 14,
+      "rotate_secrets_frequency": "m"
+    }
+  };
   new RotateSecretsWorkflow(stack, 'RotateSecrets',
   {
     secrets: secrets,
     checkTokenFunction: checkToken,
-    configuration: {} as IConfiguration,
+    configuration: myConfig as IConfiguration,
   })
   // THEN
 

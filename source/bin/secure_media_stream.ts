@@ -29,7 +29,7 @@ const getProps = (config: IConfiguration): SecureMediaStreamStackProps => {
   
   const coreStack = new SecureMediaStreamingStack(
     app,
-    config.main?.stack_name!,
+    config.main.stack_name,
     config,
     getProps(config)
     
@@ -38,7 +38,7 @@ const getProps = (config: IConfiguration): SecureMediaStreamStackProps => {
   if (config.sessionRevocation) {
     new AutoSessionRevocationStack(
       app,
-      config.main?.stack_name! + "AutoSessionRevocation",
+      config.main.stack_name + "AutoSessionRevocation",
       config,
       coreStack.sessionToRevoke,
       getProps(config)

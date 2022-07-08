@@ -173,8 +173,8 @@ export class SecureMediaStreamingStack extends Stack {
     const sessionRevocation = new SessionRevocation(this, "SessionRevocation", {
       sessionToRevoke: sessionToRevoke,
       gsi_index_name: this.GSI_NAME,
-      wcu: config.main?.wcu!,
-      retention: config.main?.retention!,
+      wcu: config.main.wcu,
+      retention: config.main.retention,
       ruleNameParamName: this.WAF_RULE_NAME_SSM_PARAM,
       ruleIdParamName: this.WAF_RULE_ID_SSM_PARAM,
     });

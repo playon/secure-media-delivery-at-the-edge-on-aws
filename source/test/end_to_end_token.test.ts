@@ -2,6 +2,8 @@ const aws1 = require("aws-sdk") // we still need to require this
 const awsSMD1 = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
 const cff1 = require("../lambda/generate_secret_update_cff/index.js");
 
+//import * as cff1 from "../lambda/generate_secret_update_cff/index.js";
+
 awsSMD1.Token.setDEBUG(true);
 awsSMD1.Secret.setDEBUG(true);
 
@@ -9,7 +11,26 @@ let secret1 = new awsSMD1.Secret('MyStack', 4);
 secret1.initSMClient();
 let token1 = new awsSMD1.Token(secret1);
 
+const addMock = jest.spyOn(cff1, "_base64urlDecode");
+
 jest.mock("aws-sdk") // jest will automatically find the mock
+
+
+const _base64urlDecode = jest.fn();
+
+//const String.bytesFrom = jest.fn();
+//String.bytesFrom.mockReturnValue("abcd");
+//_base64urlDecode.mockReturnValue("abcd");
+// foo est une fonction simulée
+//addMock.mockImplementation(param => foo(String(param)));
+addMock.mockImplementation( param => {
+  console.log("****  CALLED with param="+param);
+  return Buffer.from(String(param), 'base64').toString();
+} );
+//expect(cff1._base64urlDecode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjIwNzA2X3NmeWttd2JpdG0ifQ")).toBe(4);
+
+//addMock.mockImplementation(param => Buffer.from(param, 'base64').toString());
+//console.log(_base64urlDecode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjIwNzA2X3NmeWttd2JpdG0ifQ"));
 
 
 
@@ -100,6 +121,7 @@ describe("Check token generation", () => {
 
   }, 70000);
 
+  
   test("Check token - valid token, ip=true", async () => {
 
     const myIp = "54.240.197.233";

@@ -1,10 +1,6 @@
 const cff = require("../lambda/generate_secret_update_cff/index.js");
 
-//const _base64urlDecode = jest.fn();
 
-
-
-//_base64urlDecode.mockReturnValue(a2b());
 
 describe("Check token", () => {
     

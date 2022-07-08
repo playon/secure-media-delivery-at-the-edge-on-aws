@@ -23,6 +23,8 @@ awsSMD.Token.setDEBUG(true)
 let token = new awsSMD.Token(secret);
 
 exports.handler = async (event, context) => {
+    
+    console.log(JSON.stringify(event))
     var id;
     var viewer_attributes = {};
     var headers = event.headers;
@@ -49,13 +51,14 @@ exports.handler = async (event, context) => {
     };
 
     var video_metadata = await docClient.get(params).promise();
-    console.log("From DynamoDB:"+video_metadata);
+    console.log("From DynamoDB:"+JSON.stringify(video_metadata));
     if(!video_metadata.Item){
         return {
         "statusCode": 404,
         "body": 'No video asset for the given ID'
         };
     }
+
     var endpoint_hostname = video_metadata.Item['endpoint_hostname'];
     var video_url = video_metadata.Item['url_path'];
     var token_policy = video_metadata.Item.token_policy;
@@ -98,10 +101,9 @@ exports.handler = async (event, context) => {
 
 	
     let playback_url = await token.generate(viewer_attributes, `${endpoint_hostname}${video_url}`, token_policy);
-
     return {
-    "statusCode": 200,
-    "body": playback_url
+        "statusCode": 200,
+        "body": playback_url
     };
 
 };

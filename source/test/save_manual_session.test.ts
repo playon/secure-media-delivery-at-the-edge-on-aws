@@ -1,4 +1,5 @@
-const { handler } = require('../lambda/save_manual_session/nodejs');
+const revokeSessionHandler = require('../lambda/save_manual_session/nodejs/index.js');
+
 jest.mock("aws-sdk")
 const awsSMD2 = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
 awsSMD2.Session.initialize("MY_TABLE");
@@ -15,7 +16,7 @@ describe("Save manual session", () => {
         queryStringParameters: { sessionid: 'abcdef' },
       };
 
-      var result = await handler(myEvent);
+      var result = await revokeSessionHandler.handler(myEvent);
 
       expect(result.statusCode).toBe(200);
 
@@ -27,7 +28,7 @@ describe("Save manual session", () => {
         routeKey: 'GET /sessionrevoke',
       };
 
-      var result = await handler(myEvent);
+      var result = await revokeSessionHandler.handler(myEvent);
 
       expect(result.statusCode).toBe(400);
 

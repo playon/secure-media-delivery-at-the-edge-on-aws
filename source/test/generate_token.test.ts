@@ -1,4 +1,5 @@
-const { handler } = require('../lambda/generate_token/nodejs');
+const generateTokenHandler = require('../lambda/generate_token/nodejs/index.js');
+
 jest.mock("aws-sdk")
 
 
@@ -23,7 +24,7 @@ describe("Generate a token", () => {
         queryStringParameters: { id: '1' },
       };
 
-      var result = await handler(myEvent);
+      var result = await generateTokenHandler.handler(myEvent);
   
       expect(result.playback_url).toHaveLength;
 
@@ -46,7 +47,7 @@ describe("Generate a token", () => {
           },
         };
   
-        var result = await handler(myEvent);
+        var result = await generateTokenHandler.handler(myEvent);
     
         expect(result.statusCode).toBe(400);
   

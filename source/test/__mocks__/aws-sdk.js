@@ -16,6 +16,15 @@ class AWS {
       };
     }
     )
+
+    putSecretValue = jest.fn(secretId =>{
+      return {
+        promise: function () {
+          return "";
+        }
+      };
+    }
+    )
   }
 
   static DynamoDB = class {

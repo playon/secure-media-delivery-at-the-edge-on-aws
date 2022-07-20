@@ -104,7 +104,7 @@ export class RotateSecretsWorkflow extends Construct {
     // - the old secret1 is stored in secret2
     const swapSecrets = new lambda.Function(this, "SwapSecrets", {
       functionName: Aws.STACK_NAME + "_SwapSecrets",
-      runtime: lambda.Runtime.PYTHON_3_7,
+      runtime: lambda.Runtime.NODEJS_16_X,
       code: lambda.Code.fromAsset("lambda/swap_secrets"),
       handler: "index.handler",
       environment: {

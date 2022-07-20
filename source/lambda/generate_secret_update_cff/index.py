@@ -87,8 +87,10 @@ def handler(event, context):
             new_line = "var secrets = { \""+secret1_key +"\" : \""+secret1_value +"\", \""+secret2_key +"\": " + json.dumps(secret2_value) + " }"
         elif line.startswith('exports.handler'):
             new_line = ""
-        elif line.startswith('exports._base64urlDecode'):
+        elif line.startswith('exports.decodeString'):
             new_line = ""            
+        elif "return exports.decodeString(str)" in line:
+            new_line = line.replace("exports.", "")               
         else:
             new_line = line
 

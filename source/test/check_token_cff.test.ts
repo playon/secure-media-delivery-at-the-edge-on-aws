@@ -1,13 +1,12 @@
 const cff = require("../lambda/generate_secret_update_cff/index.js");
 
-const myMock = jest.spyOn(cff, "_base64urlDecode");
+const myMock = jest.spyOn(cff, "decodeString");
 
 jest.mock("aws-sdk") // jest will automatically find the mock
 
 myMock.mockImplementation( param => {
   return Buffer.from(String(param), 'base64').toString();
-} );
-
+});
 
 describe("Check token", () => {
     
@@ -77,8 +76,8 @@ describe("Check token", () => {
 
  
 
- test('Valid token' , () => {
-  // arrange and act
+ test('Expired token' , () => {
+ 
 var cffEvent = {
     "version": "1.0",
     "viewer": {
@@ -104,7 +103,9 @@ var cffEvent = {
     }
   };  
   var result = cff.handler(cffEvent);
-  expect(result.method).toBe("GET");
+  console.log(JSON.stringify(result))
+  expect(result.statusCode).toBe(401);
+  expect(result.statusDescription).toBe("Unauthorized");
   
 });
 

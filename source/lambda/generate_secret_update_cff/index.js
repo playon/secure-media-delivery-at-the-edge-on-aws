@@ -40,8 +40,8 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     // base64url decode and parse JSON
 
     try{    
-        var header = JSON.parse(exports._base64urlDecode(headerSeg));//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
-        var payload = JSON.parse(exports._base64urlDecode(payloadSeg));//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
+        var header = JSON.parse(_base64urlDecode(headerSeg));//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
+        var payload = JSON.parse(_base64urlDecode(payloadSeg));//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
 
     } catch(e){
         console.log(e);
@@ -202,9 +202,12 @@ function _sign(input, key, method) {
 
 
 function _base64urlDecode(str) {
-    return String.bytesFrom(str, 'base64url')
+    return exports.decodeString(str);//'exports' non supported by CFF. Only used to run unit tests. Removed before deployment.
 }
 
+function decodeString(str) {
+    return String.bytesFrom(str, 'base64url');
+}
 
   
 function processJWTToken(myEvent){
@@ -267,5 +270,6 @@ function handler(event) {
 
 }
 
-exports.handler = handler;//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
-exports._base64urlDecode = _base64urlDecode;//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
+exports.handler = handler;//'exports' non supported by CFF. Only used to run unit tests. Removed before deployment.
+exports.decodeString = decodeString;//'exports' non supported by CFF. Only used to run unit tests. Removed before deployment.
+

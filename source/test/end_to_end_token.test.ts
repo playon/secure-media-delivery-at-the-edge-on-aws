@@ -11,7 +11,7 @@ let secret1 = new awsSMD1.Secret('MyStack', 4);
 secret1.initSMClient();
 let token1 = new awsSMD1.Token(secret1);
 
-const addMock = jest.spyOn(cff1, "_base64urlDecode");
+const addMock = jest.spyOn(cff1, "decodeString");
 
 jest.mock("aws-sdk") // jest will automatically find the mock
 

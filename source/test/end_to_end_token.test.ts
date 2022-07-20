@@ -15,9 +15,6 @@ const addMock = jest.spyOn(cff1, "_base64urlDecode");
 
 jest.mock("aws-sdk") // jest will automatically find the mock
 
-
-const _base64urlDecode = jest.fn();
-
 addMock.mockImplementation( param => {
   return Buffer.from(String(param), 'base64').toString();
 } );

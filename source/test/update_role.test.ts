@@ -18,7 +18,7 @@ describe('process.env', () => {
   afterEach(() => {
       process.env = env
   })
-s
+
   test('update role - result 200', async () => {
 
     var result = await updateRole.handler({

@@ -18,21 +18,9 @@ jest.mock("aws-sdk") // jest will automatically find the mock
 
 const _base64urlDecode = jest.fn();
 
-//const String.bytesFrom = jest.fn();
-//String.bytesFrom.mockReturnValue("abcd");
-//_base64urlDecode.mockReturnValue("abcd");
-// foo est une fonction simulée
-//addMock.mockImplementation(param => foo(String(param)));
 addMock.mockImplementation( param => {
-  console.log("****  CALLED with param="+param);
   return Buffer.from(String(param), 'base64').toString();
 } );
-//expect(cff1._base64urlDecode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjIwNzA2X3NmeWttd2JpdG0ifQ")).toBe(4);
-
-//addMock.mockImplementation(param => Buffer.from(param, 'base64').toString());
-//console.log(_base64urlDecode("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6IjIwMjIwNzA2X3NmeWttd2JpdG0ifQ"));
-
-
 
 describe("Check token generation", () => {
 

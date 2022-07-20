@@ -40,8 +40,9 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     // base64url decode and parse JSON
 
     try{    
-        var header = JSON.parse(_base64urlDecode(headerSeg));
-        var payload = JSON.parse(_base64urlDecode(payloadSeg));
+        //'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
+        var header = JSON.parse(exports._base64urlDecode(headerSeg));
+        var payload = JSON.parse(exports._base64urlDecode(payloadSeg));
     } catch(e){
         console.log(e);
         throw new Error('malformed JWT token');
@@ -61,7 +62,6 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
         // Verify signature. `sign` will return base64 string.
         var signingInput = [headerSeg, payloadSeg].join('.');
-
         if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {
             throw new Error('JWT signature verification failed');
         }
@@ -196,15 +196,13 @@ function _verify_signature(input, key, method, type, signature) {
 }
 
 
-function _sign(input, key, method) {
+function _sign(input, key, method) {  
     return crypto.createHmac(method, key).update(input).digest('base64url');
 }
 
 
 function _base64urlDecode(str) {
-    //TODO to fix this
-    //return String.bytesFrom(str, 'base64url')
-    return Buffer.from(String(str), 'base64').toString();
+    return String.bytesFrom(str, 'base64url')
 }
 
 
@@ -269,5 +267,6 @@ function handler(event) {
 
 }
 
+//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
 exports.handler = handler;
 exports._base64urlDecode = _base64urlDecode;

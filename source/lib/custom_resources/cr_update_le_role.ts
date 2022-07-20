@@ -65,7 +65,7 @@ export class CRUpdateLERole extends Construct {
     //lambda used to add execute-api:Invoke permission to LambdaEdge (to sign the request)
     const updateRoleFunction = new lambda.Function(this, "UpdateRole", {
       functionName: Aws.STACK_NAME + "_UpdateRole",
-      runtime: lambda.Runtime.PYTHON_3_7,
+      runtime: lambda.Runtime.NODEJS_16_X,
       code: lambda.Code.fromAsset("lambda/update_role"),
       handler: "index.handler",
       environment: {

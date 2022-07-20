@@ -58,6 +58,28 @@ class AWS {
 
   }
 
+  static IAM = class {
+    
+    createPolicy = jest.fn(param =>{
+      return {
+        promise: function () {
+          
+        }
+      };
+    }
+    )
+
+    attachRolePolicy = jest.fn(param =>{
+      return {
+        promise: function () {
+          
+        }
+      };
+    }
+    )
+  }
+
+
   
 
 

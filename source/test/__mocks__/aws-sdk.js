@@ -68,38 +68,10 @@ class AWS {
     query = jest.fn(param =>{
       return {
         promise: function () {
-          return {
-            "session_id": {
-              "S": "sessionid1"
-            },
-            "ip_penalty": {
-              "N": "123332"
-            },
-            "ip_rate": {
-              "N": "4567854"
-            },
-            "last_updated": {
-              "N": "1658409174"
-            },
-            "reason": {
-              "S": "COMPROMISED"
-            },
-            "referer_penalty": {
-              "N": "456544"
-            },
-            "score": {
-              "N": "1234561"
-            },
-            "ttl": {
-              "N": "1659000558"
-            },
-            "type": {
-              "S": "AUTO"
-            },
-            "ua_penalty": {
-              "N": "1111222"
-            }
-          }
+          return {"Items":[
+          {"last_updated":{"N":"1658409174"},"score":{"N":"1234561"},"reason":{"S":"COMPROMISED"},"session_id":{"S":"sessionid1"},"type":{"S":"AUTO"}},
+          {"last_updated":{"N":"1658409174"},"score":{"N":"1234561"},"reason":{"S":"COMPROMISED"},"session_id":{"S":"sessionid2"},"type":{"S":"MANUAL"}}
+        ],"Count":1,"ScannedCount":1}
         }
       };
     }
@@ -147,7 +119,69 @@ class AWS {
     getRuleGroup = jest.fn(param =>{
       return {
         promise: function () {
-          
+          return {
+            "RuleGroup":{
+               "Name":"MYDEMO1_BlockSessions",
+               "Id":"ca2a976c-1df0-41b2-9234-055318508a9b",
+               "Capacity":100,
+               "ARN":"arn:aws:wafv2:us-east-1:867201269000:global/rulegroup/MYDEMO1_BlockSessions/ca2a976c-1df0-41b2-9234-055318508a9b",
+               "Description":"TokenRevoke",
+               "Rules":[
+                  {
+                     "Name":"91cb0cb58022fa04",
+                     "Priority":1,
+                     "Statement":{
+                        "ByteMatchStatement":{
+                           "SearchString":{
+                              "type":"Buffer",
+                              "data":[
+                                 115,
+                                 101,
+                                 115,
+                                 115,
+                                 105,
+                                 111,
+                                 110,
+                                 105,
+                                 100,
+                                 49
+                              ]
+                           },
+                           "FieldToMatch":{
+                              "UriPath":{
+                                 
+                              }
+                           },
+                           "TextTransformations":[
+                              {
+                                 "Priority":0,
+                                 "Type":"NONE"
+                              }
+                           ],
+                           "PositionalConstraint":"STARTS_WITH"
+                        }
+                     },
+                     "Action":{
+                        "Block":{
+                           
+                        }
+                     },
+                     "VisibilityConfig":{
+                        "SampledRequestsEnabled":true,
+                        "CloudWatchMetricsEnabled":true,
+                        "MetricName":"Example"
+                     }
+                  }
+               ],
+               "VisibilityConfig":{
+                  "SampledRequestsEnabled":false,
+                  "CloudWatchMetricsEnabled":false,
+                  "MetricName":"metricName"
+               },
+               "LabelNamespace":"awswaf:123456:rulegroup:MYDEMO1_BlockSessions:"
+            },
+            "LockToken":"1946fbfd-9677-41e7-8f8b-3c75192ac2e5"
+         } 
         }
       };
     }

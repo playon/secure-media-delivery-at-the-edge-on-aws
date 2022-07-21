@@ -60,11 +60,11 @@ async function getCurrentRules() {
         Name: process.env.RULE_NAME,
         Scope: 'CLOUDFRONT'
     };
-    return await wafv2.getRuleGroup(params).promise()
+    return wafv2.getRuleGroup(params).promise()
 }
 
 async function updateRules(visibility, lockToken, rules) {
-
+    console.log("Update rule group");
     var params = {
         Name: process.env.RULE_NAME,
         Id: process.env.RULE_ID,
@@ -74,10 +74,7 @@ async function updateRules(visibility, lockToken, rules) {
         LockToken: lockToken,
         Rules: rules
     };
-    var response = await wafv2.updateRuleGroup(params).promise();
-    console.log("Update rule group DONE");
-
-    return response
+    return wafv2.updateRuleGroup(params).promise();
 
 }
 
@@ -99,8 +96,7 @@ async function querySessions() {
         TableName: process.env.TABLE_NAME
     };
 
-    var response = await dynamodb.query(params).promise();
-    return response;
+    return dynamodb.query(params).promise();
 }
 
 function getRandomAlphanumericString() {

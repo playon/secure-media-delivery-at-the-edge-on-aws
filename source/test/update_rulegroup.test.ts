@@ -8,8 +8,13 @@ describe('process.env', () => {
   beforeEach(() => {
       jest.resetModules()
       process.env = {  
-         SUBMIT_QUERY_FUNCTION: "myFunction"
-       };
+        RULE_ID: "ruleId",
+        RULE_NAME: "ruleName",
+        RETENTION: "10",
+        TABLE_NAME: "myTableName",
+        MAX_SESSIONS: "50",
+        GSI_INDEX_NAME: "MyGsiIndex",
+    };
   })
 
   afterEach(() => {
@@ -18,7 +23,7 @@ describe('process.env', () => {
 
 
 
-  test('Update rule group - result OK', async () => {
+  test('Update rule group - Auto Session - result OK', async () => {
 
     var result = await update_rulegroup.handler({});
 

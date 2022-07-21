@@ -74,7 +74,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
 
     const saveSessionsToDdb = new lambda.Function(this, "SaveAutoSession", {
       functionName: Aws.STACK_NAME + "_SaveAutoSession",
-      runtime: lambda.Runtime.PYTHON_3_7,
+      runtime: lambda.Runtime.NODEJS_16_X,
       code: lambda.Code.fromAsset("lambda/save_auto_session"),
       handler: "index.handler",
       environment: {

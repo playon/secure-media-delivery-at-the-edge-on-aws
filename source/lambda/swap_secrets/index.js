@@ -39,7 +39,7 @@
          SecretId: primaryKeyName
      };
  
-     var responseSecret = await secretsmanager.getSecretValue(params).promise();
+     responseSecret = await secretsmanager.getSecretValue(params).promise();
      
      var primarySecretAsJson = JSON.parse(responseSecret.SecretString);
  
@@ -56,7 +56,7 @@
      //set temporary value to primary secret
      params = {
          SecretId: primaryKeyName, 
-         SecretString: JSON.stringify({temporarySecretKeyName: temporarySecretKeyValue})
+         SecretString: JSON.stringify({ temporarySecretKeyName: temporarySecretKeyValue})
      };
  
      await secretsmanager.putSecretValue(params).promise();
@@ -66,6 +66,9 @@
          SecretId: temporaryKeyName, 
          SecretString: JSON.stringify({"INITIALIZED_KEY": "INITIALIZED_VALUE"})
      };
+
+     await secretsmanager.putSecretValue(params).promise();
+
  
      return "OK";
      

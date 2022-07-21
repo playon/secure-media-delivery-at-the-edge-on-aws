@@ -8,8 +8,8 @@ describe('process.env', () => {
   beforeEach(() => {
       jest.resetModules()
       process.env = {  
-        RULE_ID: "ruleId",
-        RULE_NAME: "ruleName",
+        RULE_ID: "ca2a976c-1df0-41b2-9234-055318508a9b",
+        RULE_NAME: "MYDEMO1_BlockSessions",
         RETENTION: "10",
         TABLE_NAME: "myTableName",
         MAX_SESSIONS: "50",

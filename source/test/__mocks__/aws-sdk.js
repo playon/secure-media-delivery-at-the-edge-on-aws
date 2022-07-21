@@ -124,7 +124,7 @@ class AWS {
                "Name":"MYDEMO1_BlockSessions",
                "Id":"ca2a976c-1df0-41b2-9234-055318508a9b",
                "Capacity":100,
-               "ARN":"arn:aws:wafv2:us-east-1:867201269000:global/rulegroup/MYDEMO1_BlockSessions/ca2a976c-1df0-41b2-9234-055318508a9b",
+               "ARN":"arn:aws:wafv2:myregion:xxccvvbb:global/rulegroup/MYDEMO1_BlockSessions/ca2a976c-1df0-41b2-9234-055318508a9b",
                "Description":"TokenRevoke",
                "Rules":[
                   {
@@ -178,7 +178,7 @@ class AWS {
                   "CloudWatchMetricsEnabled":false,
                   "MetricName":"metricName"
                },
-               "LabelNamespace":"awswaf:123456:rulegroup:MYDEMO1_BlockSessions:"
+               "LabelNamespace":"awswaf:xxccvvbb:rulegroup:MYDEMO1_BlockSessions:"
             },
             "LockToken":"1946fbfd-9677-41e7-8f8b-3c75192ac2e5"
          } 

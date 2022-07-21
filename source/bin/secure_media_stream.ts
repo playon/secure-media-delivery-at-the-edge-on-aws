@@ -7,7 +7,7 @@ import { AutoSessionRevocationStack } from "../lib/auto_revocation_stack";
 import { IConfiguration } from "../helpers/validators/configuration";
 
 const app = new App();
-const getProps = (config: IConfiguration): SecureMediaStreamStackProps => {
+export const getProps = (config: IConfiguration): SecureMediaStreamStackProps => {
 
   const stackSynthesizer = config.main?.assets_bucket_name ?  new DefaultStackSynthesizer({  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}"}) : new DefaultStackSynthesizer()
   const solutionId = 'SO0195';

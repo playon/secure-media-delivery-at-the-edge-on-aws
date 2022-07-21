@@ -49,14 +49,14 @@
      //set primary value to secondary secret
      params = {
          SecretId: secondaryKeyName, 
-         SecretString: JSON.stringify({primarySecretKeyName: primarySecretKeyValue})
+         SecretString: JSON.stringify({primarySecretKeyName : primarySecretKeyValue})
      };
      await secretsmanager.putSecretValue(params).promise();
  
      //set temporary value to primary secret
      params = {
          SecretId: primaryKeyName, 
-         SecretString: JSON.stringify({ temporarySecretKeyName: temporarySecretKeyValue})
+         SecretString: JSON.stringify({ temporarySecretKeyName : temporarySecretKeyValue})
      };
  
      await secretsmanager.putSecretValue(params).promise();

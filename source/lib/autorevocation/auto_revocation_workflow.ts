@@ -51,8 +51,8 @@ export class AutoRevokeSessionsWorkflow extends Construct {
 
     const submitAthenaQuery = new lambda.Function(this, "SubmitQuery", {
       functionName: Aws.STACK_NAME + "_SubmitQuery",
-      runtime: lambda.Runtime.PYTHON_3_7,
-      code: lambda.Code.fromAsset("lambda/submit_query"),
+      runtime: lambda.Runtime.NODEJS_16_X,
+      code: lambda.Code.fromAsset("lambda/prepare_query"),
       handler: "index.handler",
     });
 

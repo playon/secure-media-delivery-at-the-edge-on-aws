@@ -88,6 +88,20 @@ class AWS {
     )
   }
 
+  static Lambda = class {
+    
+    updateFunctionConfiguration = jest.fn(param =>{
+      return {
+        promise: function () {
+          
+        }
+      };
+    }
+    )
+
+   
+  }
+
 
   
 

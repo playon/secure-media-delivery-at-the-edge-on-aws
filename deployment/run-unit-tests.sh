@@ -15,9 +15,7 @@ cd ../source
 echo "Install node dependencies"
 npm install
 
-mv solution.context.json.template solution.context.json
-
-
+cp solution.context.json.template solution.context.json
 
 echo "Install NodeJs ws_secure_media_delivery layer dependencies for AWS Lambda"
 npm install --prefix resources/sdk/node/v1/

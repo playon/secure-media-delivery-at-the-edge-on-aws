@@ -48,7 +48,7 @@ exports.handler = async (event, context) => {
     const roleName = process.env.ROLE_ARN.split(':')[5].split('/')[1];
     console.log(`Attaching the new policy to the role ${roleName}`);
 
-    var params = {
+    params = {
         PolicyArn: policyArn, 
         RoleName: roleName
     };

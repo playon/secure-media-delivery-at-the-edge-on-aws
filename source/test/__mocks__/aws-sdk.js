@@ -65,6 +65,46 @@ class AWS {
       return "";
     } }));
 
+    query = jest.fn(param =>{
+      return {
+        promise: function () {
+          return {
+            "session_id": {
+              "S": "sessionid1"
+            },
+            "ip_penalty": {
+              "N": "123332"
+            },
+            "ip_rate": {
+              "N": "4567854"
+            },
+            "last_updated": {
+              "N": "1658409174"
+            },
+            "reason": {
+              "S": "COMPROMISED"
+            },
+            "referer_penalty": {
+              "N": "456544"
+            },
+            "score": {
+              "N": "1234561"
+            },
+            "ttl": {
+              "N": "1659000558"
+            },
+            "type": {
+              "S": "AUTO"
+            },
+            "ua_penalty": {
+              "N": "1111222"
+            }
+          }
+        }
+      };
+    }
+    )
+
   }
 
   static IAM = class {
@@ -91,6 +131,29 @@ class AWS {
   static Lambda = class {
     
     updateFunctionConfiguration = jest.fn(param =>{
+      return {
+        promise: function () {
+          
+        }
+      };
+    }
+    )
+
+   
+  }
+
+  static WAFV2 = class {
+    
+    getRuleGroup = jest.fn(param =>{
+      return {
+        promise: function () {
+          
+        }
+      };
+    }
+    )
+
+    updateRuleGroup = jest.fn(param =>{
       return {
         promise: function () {
           

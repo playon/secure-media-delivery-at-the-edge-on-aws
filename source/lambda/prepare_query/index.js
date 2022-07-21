@@ -15,8 +15,8 @@ const aws = require('aws-sdk');
 function buildSecondPartQueryString(lookbackMinutes) {
 
     var nowDate = new Date();
-    var previousDate = new Date(nowDate.getTime() - lookbackMinutes*60000);
-
+    var previousDate = new Date(nowDate.getTime() - lookbackMinutes * 60000);
+    var query_string = "";
     //  same day query filter!
     if (previousDate.getDay() == nowDate.getDay())
         query_string = `WHERE CAST(year AS INTEGER) = CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%Y') AS INTEGER)
@@ -86,7 +86,9 @@ function buildSecondPartQueryString(lookbackMinutes) {
 
 
 function generateAthenaQuery(query_param) {
-    console.log("Athena params="+JSON.stringify(query_param))
+    console.log("Athena params=" + JSON.stringify(query_param));
+    var thirdPartPreamble = "";
+    var queryStringSecond_part = "";
     queryStringFirstPart = `WITH Q1 AS (
          SELECT
                split(split_part(uri, '/',2),'.') AS path_first_part_array,
@@ -152,13 +154,13 @@ function generateAthenaQuery(query_param) {
       (ip_rate + ip_penalty + referer_penalty + ua_penalty) > ${query_param['score_threshold']}`
 
     return queryStringFirstPart + queryStringSecond_part + queryStringThirdPart;
-    
+
 
 }
 
 exports.handler = async (event, context) => {
     console.log("event=" + JSON.stringify(event));
-    params = {
+    const params = {
         'ip_penalty': parseInt(process.env.ip_penalty),
         'referer_penalty': parseInt(process.env.referer_penalty),
         'ua_penalty': parseInt(process.env.ua_penalty),
@@ -178,9 +180,7 @@ exports.handler = async (event, context) => {
         'score_threshold': parseFloat(process.env.score_threshold),
         'partitioned': parseInt(process.env.partitioned),
         'lookback_period': parseInt(process.env.lookback_period)
-}
-    query = generateAthenaQuery(params).replace('\n', '')
-    return query
-    
+    }
+    return generateAthenaQuery(params).replace('\n', '')
 
 };

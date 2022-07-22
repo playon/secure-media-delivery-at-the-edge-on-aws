@@ -6,7 +6,7 @@ import {
 } from "aws-cdk-lib";
 import { IConfiguration } from '../helpers/validators/configuration';
 import { SecureMediaStreamingStack } from '../lib/secure_media_stream_stack';
-import {getProps} from '../bin/secure_media_stream'
+import {getMainStackProps, getAutoSessionStackProps} from '../bin/secure_media_stream'
 import { AutoSessionRevocationStack } from '../lib/auto_revocation_stack';
 
 test('Auto session revocation stack', () => {
@@ -50,7 +50,7 @@ test('Auto session revocation stack', () => {
   const coreStack = new SecureMediaStreamingStack( app,
     config.main.stack_name,
     config,
-    getProps(config)
+    getMainStackProps(config)
     );
   
   
@@ -59,7 +59,7 @@ test('Auto session revocation stack', () => {
     config.main.stack_name + "AutoSessionRevocation",
     config,
     coreStack.sessionToRevoke,
-    getProps(config)
+    getAutoSessionStackProps()
   );
 
   const autoTemplate = Template.fromStack(autoStack);

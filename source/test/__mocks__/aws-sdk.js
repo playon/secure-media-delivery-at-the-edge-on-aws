@@ -143,7 +143,7 @@ class AWS {
         promise: function () {
           return {
             "Version": "1",
-            
+
           }
         }
       };
@@ -263,6 +263,15 @@ class AWS {
     )
 
     updateFunction = jest.fn(param => {
+      return {
+        promise: function () {
+          return "";
+        }
+      };
+    }
+    )
+
+    publishFunction = jest.fn(param => {
       return {
         promise: function () {
           return "";

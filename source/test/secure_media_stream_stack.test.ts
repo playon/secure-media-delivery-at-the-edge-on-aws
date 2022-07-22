@@ -4,7 +4,7 @@ import {
 } from "aws-cdk-lib";
 import { IConfiguration } from '../helpers/validators/configuration';
 import { SecureMediaStreamingStack } from '../lib/secure_media_stream_stack';
-import {getProps} from '../bin/secure_media_stream'
+import {getMainStackProps} from '../bin/secure_media_stream'
 
 test('Main stack', () => {
   
@@ -46,7 +46,7 @@ test('Main stack', () => {
   const stack = new SecureMediaStreamingStack( app,
     config.main.stack_name,
     config,
-    getProps(config)
+    getMainStackProps(config)
     );
   
   // THEN

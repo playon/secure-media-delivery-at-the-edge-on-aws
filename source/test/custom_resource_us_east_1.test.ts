@@ -45,6 +45,24 @@ describe('Custom resource', () => {
 
  });
 
+ test('Do not deploy LE - result OK', async () => {
+   
+    process.env = {  
+        ROLE_ARN: "MyRoleArn",
+        STACK_NAME: "MyStackName",
+        LAMBDA_VERSION: "MyLambdaVersion",
+        WCU: "100",
+        RULE_ID: "MyRuleID",
+        RULE_NAME: "MyRuleName",
+        DEPLOY_LE: "0"
+        };
+
+    var result = await cr.handler({});
+    
+    expect(result).toHaveLength;
+
+ });
+
 
 
 })

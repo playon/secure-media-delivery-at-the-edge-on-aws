@@ -10,93 +10,92 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    *
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
- const aws = require('aws-sdk');
- const secretsmanager = new aws.SecretsManager();
- var cloudfront = new aws.CloudFront();
- var crypto = require("crypto");
- const fs = require('fs');
- 
+const aws = require('aws-sdk');
+const secretsmanager = new aws.SecretsManager();
+var cloudfront = new aws.CloudFront();
+var crypto = require("crypto");
+const fs = require('fs');
 
 
- function generateSecretKey(){
+
+function generateSecretKey() {
 
     var randomKeySuffix = crypto.randomBytes(10).toString('hex');
     var dateObj = new Date();
     var month = dateObj.getUTCMonth() + 1;
     var day = dateObj.getUTCDate();
     var year = dateObj.getUTCFullYear();
-    
-    var nowDate = year + month + day;
-    return  nowDate + '_'+randomKeySuffix;
- }
 
- function generateSecretValue(){
+    var nowDate = year + month + day;
+    return nowDate + '_' + randomKeySuffix;
+}
+
+function generateSecretValue() {
 
     return crypto.randomBytes(64).toString('hex');
- }
+}
 
- async function getCffUpdatedCode(secret1Key, secret1Value, secret2Key, secret2Value){
-    
+async function getCffUpdatedCode(secret1Key, secret1Value, secret2Key, secret2Value) {
+
     var newContent = "";
     const allFileContents = fs.readFileSync('cff.js', 'utf-8');
-        allFileContents.split(/\r?\n/).forEach(line =>  {
-            var newLine = "";
+    allFileContents.split(/\r?\n/).forEach(line => {
+        var newLine = "";
 
-            line = line.trim()
-            
-            if (line.startsWith('var secrets = '))
-                newLine = "var secrets = { \""+secret1Key +"\" : \""+secret1Value +"\", \""+secret2Key +"\": " + secret2Value + " }";
-            else if (line.startsWith('exports.handler') || (line.startsWith('exports.decodeString')))
-                newLine = "" ;   
-            else if (line.includes("return exports.decodeString(str)"))
-                newLine = line.replace("exports.", "");
-            else 
-                newLine = line;
+        line = line.trim()
 
-            newContent = newContent + newLine + "\n";
-    
-            
-            
+        if (line.startsWith('var secrets = '))
+            newLine = "var secrets = { \"" + secret1Key + "\" : \"" + secret1Value + "\", \"" + secret2Key + "\": " + secret2Value + " }";
+        else if (line.startsWith('exports.handler') || (line.startsWith('exports.decodeString')))
+            newLine = "";
+        else if (line.includes("return exports.decodeString(str)"))
+            newLine = line.replace("exports.", "");
+        else
+            newLine = line;
+
+        newContent = newContent + newLine + "\n";
+
+
+
     });
-    
-    return await updateCff(newContent);
 
- }
+    return updateCff(newContent);
 
- async function updateCff(functionCodeAsStr){
+}
+
+async function updateCff(functionCodeAsStr) {
 
     console.log("Get ETAG for CloudFront Function " + process.env.CFF_NAME);
 
     var params = {
         Name: process.env.CFF_NAME
-      };
+    };
 
-    var response = await cloudfront.describeFunction(params).promise();  
-    console.log("ETAG="+response['ETag']);
+    var response = await cloudfront.describeFunction(params).promise();
     console.log("Update CloudFront Function Code");
     params = {
         FunctionCode: Buffer.from(functionCodeAsStr),
-        FunctionConfig: { 
+        FunctionConfig: {
             'Comment': 'CloudFront Function used to check a JWT token',
             'Runtime': 'cloudfront-js-1.0'
         },
         IfMatch: response['ETag'],
         Name: process.env.CFF_NAME
-      };
+    };
 
-     await cloudfront.updateFunction(params).promise();
+    await cloudfront.updateFunction(params).promise();
     console.log("Cloudfront Function updated");
 
- }
+}
 
- exports.handler = async (event, context) => {
-     console.log("event=" + JSON.stringify(event));
-     const temporaryKeyName = process.env.TEMPORARY_KEY_NAME;
-     const primaryKeyName = process.env.PRIMARY_KEY_NAME;
-     const secondaryKeyName = process.env.SECONDARY_KEY_NAME;
+exports.handler = async (event, context) => {
+    console.log("event=" + JSON.stringify(event));
+    const temporaryKeyName = process.env.TEMPORARY_KEY_NAME;
+    const primaryKeyName = process.env.PRIMARY_KEY_NAME;
+    const secondaryKeyName = process.env.SECONDARY_KEY_NAME;
 
 
-     if(event.initialize){
+    if (event.initialize) {
         //Lambda triggered by the custom resource on deploy
         console.log("Initialize temporary secret")
 
@@ -104,8 +103,8 @@
         var newSecretKey = generateSecretKey();
         var newSecretValue = generateSecretValue();
         var params = {
-            SecretId: temporaryKeyName, 
-            SecretString: JSON.stringify({ newSecretKey : newSecretValue })
+            SecretId: temporaryKeyName,
+            SecretString: JSON.stringify({ newSecretKey: newSecretValue })
         };
 
         await secretsmanager.putSecretValue(params).promise();
@@ -116,8 +115,8 @@
         newSecretKey = generateSecretKey();
         newSecretValue = generateSecretValue();
         var params = {
-            SecretId: primaryKeyName, 
-            SecretString: JSON.stringify({ newSecretKey : newSecretValue })
+            SecretId: primaryKeyName,
+            SecretString: JSON.stringify({ newSecretKey: newSecretValue })
         };
 
         await secretsmanager.putSecretValue(params).promise();
@@ -128,21 +127,21 @@
         newSecretKey = generateSecretKey();
         newSecretValue = generateSecretValue();
         params = {
-            SecretId: secondaryKeyName, 
-            SecretString: JSON.stringify({ newSecretKey : newSecretValue })
+            SecretId: secondaryKeyName,
+            SecretString: JSON.stringify({ newSecretKey: newSecretValue })
         };
 
         await secretsmanager.putSecretValue(params).promise();
 
-     }else{
+    } else {
         //Lambda triggered by the SF to rotate the secrets
 
         // Update temporary secret with a new value
         var newSecretKey = generateSecretKey();
         var newSecretValue = generateSecretValue();
         var params = {
-            SecretId: temporaryKeyName, 
-            SecretString: JSON.stringify({ newSecretKey : newSecretValue })
+            SecretId: temporaryKeyName,
+            SecretString: JSON.stringify({ newSecretKey: newSecretValue })
         };
 
         await secretsmanager.putSecretValue(params).promise();
@@ -153,7 +152,7 @@
         };
 
         var responseSecret = await secretsmanager.getSecretValue(params).promise();
-        
+
         var primarySecretAsJson = JSON.parse(responseSecret.SecretString);
 
         var primarySecretKeyName = Object.keys(primarySecretAsJson)[0];
@@ -161,8 +160,8 @@
 
         await getCffUpdatedCode(newSecretKey, newSecretValue, primarySecretKeyName, primarySecretKeyValue);
 
-     }
+    }
 
-     return "OK";
- 
- };
+    return "OK";
+
+};

@@ -36,6 +36,8 @@ describe("Check token generation", () => {
       "headers": {
         'cloudfront-viewer-address': myIp + ':31830',
         'cloudfront-viewer-country': 'IE',
+        'cloudfront-viewer-country-region': 'Ile_France',
+        'cloudfront-viewer-city': 'AA',
         'content-length': '0',
         'host': 'un25b5wnf5.execute-api.eu-west-1.amazonaws.com',
         'referer': myReferer,
@@ -46,9 +48,10 @@ describe("Check token generation", () => {
 
     var token_policy =
     {
-      "co": false,
+      "co": true,
       "co_fallback": true,
-      "cty": false,
+      "cty": true,
+      "reg": true,
       "cty_fallback": true,
       "exc": [
         "/ads/"

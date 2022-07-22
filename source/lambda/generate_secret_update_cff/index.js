@@ -59,9 +59,8 @@
             
     });
     
-    await updateCff(newContent);
+    return await updateCff(newContent);
 
-    return ;
  }
 
  async function updateCff(functionCodeAsStr){
@@ -109,7 +108,7 @@
             SecretString: JSON.stringify({ newSecretKey : newSecretValue })
         };
 
-        var responseSecret = await secretsmanager.putSecretValue(params).promise();
+        await secretsmanager.putSecretValue(params).promise();
 
         console.log("Initialize primary secret")
 
@@ -121,7 +120,7 @@
             SecretString: JSON.stringify({ newSecretKey : newSecretValue })
         };
 
-        responseSecret = await secretsmanager.putSecretValue(params).promise();
+        await secretsmanager.putSecretValue(params).promise();
 
         console.log("Initialize temporary secret")
 
@@ -133,7 +132,7 @@
             SecretString: JSON.stringify({ newSecretKey : newSecretValue })
         };
 
-        responseSecret = await secretsmanager.putSecretValue(params).promise();
+        await secretsmanager.putSecretValue(params).promise();
 
      }else{
         //Lambda triggered by the SF to rotate the secrets
@@ -146,14 +145,14 @@
             SecretString: JSON.stringify({ newSecretKey : newSecretValue })
         };
 
-        var responseSecret = await secretsmanager.putSecretValue(params).promise();
+        await secretsmanager.putSecretValue(params).promise();
 
         //get primary secret
         params = {
             SecretId: primaryKeyName
         };
 
-        responseSecret = await secretsmanager.getSecretValue(params).promise();
+        var responseSecret = await secretsmanager.getSecretValue(params).promise();
         
         var primarySecretAsJson = JSON.parse(responseSecret.SecretString);
 

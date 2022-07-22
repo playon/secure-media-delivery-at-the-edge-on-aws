@@ -19,13 +19,7 @@ function logToConsole(message){
 
 
 function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, noVerify) {
-    // check token and uri -> obligatory inputs
-    if (!token ) {
-        throw new Error('No token supplied');
-    }
-    if ( !uri ) {
-        throw new Error('No uri supplied');
-    }
+
     // check segments
     var segments = token.split('.');
     if (segments.length !== 3) {

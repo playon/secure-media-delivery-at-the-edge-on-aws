@@ -16,6 +16,8 @@ describe("Generate a token", () => {
           authorization: 'AWS4-HMAC-SHA256 Credential=ASIA4T2JZHUEPDUT7YH4/20220708/eu-west-1/execute-api/aws4_request, SignedHeaders=host;x-amz-cf-id;x-amz-content-sha256;x-amz-date;x-amz-security-token, Signature=5e5daea6b47e98ff3c3987c5de178837d2882f0ba8f21c7407cdd87ecba62370',
           'cloudfront-viewer-address': '52.94.36.25:29281',
           'cloudfront-viewer-country': 'GB',
+          'cloudfront-viewer-country-region': 'Ile_France',
+          'cloudfront-viewer-city': 'AA',
           'content-length': '0',
           host: 'f2utpitubd.execute-api.eu-west-1.amazonaws.com',
           referer: 'https://d3pzxppvzp3dd9.cloudfront.net/',

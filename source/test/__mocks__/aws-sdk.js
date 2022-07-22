@@ -51,9 +51,10 @@ class AWS {
                   "/out/v1/abcd/"
                 ],
                 "ip": false,
-                "cty": false,
+                "cty": true,
                 "co_fallback": true,
-                "co": false,
+                "co": true,
+                "reg": true,
                 "exp": "+3h",
                 "ssn": true
               }

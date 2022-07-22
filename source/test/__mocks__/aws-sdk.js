@@ -196,6 +196,19 @@ class AWS {
     }
     )
 
+    createRuleGroup = jest.fn(param =>{
+      return {
+        promise: function () {
+          return {
+            "Summary" : {
+              "Id" : "abc"
+            }
+          }
+        }
+      };
+    }
+    )
+
    
   }
 
@@ -219,6 +232,23 @@ class AWS {
       };
     }
     )
+  }
+
+
+  static SSM = class {
+    
+    putParameter = jest.fn(param =>{
+      return {
+        promise: function () {
+         return {
+          "Parameter": "abcd"
+        }
+        }
+      };
+    }
+    )
+
+    
   }
 
 

@@ -64,14 +64,11 @@ exports.handler = async event => {
     console.log("signature="+JSON.stringify(signature));
     
     for(var header in signature){
-        console.log("header="+header + ", signature[header]="+signature[header]);
-        console.log();
         request.headers[header.toLowerCase()] = [{
             key: header,
             value: signature[header].toString()
         }];
     }
-    console.log("request=" + JSON.stringify(request))
     return request;
 };
 
@@ -81,7 +78,6 @@ function signV4(options) {
     // Infer the region from the host header
     // Create the canonical request
     const region = options.host.split('.')[2];
-    console.log("options="+JSON.stringify(options));
     const date = (new Date()).toISOString().replace(/[:-]|\.\d{3}/g, '');
     let canonicalHeaders = '';
     let signedHeaders = '';
@@ -91,7 +87,6 @@ function signV4(options) {
 
     const canonicalURI = encodeRfc3986(encodeURIComponent(decodeURIComponent(options.path).replace(/\+/g, ' ')).replace(/%2F/g, '/'));
     const canonicalRequest = [options.method, canonicalURI, requestParameters, canonicalHeaders + '\n', signedHeaders,emptyHash].join('\n');
-    console.log("canonicalRequest="+canonicalRequest);
     // Create string to sign
     const credentialScope = [date.slice(0, 8), region, 'execute-api/aws4_request'].join('/');
     const stringToSign = ['AWS4-HMAC-SHA256', date, credentialScope, hash(canonicalRequest, 'hex')].join('\n');

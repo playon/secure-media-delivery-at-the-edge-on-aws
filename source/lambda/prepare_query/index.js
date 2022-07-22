@@ -10,23 +10,28 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    *
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
-const aws = require('aws-sdk');
 
 function buildSecondPartQueryString(lookbackMinutes) {
 
     var nowDate = new Date();
+
     var previousDate = new Date(nowDate.getTime() - lookbackMinutes * 60000);
+    console.log("Query date between: " + previousDate + " and " + nowDate);
     var query_string = "";
-    //  same day query filter!
-    if (previousDate.getDay() == nowDate.getDay())
+    if (previousDate.getDay() == nowDate.getDay()){
+
+        console.log("Same day query filter!");
+
         query_string = `WHERE CAST(year AS INTEGER) = CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%Y') AS INTEGER)
             AND CAST(month AS INTEGER) = CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%m') AS INTEGER)
             AND CAST(day AS INTEGER) = CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%d') AS INTEGER)
             AND CAST(hour AS INTEGER) between
             CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%H') AS INTEGER) and CAST(date_format(current_timestamp, '%H') AS INTEGER)`
 
-    // different days - cross days query filter!
-    else if (previousDate.getFullYear() == nowDate.getFullYear()) {
+    }else if (previousDate.getFullYear() == nowDate.getFullYear()) {
+
+        console.log("different days - cross days query filter!");
+
         if (previousDate.getMonth() == nowDate.getMonth()) { // year and month are the same, but days are different
             query_string = ` WHERE
                     CAST(year AS INTEGER) = CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%Y') AS INTEGER)
@@ -43,7 +48,9 @@ function buildSecondPartQueryString(lookbackMinutes) {
                     )
                     )`
         }
-        else { // years are the same, but months and days are different
+        else { 
+
+            console.log("years are the same, but months and days are different");
             query_string = `WHERE
                     CAST(year AS INTEGER) = CAST(date_format(current_timestamp - interval '${lookbackMinutes}' minute, '%Y') AS INTEGER)
                     AND (
@@ -60,7 +67,8 @@ function buildSecondPartQueryString(lookbackMinutes) {
                     )
                     )`
         }
-    } else { // years are different
+    } else { 
+        console.log("years are different");
         query_string = `
                WHERE
                (

@@ -8,7 +8,7 @@ from unauthorize access by adding a cookieless tokenization embedded in the URL 
 
 Current version: **1.0.0**
 
-## 🔰 Description
+## Description
 
 The Secure media stream delivery solution is a configurable and modular [AWS CDK](https://docs.aws.amazon.com/cdk/latest/guide/home.html) project. It can conditionally upon selection using the Wizard enable the deployment of the following components:
 
@@ -17,7 +17,7 @@ The Secure media stream delivery solution is a configurable and modular [AWS CDK
 - APIs
 - Demo website
 
-## 📘 Architecture
+## Architecture
 
 Below is the architecture diagram.
 
@@ -40,7 +40,7 @@ Below is the architecture diagram.
   <div align="center"><sub>Automatic session invalidation (click to enlarge)</sub></div>
 </div>
 
-## 🚀 Tutorial
+## Tutorial
 
 Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
 
@@ -145,7 +145,7 @@ This solution collects anonymous operational metrics to help AWS improve the
 quality of features of the solution. For more information, including how to disable
 this capability, please see the [implementation guide](https://docs.aws.amazon.com/solutions/latest/live-streaming/welcome.html).
 
-## 📊 Information
+## Information
 
 The below information displays approximate values associated with deploying and using this stack.
 
@@ -154,7 +154,7 @@ Metric | Value
 **Deployment Time** | 5-10 minutes (depending on the selected options)
 **CDK Version** | 2.24.1
 
-## 🎒 Requirements
+## Requirements
 
 - An AWS Account ([How to create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/?nc1=h_ls) | [How to create an AWS Organization account](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html))
 - [Node JS 12+](https://nodejs.org/en/) must be installed on the deployment machine. ([Instructions](https://nodejs.org/en/download/))

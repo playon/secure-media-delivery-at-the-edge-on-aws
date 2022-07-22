@@ -1,6 +1,0 @@
-{
-  "devDependencies": {
-    "babel-jest": "^28.1.2",
-    "babel-plugin-rewire": "^1.2.0"
-  }
-}

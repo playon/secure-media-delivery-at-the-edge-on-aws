@@ -55,7 +55,7 @@ export class RotateSecretsWorkflow extends Construct {
       "GenerateSecretUpdateCff",
       {
         functionName: Aws.STACK_NAME + "_GenerateSecretUpdateCff",
-        runtime: lambda.Runtime.PYTHON_3_7,
+        runtime: lambda.Runtime.NODEJS_16_X,
         code: lambda.Code.fromAsset("lambda/generate_secret_update_cff"),
         timeout: Duration.seconds(300),
         handler: "index.handler",

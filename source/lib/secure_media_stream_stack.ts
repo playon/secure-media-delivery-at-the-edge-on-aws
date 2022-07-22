@@ -92,7 +92,7 @@ export class SecureMediaStreamingStack extends Stack {
     //CloudFront Function used to check the JWT token for each request
     const checkToken = new cloudfront.Function(this, "CheckJWTTokenFunction", {
       code: cloudfront.FunctionCode.fromFile({
-        filePath: "lambda/generate_secret_update_cff/index.js",
+        filePath: "lambda/generate_secret_update_cff/cff.js",
       }),
       functionName: Aws.STACK_NAME + "_checkJWTToken",
       comment:

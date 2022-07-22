@@ -200,7 +200,26 @@ class AWS {
   }
 
 
-  
+  static CloudFront = class {
+    
+    describeFunction = jest.fn(param =>{
+      return {
+        promise: function () {
+          return mockSecretData;
+        }
+      };
+    }
+    )
+
+    updateFunction = jest.fn(param =>{
+      return {
+        promise: function () {
+          return "";
+        }
+      };
+    }
+    )
+  }
 
 
   

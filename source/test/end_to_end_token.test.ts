@@ -1,6 +1,6 @@
 const aws1 = require("aws-sdk") // we still need to require this
 const awsSMD1 = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
-const cff1 = require("../lambda/generate_secret_update_cff/index.js");
+const cff1 = require("../lambda/generate_secret_update_cff/cff.js");
 
 //import * as cff1 from "../lambda/generate_secret_update_cff/index.js";
 

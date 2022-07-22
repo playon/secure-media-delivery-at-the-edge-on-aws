@@ -1,4 +1,4 @@
-const cff = require("../lambda/generate_secret_update_cff/index.js");
+const cff = require("../lambda/generate_secret_update_cff/cff.js");
 
 const myMock = jest.spyOn(cff, "decodeString");
 

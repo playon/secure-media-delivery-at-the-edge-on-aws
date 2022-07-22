@@ -35,13 +35,12 @@
     return crypto.randomBytes(64).toString('hex');
  }
 
- function getCffUpdatedCode(secret1Key, secret1Value, secret2Key, secret2Value){
+ async function getCffUpdatedCode(secret1Key, secret1Value, secret2Key, secret2Value){
     
     var newContent = "";
     const allFileContents = fs.readFileSync('cff.js', 'utf-8');
         allFileContents.split(/\r?\n/).forEach(line =>  {
             var newLine = "";
-            //console.log(`Line from file: ${line}`);
 
             line = line.trim()
             
@@ -60,7 +59,9 @@
             
     });
     
-    return newContent;
+    await updateCff(newContent);
+
+    return ;
  }
 
  async function updateCff(functionCodeAsStr){
@@ -127,7 +128,7 @@
         //update secondary secret  with a new value
         newSecretKey = generateSecretKey();
         newSecretValue = generateSecretValue();
-        var params = {
+        params = {
             SecretId: secondaryKeyName, 
             SecretString: JSON.stringify({ newSecretKey : newSecretValue })
         };
@@ -148,7 +149,6 @@
         var responseSecret = await secretsmanager.putSecretValue(params).promise();
 
         //get primary secret
-        //get primary secret
         params = {
             SecretId: primaryKeyName
         };
@@ -160,12 +160,7 @@
         var primarySecretKeyName = Object.keys(primarySecretAsJson)[0];
         var primarySecretKeyValue = Object.values(primarySecretAsJson)[0];
 
-        
-
-
-        var cffCode = await getCffUpdatedCode(newSecretKey, newSecretValue, primarySecretKeyName, primarySecretKeyValue);
-        await updateCff(cffCode);
-
+        await getCffUpdatedCode(newSecretKey, newSecretValue, primarySecretKeyName, primarySecretKeyValue);
 
      }
 

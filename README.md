@@ -145,18 +145,6 @@ This solution collects anonymous operational metrics to help AWS improve the
 quality of features of the solution. For more information, including how to disable
 this capability, please see the [implementation guide](https://docs.aws.amazon.com/solutions/latest/live-streaming/welcome.html).
 
-## 📋 Table of content
-
-- [Tutorial](#-tutorial)
-- [Information](#-information)
-- [Requirements](#-requirements)
-- [Description](#-description)
-- [Architecture](#-architecture)
-- [See Also](#-see-also)
-
-
-
-
 ## 📊 Information
 
 The below information displays approximate values associated with deploying and using this stack.

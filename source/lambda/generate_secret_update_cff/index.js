@@ -45,7 +45,7 @@ async function getCffUpdatedCode(secret1Key, secret1Value, secret2Key, secret2Va
         line = line.trim()
 
         if (line.startsWith('var secrets = '))
-            newLine = "var secrets = { \"" + secret1Key + "\" : \"" + secret1Value + "\", \"" + secret2Key + "\": " + secret2Value + " }";
+            newLine = "var secrets = { \"" + secret1Key + "\" : \"" + secret1Value + "\", \"" + secret2Key + "\": \"" + secret2Value + "\" }";
         else if (line.startsWith('exports.handler') || (line.startsWith('exports.decodeString')))
             newLine = "";
         else if (line.includes("return exports.decodeString(str)"))
@@ -94,7 +94,6 @@ exports.handler = async (event, context) => {
     const primaryKeyName = process.env.PRIMARY_KEY_NAME;
     const secondaryKeyName = process.env.SECONDARY_KEY_NAME;
 
-
     if (event.initialize) {
         //Lambda triggered by the custom resource on deploy
         console.log("Initialize temporary secret")
@@ -112,11 +111,11 @@ exports.handler = async (event, context) => {
         console.log("Initialize primary secret")
 
         //update primary secret  with a new value
-        newSecretKey = generateSecretKey();
-        newSecretValue = generateSecretValue();
+        var newPrimarySecretKey = generateSecretKey();
+        var newPrimarySecretValue = generateSecretValue();
         var params = {
             SecretId: primaryKeyName,
-            SecretString: JSON.stringify({ newSecretKey: newSecretValue })
+            SecretString: JSON.stringify({ newPrimarySecretKey: newPrimarySecretValue })
         };
 
         await secretsmanager.putSecretValue(params).promise();
@@ -124,14 +123,18 @@ exports.handler = async (event, context) => {
         console.log("Initialize temporary secret")
 
         //update secondary secret  with a new value
-        newSecretKey = generateSecretKey();
-        newSecretValue = generateSecretValue();
+        var newSecondarySecretKey = generateSecretKey();
+        var newSecondarySecretValue = generateSecretValue();
         params = {
             SecretId: secondaryKeyName,
-            SecretString: JSON.stringify({ newSecretKey: newSecretValue })
+            SecretString: JSON.stringify({ newSecondarySecretKey: newSecondarySecretValue })
         };
 
         await secretsmanager.putSecretValue(params).promise();
+
+
+        await getCffUpdatedCode(newPrimarySecretKey, newPrimarySecretValue, newSecondarySecretKey, newSecondarySecretValue);
+
 
     } else {
         //Lambda triggered by the SF to rotate the secrets
@@ -161,6 +164,8 @@ exports.handler = async (event, context) => {
         await getCffUpdatedCode(newSecretKey, newSecretValue, primarySecretKeyName, primarySecretKeyValue);
 
     }
+
+
 
     return "OK";
 

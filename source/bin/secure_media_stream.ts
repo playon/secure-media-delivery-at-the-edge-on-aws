@@ -3,22 +3,31 @@ import  { App, DefaultStackSynthesizer } from "aws-cdk-lib";
 import { getOpts } from "../helpers/opts";
 
 import { SecureMediaStreamingStack, SecureMediaStreamStackProps } from "../lib/secure_media_stream_stack";
-import { AutoSessionRevocationStack } from "../lib/auto_revocation_stack";
+import { AutoSessionRevocationStack, AutoSessionRevocationStackProps } from "../lib/auto_revocation_stack";
 import { IConfiguration } from "../helpers/validators/configuration";
 
+const solutionId = 'SO0195';
+const solutionDisplayName = 'Secure Media Delivery at the Edge';
+const solutionVersion = '1.0.0';
+const description = `(${solutionId}) - ${solutionDisplayName}. Version ${solutionVersion}`;
+
 const app = new App();
-export const getProps = (config: IConfiguration): SecureMediaStreamStackProps => {
+export const getMainStackProps = (config: IConfiguration): SecureMediaStreamStackProps => {
 
   const stackSynthesizer = config.main?.assets_bucket_name ?  new DefaultStackSynthesizer({  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}"}) : new DefaultStackSynthesizer()
-  const solutionId = 'SO0195';
-  const solutionDisplayName = 'Secure Media Delivery at the Edge';
-  const solutionVersion = '1.0.0';
-  const description = `(${solutionId}) - ${solutionDisplayName}. Version ${solutionVersion}`;
+  
 
   return {
     description,
     synthesizer: stackSynthesizer
     
+  };
+};
+
+export const getAutoSessionStackProps = (): AutoSessionRevocationStackProps => {
+
+  return {
+    description    
   };
 };
 
@@ -31,7 +40,7 @@ export const getProps = (config: IConfiguration): SecureMediaStreamStackProps =>
     app,
     config.main.stack_name,
     config,
-    getProps(config)
+    getMainStackProps(config)
     
   );
 
@@ -41,7 +50,7 @@ export const getProps = (config: IConfiguration): SecureMediaStreamStackProps =>
       config.main.stack_name + "AutoSessionRevocation",
       config,
       coreStack.sessionToRevoke,
-      getProps(config)
+      getAutoSessionStackProps()
     );
   }
 })();

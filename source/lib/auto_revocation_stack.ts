@@ -32,7 +32,7 @@ import { AutoRevokeSessionsWorkflow } from "./autorevocation/auto_revocation_wor
 import { CrLoadSqlParams } from "./custom_resources/cr_load_athena_config_table";
 import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_utils";
 
-export interface SecureMediaStreamStackProps extends StackProps {
+export interface AutoSessionRevocationStackProps extends StackProps {
   readonly description: string
 }
 
@@ -43,9 +43,9 @@ export class AutoSessionRevocationStack extends Stack {
     id: string,
     configuration: IConfiguration,
     sessionsTable: ITable,
-    props: SecureMediaStreamStackProps
+    props: AutoSessionRevocationStackProps
   ) {
-    super(scope, id);
+    super(scope, id, props);
 
     const sqlQueryBucket = new s3.Bucket(this, "SqlQuery", {
       encryption: s3.BucketEncryption.S3_MANAGED,

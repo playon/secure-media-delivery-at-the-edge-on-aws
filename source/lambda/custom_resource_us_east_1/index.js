@@ -21,13 +21,6 @@ var lambda = new AWS.Lambda({ region: 'us-east-1' });
 const ssm = new AWS.SSM();
 const wafv2 = new AWS.WAFV2({ region: 'us-east-1' });
 
-const WCU = process.env.WCU;
-const RULE_NAME = process.env.RULE_NAME;
-const ROLE_ARN = process.env.ROLE_ARN;
-const STACK_NAME = process.env.STACK_NAME;
-const RULE_ID = process.env.RULE_ID;
-const LAMBDA_VERSION = process.env.LAMBDA_VERSION;
-const DEPLOY_LE = process.env.DEPLOY_LE;
 
 exports.handler = async (event, context) => {
 
@@ -35,7 +28,7 @@ exports.handler = async (event, context) => {
 
     await createWafRuleGroup();
 
-    if (parseInt(DEPLOY_LE) == 1) {
+    if (parseInt(process.env.DEPLOY_LE) == 1) {
         //deploy Lambda Edge only if the user selected API module in the wizard
         await createLambdaEdge();
     }
@@ -61,9 +54,9 @@ async function createLambdaEdge() {
             Code: {
                 ZipFile: fs.readFileSync(code_path)
             },
-            FunctionName: STACK_NAME + '_Sig4LE', /* required */
+            FunctionName: process.env.STACK_NAME + '_Sig4LE', /* required */
             Handler: 'le.handler', /* required */
-            Role: ROLE_ARN, /* required */
+            Role: process.env.ROLE_ARN, /* required */
             Runtime: 'nodejs14.x', /* required */
             Description: 'Sign sign4 requests'
         };
@@ -109,7 +102,7 @@ async function publishLEVersion(functionArn) {
         };
 
         let result = await lambda.publishVersion(params).promise();
-        await saveToSSM(LAMBDA_VERSION, `${functionArn}:${result.Version}`)
+        await saveToSSM(process.env.LAMBDA_VERSION, `${functionArn}:${result.Version}`)
 
     } catch (error) {
         console.error(error);
@@ -121,8 +114,8 @@ async function createWafRuleGroup() {
     try {
         // Creates WAF Rule Group
         var params = {
-            Capacity: parseInt(WCU),
-            Name: RULE_NAME,
+            Capacity: parseInt(process.env.WCU),
+            Name: process.env.RULE_NAME,
             Scope: 'CLOUDFRONT',
             VisibilityConfig: {
                 CloudWatchMetricsEnabled: false,
@@ -134,7 +127,7 @@ async function createWafRuleGroup() {
         };
 
         let result = await wafv2.createRuleGroup(params).promise();
-        await saveToSSM(RULE_ID, result.Summary.Id)
+        await saveToSSM(process.env.RULE_ID, result.Summary.Id)
 
     } catch (error) {
         if (error.name === "WAFDuplicateItemException") {

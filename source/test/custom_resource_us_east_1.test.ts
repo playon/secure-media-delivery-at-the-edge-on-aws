@@ -1,13 +1,23 @@
 const cr = require('../lambda/custom_resource_us_east_1/index.js');
 jest.mock("aws-sdk")
 
+import fs from 'fs';
+
+const spy = jest.spyOn(fs, 'copyFileSync').mockImplementation(() => { 
+    return ``;
+ });
 
 
-describe('Sign request', () => {
+describe('Custom resource', () => {
 
     const env = process.env
 
-    beforeEach(() => {
+    beforeEach(  ()   =>   {
+
+        let data = "Mocked content of my file";
+
+        fs.writeFileSync("/tmp/le.js", data);
+
         jest.resetModules()
         process.env = {  
             ROLE_ARN: "MyRoleArn",
@@ -18,6 +28,8 @@ describe('Sign request', () => {
             RULE_NAME: "MyRuleName",
             DEPLOY_LE: "1"
             };
+
+            
     })
 
     afterEach(() => {
@@ -28,6 +40,7 @@ describe('Sign request', () => {
   test('Deploy LE - result OK', async () => {
    
     var result = await cr.handler({});
+    
     expect(result).toHaveLength;
 
  });

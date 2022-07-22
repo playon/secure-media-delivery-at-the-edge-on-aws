@@ -18,9 +18,9 @@ const emptyHash = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b
 // CloudFront includes the x-amz-cf-id header in the signature for custom origins
 const signedHeadersCustomOrigin = 'host;x-amz-cf-id;x-amz-content-sha256;x-amz-date;x-amz-security-token';
 // Retrieve the temporary IAM credentials of the function that were granted by
-// the Lambda@Edge service based on the function permissions. In this solution, the function
-// is given permissions to read from S3 and decrypt using the KMS key.
-const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN } = process.env;
+// the Lambda@Edge service based on the function permissions. 
+//const { AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN } = process.env;
+
 
 // Since the function is configured to be executed on origin request events, the handler
 // is executed every time CloudFront needs to go back to the origin, which is S3 here.
@@ -45,9 +45,9 @@ exports.handler = async event => {
         path: request.origin[originType].path + request.uri,
         query: request.querystring,
         credentials: {
-            accessKeyId: AWS_ACCESS_KEY_ID,
-            secretAccessKey: AWS_SECRET_ACCESS_KEY,
-            sessionToken: AWS_SESSION_TOKEN
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            sessionToken: process.env.AWS_SESSION_TOKEN
         },
         host: request.headers['host'][0].value,
         xAmzCfId: event.Records[0].cf.config.requestId,
@@ -60,8 +60,12 @@ exports.handler = async event => {
     // X-Amz-Date, X-Amz-Content-Sha256, and X-Amz-Security-Token
     const signature = signV4(sigv4Options);
 
-    // Finally, add the signature headers to the request before it is sent to S3
+    // Finally, add the signature headers to the request
+    console.log("signature="+JSON.stringify(signature));
+    
     for(var header in signature){
+        console.log("header="+header + ", signature[header]="+signature[header]);
+        console.log();
         request.headers[header.toLowerCase()] = [{
             key: header,
             value: signature[header].toString()
@@ -77,6 +81,7 @@ function signV4(options) {
     // Infer the region from the host header
     // Create the canonical request
     const region = options.host.split('.')[2];
+    console.log("options="+JSON.stringify(options));
     const date = (new Date()).toISOString().replace(/[:-]|\.\d{3}/g, '');
     let canonicalHeaders = '';
     let signedHeaders = '';

@@ -1,167 +1,175 @@
 # Secure media stream delivery
 
 AWS Solutions Implementation for Secure Media Stream Delivery at
-the Edge, served by Amazon CloudFront CDN. Customers can deploy the solution to protect their video stream
+the Edge, served by Amazon CloudFront CDN.
+
+Customers can deploy the solution to protect their video stream
 from unauthorize access by adding a cookieless tokenization embedded in the URL path.
 
-The cdk-solution-init-pkg provides a reference for building solutions using the AWS Cloud Development Kit (CDK). This package contains basic build scripts, sample source code implementations, and other essentials for creating a solution from scratch.
+Current version: **1.0.0**
 
-***
+## 🔰 Description
 
-## Initializing the Repository
+The Secure media stream delivery solution is a configurable and modular [AWS CDK](https://docs.aws.amazon.com/cdk/latest/guide/home.html) project. It can conditionally upon selection using the Wizard enable the deployment of the following components:
 
-After successfully cloning the repository into your local development environment, a source code package must be built based on your language of choice. This will define which language the CDK code will be written in.
+- Base module
+- Automatic session invalidation
+- APIs
+- Demo website
 
-Run the `initialize-repo.sh` script at the root level of the project file. This script will prompt a series of questions before initializing a git repo using the current directory name as the solution name. It will also stage the `deployment` and `source` directories with fundamental assets for your solution.
+## 📘 Architecture
 
-- The language selected when running this script will determine whether to provision a TypeScript, Python, Java, or C# CDK project into your `deployment` and `source` directories. This is the language you will be working with when defining your infrastructure using the CDK. Your source code packages for Lambda functions and custom resources may be in different languages.
+Below is the architecture diagram.
 
-***
+<div align="center">
+  <img src="source/assets/diagrams/architecture.drawio.png" />
+  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
+</div>
 
-## File Structure
+#### **Rotate Secrets**
 
-Upon successfully cloning the repository into your local development environment but **prior** to running the initialization script, you will see the following file structure in your editor:
+<div align="center">
+  <img src="source/assets/diagrams/rotate_secrets_sf.png" />
+  <div align="center"><sub>Rotate secrets (click to enlarge)</sub></div>
+</div>
 
-```
-|- .github/ ...               - resources for open-source contributions.
-|- deployment/                - contains build scripts, deployment templates, and dist folders for staging assets.
-  |- .typescript/                - typescript-specific deployment assets.
-  |- .python/                   - python-specific deployment assets.
-  |- .java/                     - java-specific deployment assets.
-  |- .csharp/                   - csharp-specific deployment assets.
-|- source/                    - all source code, scripts, tests, etc.
-  |- .typescript/                - typescript-specific source assets.
-  |- .python/                   - python-specific source assets.
-  |- .java/                     - java-specific source assets.
-  |- .csharp/                   - csharp-specific source assets.
-|- .gitignore
-|- .viperlightignore          - Viperlight scan ignore configuration  (accepts file, path, or line item).
-|- .viperlightrc              - Viperlight scan configuration.
-|- buildspec.yml              - main build specification for CodeBuild to perform builds and execute unit tests.
-|- CHANGELOG.md               - required for every solution to include changes based on version to auto-build release notes.
-|- CODE_OF_CONDUCT.md         - standardized open source file for all solutions.
-|- CONTRIBUTING.md            - standardized open source file for all solutions.
-|- copy-repo.sh               - copies the baseline repo to another directory and optionally initializes it there.
-|- initialize-repo.sh         - initializes the repo.
-|- LICENSE.txt                - required open source file for all solutions - should contain the Apache 2.0 license.
-|- NOTICE.txt                 - required open source file for all solutions - should contain references to all 3rd party libraries.
-|- README.md                  - required file for all solutions.
+#### **Automatic session invalidation**
 
-* Note: Not all languages are supported at this time. Actual appearance may vary depending on release.
-```
+<div align="center">
+  <img src="source/assets/diagrams/automatic_session_revocation.png" />
+  <div align="center"><sub>Automatic session invalidation (click to enlarge)</sub></div>
+</div>
 
-**After** running the initialization script, you will see a language-specific directory in both the `/source` and `/deployment` folders expanded based on your CDK language choice. Example below after `./initialize-repo.sh` is run with `typescript` selected as the language of choice. Notice the removal of the language-specific directories after running the command. The repo is now ready for solution development.
+## 🚀 Tutorial
 
-```
-|- .github/ ...               - resources for open-source contributions.
-|- deployment/                - contains build scripts, deployment templates, and dist folders for staging assets.
-  |- cdk-solution-helper/     - helper function for converting CDK output to a format compatible with the AWS Solutions pipelines.
-  |- build-open-source-dist.sh  - builds the open source package with cleaned assets and builds a .zip file in the /open-source folder for distribution to GitHub
-  |- build-s3-dist.sh         - builds the solution and copies artifacts to the appropriate /global-s3-assets or /regional-s3-assets folders.
-  |- clean-dists.sh           - utility script for clearing distributables.
-|- source/                    - all source code, scripts, tests, etc.
-  |- bin/
-    |- cdk-solution.ts        - the CDK app that wraps your solution.
-  |- lambda/                  - example Lambda function with source code and test cases.
-    |- test/
-    |- index.js
-    |- package.json
-  |- lib/
-    |- cdk-solution-stack.ts  - the main CDK stack for your solution.
-  |- test/
-    |- __snapshots__/
-    |- cdk-solution-test.ts   - example unit and snapshot tests for CDK project.
-  |- cdk.json                 - config file for CDK.
-  |- jest.config.js           - config file for unit tests.
-  |- package.json             - package file for the CDK project.
-  |- README.md                - doc file for the CDK project.
-  |- run-all-tests.sh         - runs all tests within the /source folder. Referenced in the buildspec and build scripts.
-|- .gitignore
-|- .viperlightignore          - Viperlight scan ignore configuration  (accepts file, path, or line item).
-|- .viperlightrc              - Viperlight scan configuration.
-|- buildspec.yml              - main build specification for CodeBuild to perform builds and execute unit tests.
-|- CHANGELOG.md               - required for every solution to include changes based on version to auto-build release notes.
-|- CODE_OF_CONDUCT.md         - standardized open source file for all solutions.
-|- CONTRIBUTING.md            - standardized open source file for all solutions.
-|- LICENSE.txt                - required open source file for all solutions - should contain the Apache 2.0 license.
-|- NOTICE.txt                 - required open source file for all solutions - should contain references to all 3rd party libraries.
-|- README.md                  - required file for all solutions.
+Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
+
+## Deployment
+The solution can be deployed through the CloudFormation template available on the solution [home page](https://aws.amazon.com/solutions/implementations/live-streaming-on-aws/).
+
+## Creating a custom build
+
+### Prerequisites:
+* [AWS Command Line Interface](https://aws.amazon.com/cli/)
+* Node.js 12.x or later
+* AWS CDK 2.24.1
+
+The are 2 options for deploying the solution: using the CDK deployment tools or running the build script to generate a CFN template and the packaged lambda code.
+
+### Options 1: Deploying through the CDK.
+This options simply flollows the standard CDK deployment process. You will need to run `cdk bootstrap` before you run cdk deploy the first time to setup the cdk resource in your AWS account. Details on using the CDK can be found [here].
+
+#### 1. Clone the repo.
+
+
+#### 2. Install the dependencies of the project to make it ready to use. To do so, simply run the below command.
+
+  ```bash
+  cd source
+  ./install_dependencies.sh
+  ```
+
+#### 3. Run the built-in wizard which will prompt you with questions about the modules to deploy
+
+
+  ```bash
+  npm run wizard
+  ```
+
+The wizard will then generate a configuration in the `solution.context.json` file that is at the root of this repository. 
+
+
+#### 4. Ensure that the AWS CDK has been bootsrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.
+
+```bash
+npx cdk bootstrap
 ```
 
-***
+  > You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the bootstrap process must be done for each AWS region.
 
-## Building your CDK Project
+#### 5. Deploy the solution using the following command.
 
-After initializing the repository, make any desired code changes. As you work through the development process, the following commands might be useful for
-periodic testing and/or formal testing once development is completed. These commands are CDK-related and should be run at the /source level of your project.
-
-CDK commands:
-- `cdk init` - creates a new, empty CDK project that can be used with your AWS account.
-- `cdk synth` - synthesizes and prints the CloudFormation template generated from your CDK project to the CLI.
-- `cdk deploy` - deploys your CDK project into your AWS account. Useful for validating a full build run as well as performing functional/integration testing
-of the solution architecture.
-
-Additional scripts related to building, testing, and cleaning-up assets may be found in the package.json file or in similar locations for your selected CDK language. You can also run `cdk -h` in the terminal for details on additional commands.
-
-***
-
-## Running Unit Tests
-
-The `/source/run-all-tests.sh` script is the centralized script for running all unit, integration, and snapshot tests for both the CDK project as well as any associated Lambda functions or other source code packages.
-
-- Note: It is the developer's responsibility to ensure that all test commands are called in this script, and that it is kept up to date.
-
-This script is called from the solution build scripts to ensure that specified tests are passing while performing build, validation and publishing tasks via the pipeline.
-
-***
-
-## Building Project Distributable
-* Configure the bucket name of your target Amazon S3 distribution bucket
+```bash
+npx cdk deploy --all
 ```
-export DIST_OUTPUT_BUCKET=my-bucket-name # bucket where customized code will reside
-export SOLUTION_NAME=my-solution-name
-export VERSION=my-version # version number for the customized code
-export REGION=aws-region-code # e.g. us-east-1
-```
-_Note:_ You would have to create an S3 bucket with the prefix 'my-bucket-name-<aws_region>'; aws_region is where you are testing the customized solution. Also, the assets in bucket should be publicly accessible.
 
-* Now build the distributable:
+
+### Option 2: Generate a CloudFormation template.
+The CloudFormation template (generated by the CDK) includes a lambda backed custom resource to configure MediaLive and create a UUID. To launch the solution the Lambda source code has to be deployed to an Amazon S3 bucket in the region you intend to deploy the solution. 
+
+#### 1. Clone the repo
+Download or clone the repo and make the required changes to the source code.
+
+#### 2. Running unit tests for customization
+Run unit tests to make sure added customization passes the tests:
+```
+cd ./deployment
+chmod +x ./run-unit-tests.sh && ./run-unit-tests.sh
+```
+
+#### 3. Create an Amazon S3 Bucket
+The CloudFormation template is configured to pull the Lambda deployment packages from Amazon S3 bucket in the region the template is being launched in. Create a bucket in the desired region with the region name appended to the name of the bucket. eg: for us-east-1 create a bucket named: `my-bucket-us-east-1`
+```
+aws s3 mb s3://my-bucket-us-east-1
+```
+
+Ensure that you are owner of the AWS S3 bucket. 
+```
+aws s3api head-bucket --bucket my-bucket-us-east-1 --expected-bucket-owner YOUR-AWS-ACCOUNT-NUMBER
+```
+
+#### 4. Create the deployment packages
+Build the distributable:
 ```
 chmod +x ./build-s3-dist.sh
-./build-s3-dist.sh $DIST_OUTPUT_BUCKET $SOLUTION_NAME $VERSION
+./build-s3-dist.sh <my-bucket> secure-media-delivery-at-the-edge <version>
 ```
 
-* Deploy the distributable to an Amazon S3 bucket in your account. _Note:_ you must have the AWS Command Line Interface installed.
+> **Notes**: The _build-s3-dist_ script expects the bucket name as one of its parameters. This value should not have the region suffix (remove the -us-east-1)
+
+Deploy the distributable to the Amazon S3 bucket in your account:
 ```
-aws s3 cp ./dist/ s3://$DIST_OUTPUT_BUCKET-$REGION/$SOLUTION_NAME/$VERSION/ --recursive --acl bucket-owner-full-control --profile aws-cred-profile-name
-```
-
-* Get the link of the solution template uploaded to your Amazon S3 bucket.
-* Deploy the solution to your account by launching a new AWS CloudFormation stack using the link of the solution template in Amazon S3.
-
-***
-
-## Building Open-Source Distributable
-
-* Run the following command to build the open-source project:
-```
-chmod +x ./build-open-source-dist.sh
-./build-open-source-dist.sh $SOLUTION_NAME
+aws s3 sync ./regional-s3-assets/ s3://my-bucket-us-east-1/secure-media-delivery-at-the-edge/<version>/ 
+aws s3 sync ./global-s3-assets/ s3://my-bucket-us-east-1/secure-media-delivery-at-the-edge/<version>/ 
 ```
 
-* Validate that the assets within the output folder are accurate and that there are no missing files.
+#### 5. Launch the CloudFormation template.
+* Get the link of the VIDEOSTREAM.template uploaded to your Amazon S3 bucket.
+* Deploy the solution.
 
-***
+## License
 
-## Collection of operational metrics
-This solution collects anonymous operational metrics to help AWS improve the quality and features of the solution. For more information, including how to disable this capability, please see the [implementation guide](deep link into the documentation with specific information about the metrics and how to opt-out).
+* This project is licensed under the terms of the Apache 2.0 license. See here `LICENSE`.
 
-***
+This solution collects anonymous operational metrics to help AWS improve the
+quality of features of the solution. For more information, including how to disable
+this capability, please see the [implementation guide](https://docs.aws.amazon.com/solutions/latest/live-streaming/welcome.html).
 
-Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+## 📋 Table of content
 
-Licensed under the Apache License Version 2.0 (the "License"). You may not use this file except in compliance with the License. A copy of the License is located at
+- [Tutorial](#-tutorial)
+- [Information](#-information)
+- [Requirements](#-requirements)
+- [Description](#-description)
+- [Architecture](#-architecture)
+- [See Also](#-see-also)
 
-    http://www.apache.org/licenses/
 
-or in the "license" file accompanying this file. This file is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions and limitations under the License.
+
+
+## 📊 Information
+
+The below information displays approximate values associated with deploying and using this stack.
+
+Metric | Value
+------ | ------
+**Deployment Time** | 5-10 minutes (depending on the selected options)
+**CDK Version** | 2.24.1
+
+## 🎒 Requirements
+
+- An AWS Account ([How to create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/?nc1=h_ls) | [How to create an AWS Organization account](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html))
+- [Node JS 12+](https://nodejs.org/en/) must be installed on the deployment machine. ([Instructions](https://nodejs.org/en/download/))
+- The [AWS CDK 2.24.1](https://aws.amazon.com/en/cdk/) must be installed on the deployment machine. ([Instructions](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html))
+
+

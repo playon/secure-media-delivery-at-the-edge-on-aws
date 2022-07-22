@@ -1,6 +1,6 @@
 {
   "main": {
-    "stack_name": "MYSTREAM",
+    "stack_name": "VIDEOSTREAM",
     "assets_bucket_name" : "MY_ASSETS_BUCKET_NAME",
     "rotate_secrets_frequency": "1m",
     "rotate_secrets_pattern": "P",

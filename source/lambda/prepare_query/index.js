@@ -89,7 +89,7 @@ function generateAthenaQuery(query_param) {
     console.log("Athena params=" + JSON.stringify(query_param));
     var thirdPartPreamble = "";
     var queryStringSecond_part = "";
-    queryStringFirstPart = `WITH Q1 AS (
+    var queryStringFirstPart = `WITH Q1 AS (
          SELECT
                split(split_part(uri, '/',2),'.') AS path_first_part_array,
                ${query_param['uri_column_name']} AS uri,
@@ -107,7 +107,7 @@ function generateAthenaQuery(query_param) {
         thirdPartPreamble = 'WHERE '
     }
 
-    queryStringThirdPart = `${thirdPartPreamble}CAST(${query_param['status_column_name']} AS INTEGER) IN (200, 206)
+    var queryStringThirdPart = `${thirdPartPreamble}CAST(${query_param['status_column_name']} AS INTEGER) IN (200, 206)
       AND CAST(${query_param['response_bytes_column_name']} AS INTEGER) > 1024),
    Q2 AS (
       SELECT

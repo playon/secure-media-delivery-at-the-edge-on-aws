@@ -234,7 +234,7 @@ export class GetInputParameters extends Construct {
         const dash_hostname = new CfnParameter(this, "GG", {
           type: "String",
           description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
-          default: "d123.cloudfront.net"
+          default: "https://d123.cloudfront.net"
         });
 
         const dash_url_path = new CfnParameter(this, "HH", {
@@ -292,7 +292,7 @@ export class GetInputParameters extends Construct {
         const hls_hostname = new CfnParameter(this, "JJ", {
           type: "String",
           description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
-          default: "d123.cloudfront.net"
+          default: "https://d123.cloudfront.net"
         });
 
         const hls_url_path = new CfnParameter(this, "KK", {

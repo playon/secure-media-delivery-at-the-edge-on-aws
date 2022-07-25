@@ -28,16 +28,16 @@ export class GetInputParameters extends Construct {
     if (configuration.main.rotate_secrets_pattern === "P") {
 
       const wcu = new CfnParameter(this, "Wcu", {
-        type: "String",
+        type: "Number",
         minValue : 2,
         maxValue : 1500,
         description:
-          "Specify the how frequently key rotation process will be triggered",
+          "Capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500)",
       });
 
 
       const retention = new CfnParameter(this, "Retention", {
-        type: "String",
+        type: "Number",
         minValue : 1,
         description:
           "Retention time for compromised sessions (in minutes)",

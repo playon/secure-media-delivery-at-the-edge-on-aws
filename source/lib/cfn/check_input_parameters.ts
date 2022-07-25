@@ -212,8 +212,8 @@ export class GetInputParameters extends Construct {
             "#" +
             week_of_month.valueAsString +
             " *",
-          wcu: parseInt(wcu.valueAsString),
-          retention: parseInt(retention.valueAsString),
+          wcu: wcu.valueAsString,
+          retention: retention.valueAsString,
         },
       };
     } else {

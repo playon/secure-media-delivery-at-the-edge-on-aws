@@ -18,8 +18,8 @@ test('Session revocation', () => {
   new SessionRevocation(stack, "SessionRevocation", {
     sessionToRevoke: myTable,
     gsi_index_name: "GSI_NAME",
-    wcu: 1,
-    retention: 10,
+    wcu: "1",
+    retention: "10",
     ruleNameParamName: "WAF_RULE_NAME_SSM_PARAM",
     ruleIdParamName: "WAF_RULE_ID_SSM_PARAM",
   });

@@ -16,8 +16,8 @@ test('Auto session revocation stack', () => {
   const config = {
     "main": {
       "stack_name": "MYSTACK",
-      "wcu": 100,
-      "retention": 14,
+      "wcu": "100",
+      "retention": "14",
       "rotate_secrets_frequency": "m"
     },
     "api": {

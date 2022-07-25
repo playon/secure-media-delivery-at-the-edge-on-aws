@@ -22,8 +22,8 @@ test('Rotate secrets workflow', () => {
   const myConfig = {
     "main": {
       "stack_name": "CCCC1",
-      "wcu": 100,
-      "retention": 14,
+      "wcu": "100",
+      "retention": "14",
       "rotate_secrets_frequency": "m"
     }
   };

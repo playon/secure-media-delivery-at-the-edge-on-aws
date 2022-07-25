@@ -8,7 +8,7 @@ test('Create L@E - DEPLOY_LE=true', () => {
   // WHEN
 
   new CRCreateLEWafRule(stack, 'Secrets', {
-    WCU: 1,
+    WCU: "1",
     LAMBDA_EDGE_VERSION_SSM_PARAM: "LAMBDA_EDGE_VERSION_SSM_PARAM",
     WAF_RULE_NAME_SSM_PARAM: "WAF_RULE_NAME_SSM_PARAM",
     WAF_RULE_ID_SSM_PARAM: "WAF_RULE_ID_SSM_PARAM",
@@ -29,7 +29,7 @@ test('Create L@E - DEPLOY_LE=false', () => {
   // WHEN
 
   new CRCreateLEWafRule(stack, 'Secrets', {
-    WCU: 1,
+    WCU: "1",
     LAMBDA_EDGE_VERSION_SSM_PARAM: "LAMBDA_EDGE_VERSION_SSM_PARAM",
     WAF_RULE_NAME_SSM_PARAM: "WAF_RULE_NAME_SSM_PARAM",
     WAF_RULE_ID_SSM_PARAM: "WAF_RULE_ID_SSM_PARAM",

@@ -28,8 +28,8 @@ import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 export interface IConfigProps {
   sessionToRevoke: ITable;
   gsi_index_name: string;
-  wcu: number;
-  retention: number;
+  wcu: string;
+  retention: string;
   ruleNameParamName: string;
   ruleIdParamName: string;
 }
@@ -86,7 +86,7 @@ export class SessionRevocation extends Construct {
           RULE_NAME: config.ruleNameParamName,
           RETENTION: config.retention.toString(),
           TABLE_NAME: config.sessionToRevoke.tableName,
-          MAX_SESSIONS: (config.wcu / 2).toString(),
+          MAX_SESSIONS: (parseInt(config.wcu) / 2).toString(),
           GSI_INDEX_NAME: config.gsi_index_name,
         },
       }

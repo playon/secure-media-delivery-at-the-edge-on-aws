@@ -15,8 +15,8 @@ export interface IMain {
    assets_bucket_name?: string;
    rotate_secrets_frequency: string;
    rotate_secrets_pattern: string;
-   wcu: number;
-   retention: number;
+   wcu: string;
+   retention: string;
 
 }
 
@@ -28,6 +28,6 @@ export const coreSchema = Joi.object().keys({
   assets_bucket_name:Joi.string().optional(),
   rotate_secrets_frequency: Joi.string().required(),
   rotate_secrets_pattern: Joi.string().optional(),
-  wcu:Joi.number().required(),
-  retention:Joi.number().required(),
+  wcu:Joi.string().required(),
+  retention:Joi.string().required(),
 });

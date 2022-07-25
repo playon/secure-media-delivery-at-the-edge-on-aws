@@ -13,8 +13,8 @@ test('Check input param - cdk', () => {
   const myConfig = {
     "main": {
       "stack_name": "MYSTACK",
-      "wcu": 100,
-      "retention": 14,
+      "wcu": "100",
+      "retention": "14",
       "rotate_secrets_frequency": "m"
     },
     "api": {
@@ -40,8 +40,8 @@ test('Check input param - cfn', () => {
       "assets_bucket_name" : "MY_ASSETS_BUCKET_NAME",
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "P",
-      "wcu": 100,
-      "retention": 5
+      "wcu": "100",
+      "retention": "14"
     },
     "api": {
       "demo": true
@@ -76,8 +76,8 @@ test('Check input param - cdk hls & dash', () => {
       "assets_bucket_name" : "MY_ASSETS_BUCKET_NAME",
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "m",
-      "wcu": 100,
-      "retention": 5
+      "wcu": "100",
+      "retention": "14"
     },
     "api": {
       "demo": true

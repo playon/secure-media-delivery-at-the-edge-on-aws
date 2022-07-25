@@ -14,8 +14,8 @@ test('Load assets', () => {
       "assets_bucket_name" : "MY_ASSETS_BUCKET_NAME",
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "P",
-      "wcu": 100,
-      "retention": 5
+      "wcu": "100",
+      "retention": "14"
     },
     "api": {
       "demo": true

@@ -17,6 +17,7 @@ import {
   aws_lambda as lambda,
   aws_dynamodb as ddb,
   aws_logs as logs,
+  CfnOutput,
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -135,6 +136,11 @@ export class Api extends Construct {
     props.dashboard.buildApiDashboard({
       lambdaFunctionName: generateToken.functionName,
       region: Aws.REGION,
+    });
+
+    new CfnOutput(this, "CheckTokenFunction", {
+      description: "Video asset table name",
+      value: demoAssetsTable.tableName
     });
   }
 }

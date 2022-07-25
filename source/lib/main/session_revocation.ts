@@ -157,7 +157,7 @@ export class SessionRevocation extends Construct {
 
     new CfnOutput(this, "WafRuleGroupArn", {
       description: "WAF RuleGroup Name Arn",
-      value: `arn:aws:wafv2:us-west-1:${Aws.ACCOUNT_ID}:regional/rulegroup/${config.ruleNameParamName}/${ssmRuleGroupId}`
+      value : `arn:aws:wafv2:us-east-1:${Aws.ACCOUNT_ID}:global/rulegroup/${config.ruleNameParamName}/${config.ruleNameParamName}`
     });
 
 

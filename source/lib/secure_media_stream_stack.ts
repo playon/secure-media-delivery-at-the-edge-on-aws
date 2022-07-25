@@ -100,7 +100,7 @@ export class SecureMediaStreamingStack extends Stack {
     });
 
     //CloudFront Function used to fix the redirect for Media Tailor
-    new cloudfront.Function(
+    const checkTokenFunction = new cloudfront.Function(
       this,
       "RedirectMediaTailorFunction",
       {
@@ -216,6 +216,11 @@ export class SecureMediaStreamingStack extends Stack {
     new CfnOutput(this, "RoleArn", {
       description: "The ARN of the role to be assumed by SDK",
       value: role4sdk.roleArn,
+    });
+
+    new CfnOutput(this, "CheckTokenFunction", {
+      description: "CloudFront Function used to validate JWT token",
+      value: checkTokenFunction.functionName
     });
   }
 }

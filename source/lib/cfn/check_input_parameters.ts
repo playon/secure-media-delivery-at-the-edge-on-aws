@@ -26,7 +26,25 @@ export class GetInputParameters extends Construct {
     var returnObject: IConfiguration;
 
     if (configuration.main.rotate_secrets_pattern === "P") {
-      const hours = new CfnParameter(this, "AA", {
+
+      const wcu = new CfnParameter(this, "Wcu", {
+        type: "String",
+        minValue : 2,
+        maxValue : 1500,
+        description:
+          "Specify the how frequently key rotation process will be triggered",
+      });
+
+
+      const retention = new CfnParameter(this, "Retention", {
+        type: "String",
+        minValue : 1,
+        description:
+          "Retention time for compromised sessions (in minutes)",
+      });
+
+
+      const hours = new CfnParameter(this, "Hours", {
         type: "String",
         allowedValues: [
           "00",
@@ -58,7 +76,7 @@ export class GetInputParameters extends Construct {
           "Specify the how frequently key rotation process will be triggered",
       });
 
-      const minutes = new CfnParameter(this, "BB", {
+      const minutes = new CfnParameter(this, "Minutes", {
         type: "String",
         allowedValues: [
           "00",
@@ -126,14 +144,14 @@ export class GetInputParameters extends Construct {
           "Specify the how frequently key rotation process will be triggered",
       });
 
-      const day_of_week = new CfnParameter(this, "CC", {
+      const day_of_week = new CfnParameter(this, "DayOfTheWeek", {
         type: "String",
         allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
         description:
           "Specify the how frequently key rotation process will be triggered",
       });
 
-      const week_of_month = new CfnParameter(this, "DD", {
+      const week_of_month = new CfnParameter(this, "WeekOfTheMonth", {
         type: "String",
         allowedValues: ["1", "2", "3", "4"],
         description:
@@ -142,6 +160,18 @@ export class GetInputParameters extends Construct {
 
       addParametersToInterface({
         params: [
+          {
+            scope: this,
+            parameter: retention,
+            groupLabel: "Session revocation",
+            parameterLabel: "Retention",
+          },
+          {
+            scope: this,
+            parameter: wcu,
+            groupLabel: "Session revocation",
+            parameterLabel: "Wcu",
+          },
           {
             scope: this,
             parameter: week_of_month,
@@ -182,8 +212,8 @@ export class GetInputParameters extends Construct {
             "#" +
             week_of_month.valueAsString +
             " *",
-          wcu: 100,
-          retention: 60,
+          wcu: wcu.valueAsNumber,
+          retention: retention.valueAsNumber,
         },
       };
     } else {

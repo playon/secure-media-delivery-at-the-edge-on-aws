@@ -226,7 +226,6 @@ export class RotateSecretsWorkflow extends Construct {
 
     new CfnOutput(this, "SFRotateSecrets", {
       value: workflow.stateMachineName,
-      exportName: Aws.STACK_NAME + "SFRotateSecrets",
       description: "The name of the Step Function to rotate secrets",
     });
   }

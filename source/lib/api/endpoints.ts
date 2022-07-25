@@ -280,19 +280,16 @@ export class Endpoints extends Construct {
 
     new CfnOutput(this, "HostingBucketName", {
       value: hostingBucket.bucketName,
-      exportName: Aws.STACK_NAME + "HostingBucket",
       description: "Hosting bucket name",
     });
 
     new CfnOutput(this, "ApiEndpoint", {
       value: `${httpApi.apiId}.execute-api.${region}.amazonaws.com`,
-      exportName: Aws.STACK_NAME + "ApiEndpoint",
       description: "Endpoint",
     });
 
     new CfnOutput(this, "DistributionDomainName", {
       value: "https://" + distribution.domainName,
-      exportName: Aws.STACK_NAME + "DomainName",
       description: "Demo Website",
     });
   }

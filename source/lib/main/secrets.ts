@@ -67,13 +67,11 @@ export class Secrets extends Construct {
 
     new CfnOutput(this, "PrimarySecret", {
       value: primarySecret.secretName,
-      exportName: Aws.STACK_NAME + "PrimarySecret",
       description: "The name of the PrimarySecret",
     });
 
     new CfnOutput(this, "SecondarySecret", {
       value: secondarySecret.secretName,
-      exportName: Aws.STACK_NAME + "SecondarySecret",
       description: "The name of the SecondarySecret",
     });
   }

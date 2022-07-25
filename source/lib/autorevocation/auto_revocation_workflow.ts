@@ -207,7 +207,6 @@ export class AutoRevokeSessionsWorkflow extends Construct {
 
     new CfnOutput(this, "SessionInvalidateName", {
       value: workflow.stateMachineName,
-      exportName: Aws.STACK_NAME + "StateMachineName",
       description: "State machine used to detect sessions to invalidate",
     });
   }

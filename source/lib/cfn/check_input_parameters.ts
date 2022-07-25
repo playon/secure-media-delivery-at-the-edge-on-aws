@@ -32,7 +32,7 @@ export class GetInputParameters extends Construct {
         minValue : 2,
         maxValue : 1500,
         description:
-          "Capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500)",
+          "Capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500).",
       });
 
 
@@ -73,7 +73,7 @@ export class GetInputParameters extends Construct {
           "23",
         ],
         description:
-          "Specify the how frequently key rotation process will be triggered",
+          "An hour when key rotation workflow will be triggered.",
       });
 
       const minutes = new CfnParameter(this, "Minutes", {
@@ -141,21 +141,21 @@ export class GetInputParameters extends Construct {
           "59",
         ],
         description:
-          "Specify the how frequently key rotation process will be triggered",
+          "A minute in the selected hour when key rotation workflow will be triggered.",
       });
 
       const day_of_week = new CfnParameter(this, "DayOfTheWeek", {
         type: "String",
         allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
         description:
-          "Specify the how frequently key rotation process will be triggered",
+          "After selecting a week in a month, provide a specific day in that week when key rotation should occur. Value from 1 to 7, where 1 means Monday and 7 means Sunday.",
       });
 
       const week_of_month = new CfnParameter(this, "WeekOfTheMonth", {
         type: "String",
         allowedValues: ["1", "2", "3", "4"],
         description:
-          "Specify the how frequently key rotation process will be triggered",
+          "Specify the week number in each month that key rotation will be scheduled for. This parameter can be set to a value from a range 1 to 4.",
       });
 
       addParametersToInterface({
@@ -163,39 +163,40 @@ export class GetInputParameters extends Construct {
           {
             scope: this,
             parameter: retention,
-            groupLabel: "Session revocation",
+            groupLabel: "Session Revocation",
             parameterLabel: "Retention",
           },
           {
             scope: this,
             parameter: wcu,
-            groupLabel: "Session revocation",
+            groupLabel: "Session Revocation",
             parameterLabel: "Wcu",
           },
           {
             scope: this,
             parameter: week_of_month,
-            groupLabel: "Key rotation frequency",
+            groupLabel: "Key Rotation Frequency",
             parameterLabel: "Week of the month",
           },
           {
             scope: this,
             parameter: day_of_week,
-            groupLabel: "Key rotation frequency",
+            groupLabel: "Key Rotation Frequency",
             parameterLabel: "Day of the week",
           },
           {
             scope: this,
-            parameter: minutes,
-            groupLabel: "Key rotation frequency",
-            parameterLabel: "Minutes",
+            parameter: hours,
+            groupLabel: "Key Rotation Frequency",
+            parameterLabel: "Hours",
           },
           {
             scope: this,
-            parameter: hours,
-            groupLabel: "Key rotation frequency",
-            parameterLabel: "Hours",
-          },
+            parameter: minutes,
+            groupLabel: "Key Rotation Frequency",
+            parameterLabel: "Minutes",
+          }
+          
         ],
       });
      
@@ -232,17 +233,17 @@ export class GetInputParameters extends Construct {
       if (configuration.dash?.hostname === "H") {
         const dash_hostname = new CfnParameter(this, "GG", {
           type: "String",
-          description: "Hostname used for asset delivery for DASH stream",
+          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
         });
 
         const dash_url_path = new CfnParameter(this, "HH", {
           type: "String",
-          description: "URL path for existing playable asset for DASH stream",
+          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
         });
 
         const dash_ttl = new CfnParameter(this, "II", {
           type: "String",
-          description: "TTL for the token for DASH stream",
+          description: "Time period determining for how long newly issued token will be valid. ",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
         });
 
@@ -287,17 +288,17 @@ export class GetInputParameters extends Construct {
       if (configuration.hls?.hostname === "H") {
         const hls_hostname = new CfnParameter(this, "JJ", {
           type: "String",
-          description: "Hostname used for asset delivery for HLS stream",
+          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
         });
 
         const hls_url_path = new CfnParameter(this, "KK", {
           type: "String",
-          description: "URL path for existing playable asset for HLS stream",
+          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
         });
 
         const hls_ttl = new CfnParameter(this, "LL", {
           type: "String",
-          description: "TTL for the token for HLS stream",
+          description: "Time period determining for how long newly issued token will be valid.",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
         });
 

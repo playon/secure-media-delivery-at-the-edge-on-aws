@@ -63,7 +63,7 @@ test('Check input param - cfn', () => {
 
   // THEN
   const template = Template.fromStack(stack);
-  expect(Object.keys(template.toJSON().Parameters).length).toEqual(11);
+  expect(Object.keys(template.toJSON().Parameters).length).toEqual(13);
 });
 
 test('Check input param - cdk hls & dash', () => {

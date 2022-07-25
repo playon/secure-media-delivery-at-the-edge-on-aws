@@ -198,7 +198,10 @@ export class GetInputParameters extends Construct {
           },
         ],
       });
-
+      console.log("minutes="+minutes);
+      console.log("wcu="+wcu);
+      console.log("wcu.valueAsNumber="+wcu.valueAsString);
+      
       returnObject = {
         main: {
           stack_name: "MYSTREAM",
@@ -212,8 +215,8 @@ export class GetInputParameters extends Construct {
             "#" +
             week_of_month.valueAsString +
             " *",
-          wcu: wcu.valueAsNumber,
-          retention: retention.valueAsNumber,
+          wcu: parseInt(wcu.valueAsString),
+          retention: parseInt(retention.valueAsString),
         },
       };
     } else {

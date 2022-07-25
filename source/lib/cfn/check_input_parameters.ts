@@ -198,10 +198,7 @@ export class GetInputParameters extends Construct {
           },
         ],
       });
-      console.log("minutes="+minutes);
-      console.log("wcu="+wcu);
-      console.log("wcu.valueAsNumber="+wcu.valueAsString);
-      
+     
       returnObject = {
         main: {
           stack_name: "MYSTREAM",

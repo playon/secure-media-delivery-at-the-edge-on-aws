@@ -86,8 +86,7 @@ chmod +x ./install_dependencies.sh && ./install_dependencies.sh
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
 # Run 'cdk synth' to generate raw solution outputs
-echo "node_modules/aws-cdk/bin/cdk synth -q --output=$staging_dist_dir"
-node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/VIDEOSTREAM.yaml
+node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/SECURESTREAM.yaml
 
 #replace assets_bucket_name
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
@@ -118,7 +117,7 @@ for cdk_key in `ls  | grep '^asset'`; do
         current_asset_name=$item.zip
     fi
 
-    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/VIDEOSTREAM.yaml
+    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/SECURESTREAM.yaml
 
     let "i+=1"
 
@@ -146,10 +145,10 @@ ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 
 echo "cp $template_dir/*.template $template_dist_dir/"
-cp $staging_dist_dir/VIDEOSTREAM.yaml $template_dist_dir/VIDEOSTREAM.template
+cp $staging_dist_dir/SECURESTREAM.yaml $template_dist_dir/SECURESTREAM.template
 
 
-rm VIDEOSTREAM.yaml
+rm SECURESTREAM.yaml
 
 echo cp $cdk synth --asset-metadata /*.zip $build_dist_dir/
 cp $staging_dist_dir/*.zip $build_dist_dir/

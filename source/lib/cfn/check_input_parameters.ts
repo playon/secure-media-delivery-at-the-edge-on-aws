@@ -247,7 +247,7 @@ export class GetInputParameters extends Construct {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid. ",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-          default: '+30m"'
+          default: "+30m"
         });
 
         addParametersToInterface({
@@ -305,7 +305,7 @@ export class GetInputParameters extends Construct {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid.",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-          default: '+30m"'
+          default: "+30m"
         });
 
         addParametersToInterface({

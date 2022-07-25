@@ -240,7 +240,7 @@ export class GetInputParameters extends Construct {
         const dash_url_path = new CfnParameter(this, "HH", {
           type: "String",
           description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
-          default: '/out/v1/6f38f6bf9bef493fbdcc9f876ee9c8cb/index.mpd'
+          default: '/video/2/index.mpd'
         });
 
         const dash_ttl = new CfnParameter(this, "II", {
@@ -298,7 +298,7 @@ export class GetInputParameters extends Construct {
         const hls_url_path = new CfnParameter(this, "KK", {
           type: "String",
           description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
-          default: '/out/v1/00c6ff982d404e2f940b48495b243b3c/index.m3u8'
+          default: '/video/1/index.m3u8'
         });
 
         const hls_ttl = new CfnParameter(this, "LL", {

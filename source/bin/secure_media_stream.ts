@@ -14,12 +14,16 @@ const description = `(${solutionId}) - ${solutionDisplayName}. Version ${solutio
 const app = new App();
 export const getMainStackProps = (config: IConfiguration): SecureMediaStreamStackProps => {
 
-  const stackSynthesizer = config.main?.assets_bucket_name ?  new DefaultStackSynthesizer({  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}"}) : new DefaultStackSynthesizer()
+  const stackSynthesizer = config.main?.assets_bucket_name ?  new DefaultStackSynthesizer(
+    {  fileAssetsBucketName: config.main?.assets_bucket_name + "-${AWS::Region}",
+        generateBootstrapVersionRule: false}
+    ) : new DefaultStackSynthesizer()
   
 
   return {
     description,
-    synthesizer: stackSynthesizer
+    synthesizer: stackSynthesizer,
+    
     
   };
 };

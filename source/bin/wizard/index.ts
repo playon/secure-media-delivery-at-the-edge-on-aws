@@ -56,8 +56,8 @@ const getConfiguration = async (): Promise<IConfiguration> => {
       "stack_name": "MYSTREAM",
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "P",
-      "wcu": 100,
-      "retention": 5
+      "wcu": "100",
+      "retention": "5"
     }
   };
 

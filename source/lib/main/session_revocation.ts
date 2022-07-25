@@ -146,14 +146,20 @@ export class SessionRevocation extends Construct {
 
 
     new CfnOutput(this, "WafRuleGroupName", {
-      description: "CloudFront Function used to validate JWT token",
+      description: "WAF RuleGroup Name",
       value: config.ruleNameParamName
     });
 
     new CfnOutput(this, "WafRuleGroupId", {
-      description: "CloudFront Function used to validate JWT token",
+      description: "WAF RuleGroup Id",
       value: ssmRuleGroupId
     });
+
+    new CfnOutput(this, "WafRuleGroupArn", {
+      description: "WAF RuleGroup Name Arn",
+      value: `arn:aws:wafv2:us-west-1:${Aws.ACCOUNT_ID}:regional/rulegroup/${config.ruleNameParamName}/${ssmRuleGroupId}`
+    });
+
 
   }
 }

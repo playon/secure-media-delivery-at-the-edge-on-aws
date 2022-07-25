@@ -50,18 +50,21 @@ export class SecureMediaStreamingStack extends Stack {
   constructor(
     scope: Construct,
     id: string,
-    config: IConfiguration,
+    appConfig: IConfiguration,
     props: SecureMediaStreamStackProps
   ) {
     super(scope, id, props);
 
+    const parameters = new GetInputParameters(this, "InputParameters", appConfig);
+
+
 
     const crCreateLEWafRule = new CRCreateLEWafRule(this, "CRLEWAFRuleGroup", {
-      WCU: config.main.wcu,
+      WCU: parameters.customInputParameters.main.wcu,
       LAMBDA_EDGE_VERSION_SSM_PARAM: this.LAMBDA_EDGE_VERSION_SSM_PARAM,
       WAF_RULE_NAME_SSM_PARAM: this.WAF_RULE_NAME_SSM_PARAM,
       WAF_RULE_ID_SSM_PARAM: this.WAF_RULE_ID_SSM_PARAM,
-      DEPLOY_LE: config.api ? true: false
+      DEPLOY_LE: parameters.customInputParameters.api ? true: false
     })
 
     /*
@@ -87,7 +90,6 @@ export class SecureMediaStreamingStack extends Stack {
     */
 
 
-    const parameters = new GetInputParameters(this, "InputParameters", config);
 
     //CloudFront Function used to check the JWT token for each request
     const checkToken = new cloudfront.Function(this, "CheckJWTTokenFunction", {
@@ -173,8 +175,8 @@ export class SecureMediaStreamingStack extends Stack {
     const sessionRevocation = new SessionRevocation(this, "SessionRevocation", {
       sessionToRevoke: sessionToRevoke,
       gsi_index_name: this.GSI_NAME,
-      wcu: config.main.wcu,
-      retention: config.main.retention,
+      wcu: parameters.customInputParameters.main.wcu,
+      retention: parameters.customInputParameters.main.retention,
       ruleNameParamName: this.WAF_RULE_NAME_SSM_PARAM,
       ruleIdParamName: this.WAF_RULE_ID_SSM_PARAM,
     });

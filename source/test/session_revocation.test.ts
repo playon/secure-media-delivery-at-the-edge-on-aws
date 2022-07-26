@@ -4,6 +4,7 @@ import {
   Stack
 } from "aws-cdk-lib";
 import { SessionRevocation } from '../lib/main/session_revocation';
+import { IConfiguration } from '../helpers/validators/configuration';
 
 
 test('Session revocation', () => {
@@ -15,13 +16,21 @@ test('Session revocation', () => {
     stream: dynamodb.StreamViewType.KEYS_ONLY,
   });
 
+  const config = {
+    "main": {
+      "stack_name": "MYSTACK",
+      "wcu": "100",
+      "retention": "14",
+      "rotate_secrets_frequency": "m"
+    }
+  } as IConfiguration;
+
   new SessionRevocation(stack, "SessionRevocation", {
     sessionToRevoke: myTable,
     gsi_index_name: "GSI_NAME",
-    wcu: "1",
-    retention: "10",
     ruleNameParamName: "WAF_RULE_NAME_SSM_PARAM",
     ruleIdParamName: "WAF_RULE_ID_SSM_PARAM",
+    configuration: config
   });
 
   // THEN

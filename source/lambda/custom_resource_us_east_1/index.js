@@ -48,7 +48,7 @@ async function createLambdaEdge() {
 
         console.log("zipping " + tmp_le_path + " into " + le_zip_path)
         zipLocal.sync.zip(tmp_le_path).compress().save(le_zip_path);
-        console.log("zip created")
+        console.log("zip created");
         // Creates Edge Lambda
         var params = {
             Code: {

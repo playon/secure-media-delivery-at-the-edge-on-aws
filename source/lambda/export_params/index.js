@@ -11,7 +11,7 @@
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
  const aws = require('aws-sdk');
- var lambda = new aws.Lambda();
+ var lambda = new aws.Lambda({customUserAgent: process.env.SOLUTION_IDENTIFIER});
  
 
 exports.handler = async (event, context) => {

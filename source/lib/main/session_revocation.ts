@@ -24,15 +24,15 @@ import {
 } from "aws-cdk-lib";
 import { ITable } from "aws-cdk-lib/aws-dynamodb";
 import { Construct } from "constructs";
+import { IConfiguration } from "../../helpers/validators/configuration";
 import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 
 export interface IConfigProps {
   sessionToRevoke: ITable;
   gsi_index_name: string;
-  wcu: string;
-  retention: string;
   ruleNameParamName: string;
   ruleIdParamName: string;
+  configuration: IConfiguration;
 }
 
 export class SessionRevocation extends Construct {
@@ -85,10 +85,11 @@ export class SessionRevocation extends Construct {
         environment: {
           RULE_ID: ssmRuleGroupId,
           RULE_NAME: config.ruleNameParamName,
-          RETENTION: config.retention,
+          RETENTION: config.configuration.main.retention,
           TABLE_NAME: config.sessionToRevoke.tableName,
-          MAX_SESSIONS: (parseInt(config.wcu) / 2).toString(),
+          MAX_SESSIONS: (parseInt(config.configuration.main.wcu) / 2).toString(),
           GSI_INDEX_NAME: config.gsi_index_name,
+          SOLUTION_IDENTIFIER: `AwsSolution/${config.configuration.solutionId}/${config.configuration.solutionVersion}`
         },
       }
     );

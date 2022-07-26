@@ -56,11 +56,8 @@ export class CRUpdateLERole extends Construct {
       }
     );
 
-
-
     this.lambdaEdgeVersionArn =
       ssmSig4VersionArn.getResponseField("Parameter.Value");
-
 
     //lambda used to add execute-api:Invoke permission to LambdaEdge (to sign the request)
     const updateRoleFunction = new lambda.Function(this, "UpdateRole", {

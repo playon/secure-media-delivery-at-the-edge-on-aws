@@ -27,7 +27,6 @@ import { CrLoadAssetsTable } from "../custom_resources/cr_load_assets_table";
 import { CWDashboard } from "../main/dashboard";
 import { Endpoints } from "./endpoints";
 import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
-import { GetInputParameters } from "../cfn/check_input_parameters";
 
 export interface IConfigProps {
   configuration: IConfiguration;
@@ -35,8 +34,7 @@ export interface IConfigProps {
   dashboard: CWDashboard;
   sessionsTable: ddb.ITable;
   sig4LambdaVersionParamName: string;
-  sig4LambdaRoleArn: string;
-  parameters: GetInputParameters;
+  sig4LambdaRoleArn: string
 }
 
 export class Api extends Construct {
@@ -82,6 +80,7 @@ export class Api extends Construct {
       environment: {
         STACK_NAME: Aws.STACK_NAME,
         TABLE_NAME: demoAssetsTable.tableName,
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
       },
       layers: [cloudfrontTokenLayer],
     });
@@ -101,7 +100,7 @@ export class Api extends Construct {
 
 
     //Lambda used to add manually a session to be revoked into a DynamoDB Table
-    const saveSessionToDdb = new lambda.Function(this, "SaveManualSession", {
+    const saveManualSession = new lambda.Function(this, "SaveManualSession", {
       functionName: Aws.STACK_NAME + "_SaveManualSession",
       runtime: lambda.Runtime.NODEJS_16_X,
       code: lambda.Code.fromAsset("lambda/save_manual_session/nodejs"),
@@ -109,24 +108,25 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: props.sessionsTable.tableName,
         TTL: "7",
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
       },
       layers: [cloudfrontTokenLayer],
     });
 
-    addCfnSuppressRules(saveSessionToDdb, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
-    addCfnSuppressRules(saveSessionToDdb, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
-    addCfnSuppressRules(saveSessionToDdb, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+    addCfnSuppressRules(saveManualSession, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(saveManualSession, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(saveManualSession, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
 
 
     demoAssetsTable.grantReadData(generateToken);
-    props.sessionsTable.grantReadWriteData(saveSessionToDdb);
+    props.sessionsTable.grantReadWriteData(saveManualSession);
 
     props.secrets.primarySecret.grantRead(generateToken);
     props.secrets.secondarySecret.grantRead(generateToken);
     //endpoint creation using a CloudFront Distribution in front of an HTTP API
     new Endpoints(this, "Endpoints", {
       generateTokenLambdaFunction: generateToken,
-      saveSessionToDDBLambdaFunction: saveSessionToDdb,
+      saveSessionToDDBLambdaFunction: saveManualSession,
       sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
       sig4LambdaRoleArn: props.sig4LambdaRoleArn,
       demoWebsite: props.configuration.api?.demo as boolean

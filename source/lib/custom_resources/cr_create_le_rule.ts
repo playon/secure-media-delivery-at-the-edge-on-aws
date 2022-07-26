@@ -137,7 +137,7 @@ export class CRCreateLEWafRule extends Construct {
         WCU: props.WCU,
         RULE_ID: props.WAF_RULE_ID_SSM_PARAM,
         RULE_NAME: props.WAF_RULE_NAME_SSM_PARAM,
-        DEPLOY_LE: props.DEPLOY_LE ? "1" : "0",
+        DEPLOY_LE: props.DEPLOY_LE ? "1" : "0"
       },
       role: triggerRole,
     });

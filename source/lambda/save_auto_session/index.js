@@ -11,7 +11,7 @@
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
  const aws = require('aws-sdk');
- var dynamodb = new aws.DynamoDB();
+ var dynamodb = new aws.DynamoDB({customUserAgent: process.env.SOLUTION_IDENTIFIER});
  
 
 exports.handler = async (event, context) => {

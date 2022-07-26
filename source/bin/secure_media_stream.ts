@@ -40,6 +40,8 @@ export const getAutoSessionStackProps = (): AutoSessionRevocationStackProps => {
 (async () => {
   // The stack configuration.
   const config = await getOpts();
+  config.solutionId = solutionId;
+  config.solutionVersion = solutionVersion;
  
   
   const coreStack = new SecureMediaStreamingStack(

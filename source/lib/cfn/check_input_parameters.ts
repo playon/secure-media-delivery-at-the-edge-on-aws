@@ -18,6 +18,7 @@ import { addParametersToInterface } from "./cfn_parameters";
 
 //Construct used to implement input parameters when the user deploys the stack using CloudFormation template and not using the wizard and CDK
 export class GetInputParameters extends Construct {
+
   public readonly customInputParameters = {} as IConfiguration;
 
   constructor(scope: Construct, id: string, configuration: IConfiguration) {
@@ -356,7 +357,9 @@ export class GetInputParameters extends Construct {
       };
 
     }
-
+    returnObject.solutionId = configuration.solutionId;
+    returnObject.solutionVersion = configuration.solutionVersion;
+    
     this.customInputParameters = returnObject;
   }
 }

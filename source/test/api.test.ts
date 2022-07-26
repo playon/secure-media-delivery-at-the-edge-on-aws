@@ -41,8 +41,6 @@ test('Create Api - demo=true', () => {
     }
   };
   
-  const parameters = new GetInputParameters(stack, "InputParameters", myConfig as IConfiguration,);
-
   
   new Api(stack, 'Api', {
     configuration: myConfig as IConfiguration,
@@ -50,8 +48,7 @@ test('Create Api - demo=true', () => {
     dashboard: dashboard,
     sessionsTable: myTable,
     sig4LambdaVersionParamName: "sig4LambdaVersionParamName",
-    sig4LambdaRoleArn: "sig4LambdaRoleArn",
-    parameters: parameters
+    sig4LambdaRoleArn: "sig4LambdaRoleArn"
     
   })
   // THEN
@@ -102,8 +99,6 @@ test('Create Api - demo=false', () => {
     }
   };
   
-  const parameters = new GetInputParameters(stack, "InputParameters", myConfig as IConfiguration,);
-
   
   new Api(stack, 'Api', {
     configuration: myConfig as IConfiguration,
@@ -111,8 +106,7 @@ test('Create Api - demo=false', () => {
     dashboard: dashboard,
     sessionsTable: myTable,
     sig4LambdaVersionParamName: "sig4LambdaVersionParamName",
-    sig4LambdaRoleArn: "sig4LambdaRoleArn",
-    parameters: parameters
+    sig4LambdaRoleArn: "sig4LambdaRoleArn"
     
   })
   // THEN

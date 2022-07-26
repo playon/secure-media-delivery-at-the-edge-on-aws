@@ -83,21 +83,20 @@ export class AutoSessionRevocationStack extends Stack {
       }
     );
 
-
-
     //When DynamoDB table holding the configuration for Athena query is modified, the Lambda is triggered and updates the env params for SubmitQuery Lambda
     //the StepFunction when running the query against CloudFront logs
-    const updateSql = new lambda.Function(this, "ExportParams", {
+    const exportParams = new lambda.Function(this, "ExportParams", {
       runtime: lambda.Runtime.NODEJS_16_X,
       functionName: Aws.STACK_NAME + "_ExportParams",
       code: lambda.Code.fromAsset("lambda/export_params"),
       handler: "index.handler",
       environment: {
-        SUBMIT_QUERY_FUNCTION : autoRevocationWorflow.submitQueryFunction.functionName
+        SUBMIT_QUERY_FUNCTION : autoRevocationWorflow.submitQueryFunction.functionName,
+        SOLUTION_IDENTIFIER: `AwsSolution/${configuration.solutionId}/${configuration.solutionVersion}`
       },
     });
 
-    updateSql.addToRolePolicy(
+    exportParams.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
         actions: [
@@ -107,9 +106,6 @@ export class AutoSessionRevocationStack extends Stack {
       })
     );
 
-
-
-
     const crLoadSqlParams = new CrLoadSqlParams(this, "SqlConfig", {
       table: sqlConfigTable,
       configuration: configuration,
@@ -117,18 +113,18 @@ export class AutoSessionRevocationStack extends Stack {
 
     //wait to create the table and lambda
     crLoadSqlParams.node.addDependency(sqlConfigTable);
-    crLoadSqlParams.node.addDependency(updateSql);
+    crLoadSqlParams.node.addDependency(exportParams);
 
-    addCfnSuppressRules(updateSql, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
-    addCfnSuppressRules(updateSql, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
-    addCfnSuppressRules(updateSql, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
+    addCfnSuppressRules(exportParams, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);
+    addCfnSuppressRules(exportParams, [{ id: 'W89', reason: 'We don t have any VPC in the stack, we only use serverless services' }]);
+    addCfnSuppressRules(exportParams, [{ id: 'W92', reason: 'No need for ReservedConcurrentExecutions, some are used only for the demo website, and others are not used in a concurrent mode.' }]);
 
 
-    sqlQueryBucket.grantReadWrite(updateSql);
+    sqlQueryBucket.grantReadWrite(exportParams);
 
     // Set Lambda Logs Retention and Removal Policy
     const readStreamLogs = new logs.LogGroup(this, "ReadStreamLogs", {
-      logGroupName: "/aws/lambda/" + updateSql.functionName,
+      logGroupName: "/aws/lambda/" + exportParams.functionName,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: logs.RetentionDays.ONE_MONTH,
     });
@@ -143,7 +139,7 @@ export class AutoSessionRevocationStack extends Stack {
     addCfnSuppressRules(deadLetterQueue, [{ id: 'W92', reason: 'We are satisfied with default KMS encryption on SQS queue.' }]);
 
 
-    updateSql.addEventSource(
+    exportParams.addEventSource(
       new event_source.DynamoEventSource(sqlConfigTable, {
         startingPosition: lambda.StartingPosition.TRIM_HORIZON,
         batchSize: 5,

@@ -175,10 +175,9 @@ export class SecureMediaStreamingStack extends Stack {
     const sessionRevocation = new SessionRevocation(this, "SessionRevocation", {
       sessionToRevoke: sessionToRevoke,
       gsi_index_name: this.GSI_NAME,
-      wcu: parameters.customInputParameters.main.wcu,
-      retention: parameters.customInputParameters.main.retention,
       ruleNameParamName: this.WAF_RULE_NAME_SSM_PARAM,
       ruleIdParamName: this.WAF_RULE_ID_SSM_PARAM,
+      configuration: parameters.customInputParameters
     });
 
     sessionRevocation.node.addDependency(crCreateLEWafRule);
@@ -210,8 +209,7 @@ export class SecureMediaStreamingStack extends Stack {
         dashboard: dashboard,
         sessionsTable: sessionToRevoke,
         sig4LambdaVersionParamName: this.LAMBDA_EDGE_VERSION_SSM_PARAM,
-        sig4LambdaRoleArn: crCreateLEWafRule.roleToPass.roleArn,
-        parameters
+        sig4LambdaRoleArn: crCreateLEWafRule.roleToPass.roleArn        
       });
     }
 

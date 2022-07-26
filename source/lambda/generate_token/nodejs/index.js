@@ -12,10 +12,9 @@
  *********************************************************************************************************************/
 
 const aws = require('aws-sdk');
-const qs = require('querystring');
 const awsSMD = require("aws-secure-media-delivery");
 
-const docClient = new aws.DynamoDB.DocumentClient();
+const docClient = new aws.DynamoDB.DocumentClient({customUserAgent: process.env.SOLUTION_IDENTIFIER});
 const stackName = process.env.STACK_NAME;
 const tableName = process.env.TABLE_NAME;
 

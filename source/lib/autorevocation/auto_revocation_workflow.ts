@@ -54,6 +54,10 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       runtime: lambda.Runtime.NODEJS_16_X,
       code: lambda.Code.fromAsset("lambda/prepare_query"),
       handler: "index.handler",
+      environment: {
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+      },
+      
     });
 
     this.submitQueryFunction = submitAthenaQuery;
@@ -79,7 +83,8 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       handler: "index.handler",
       environment: {
         TABLE_NAME: props.dynamodbTable.tableName,
-        TTL: "7", //days
+        TTL: "7",
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
       },
     });
     addCfnSuppressRules(saveSessionsToDdb, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);

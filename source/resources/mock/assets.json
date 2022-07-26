@@ -14,7 +14,10 @@
              "L":[
                 {
                    "S":"user-agent"
-                }
+                },
+                {
+                  "S":"referer"
+               }
              ]
           },
           "exc":{

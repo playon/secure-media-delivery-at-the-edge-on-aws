@@ -29,8 +29,8 @@ export class GetInputParameters extends Construct {
 
       const wcu = new CfnParameter(this, "Wcu", {
         type: "Number",
-        minValue : 2,
-        maxValue : 1500,
+        minValue: 2,
+        maxValue: 1500,
         description:
           "Capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500).",
       });
@@ -38,7 +38,7 @@ export class GetInputParameters extends Construct {
 
       const retention = new CfnParameter(this, "Retention", {
         type: "Number",
-        minValue : 1,
+        minValue: 1,
         description:
           "Retention time for compromised sessions (in minutes)",
       });
@@ -196,10 +196,10 @@ export class GetInputParameters extends Construct {
             groupLabel: "Key Rotation Frequency",
             parameterLabel: "Minutes",
           }
-          
+
         ],
       });
-     
+
       returnObject = {
         main: {
           stack_name: "MYSTREAM",
@@ -233,21 +233,18 @@ export class GetInputParameters extends Construct {
       if (configuration.dash?.hostname === "H") {
         const dash_hostname = new CfnParameter(this, "DashHostName", {
           type: "String",
-          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
-          //default: "https://d123.cloudfront.net"
+          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://)."
         });
 
         const dash_url_path = new CfnParameter(this, "DashUrlPath", {
           type: "String",
-          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
-          default: '/video/2/index.mpd'
+          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file)."
         });
 
         const dash_ttl = new CfnParameter(this, "DashTtl", {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid. ",
-          allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-          default: "+30m"
+          allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"]
         });
 
         addParametersToInterface({
@@ -272,21 +269,16 @@ export class GetInputParameters extends Construct {
             },
           ],
         });
-        /*
 
-        var cond = new CfnCondition(this, "DashHostNameValue", {
-          expression: Fn.conditionEquals(dash_hostname.valueAsString, "")
-        });
-*/
+        const dashHostCondition = new CfnCondition(this, 'DashHostCondition', { expression: Fn.conditionEquals(dash_hostname, '') });
+        const dashPathCondition = new CfnCondition(this, 'DashPathCondition', { expression: Fn.conditionEquals(dash_url_path, '') });
+        const dashTtlCondition = new CfnCondition(this, 'DashTtlCondition', { expression: Fn.conditionEquals(dash_ttl, '') });
 
-      const cond3 = new CfnCondition(this, 'Condition3', { expression: Fn.conditionEquals(dash_hostname, '') });
-      //const test = Fn.conditionIf("Condition3", 1, 2);
-      
 
-      returnObject.dash = {        
-          hostname: Fn.conditionIf(cond3.logicalId, 'https://d123.cloudfront.net', dash_hostname.valueAsString).toString(),
-          url_path: dash_url_path.valueAsString,
-          ttl: dash_ttl.valueAsString,
+        returnObject.dash = {
+          hostname: Fn.conditionIf(dashHostCondition.logicalId, "https://d123.cloudfront.net", dash_hostname.valueAsString).toString(),
+          url_path: Fn.conditionIf(dashPathCondition.logicalId, "/video/2/index.mpd", dash_url_path.valueAsString).toString(),
+          ttl: Fn.conditionIf(dashTtlCondition.logicalId, "+30m", dash_ttl.valueAsString).toString()
         };
       } else {
         returnObject.dash = {
@@ -299,23 +291,21 @@ export class GetInputParameters extends Construct {
 
     if (configuration.hls) {
       if (configuration.hls?.hostname === "H") {
+
         const hls_hostname = new CfnParameter(this, "HlsHostName", {
           type: "String",
-          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
-          default: "https://d123.cloudfront.net"
+          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://)."
         });
 
         const hls_url_path = new CfnParameter(this, "HlsUrlPath", {
           type: "String",
-          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
-          default: '/video/1/index.m3u8'
+          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file)."
         });
 
         const hls_ttl = new CfnParameter(this, "HlsTtl", {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid.",
-          allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
-          default: "+30m"
+          allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"]
         });
 
         addParametersToInterface({
@@ -341,10 +331,16 @@ export class GetInputParameters extends Construct {
           ],
         });
 
+
+        const hlsHostCondition = new CfnCondition(this, 'HlsHostCondition', { expression: Fn.conditionEquals(hls_hostname, '') });
+        const hlsPathCondition = new CfnCondition(this, 'HlsPathCondition', { expression: Fn.conditionEquals(hls_url_path, '') });
+        const hlsTtlCondition = new CfnCondition(this, 'hlsTtlCondition', { expression: Fn.conditionEquals(hls_ttl, '') });
+
+
         returnObject.hls = {
-          hostname: hls_hostname.valueAsString,
-          url_path: hls_url_path.valueAsString,
-          ttl: hls_ttl.valueAsString,
+          hostname: Fn.conditionIf(hlsHostCondition.logicalId, "https://d123.cloudfront.net", hls_hostname.valueAsString).toString(),
+          url_path: Fn.conditionIf(hlsPathCondition.logicalId, "/video/1/index.m3u8", hls_url_path.valueAsString).toString(),
+          ttl: Fn.conditionIf(hlsTtlCondition.logicalId, "+30m", hls_ttl.valueAsString).toString()
         };
       } else {
         returnObject.hls = {

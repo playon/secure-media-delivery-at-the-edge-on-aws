@@ -279,13 +279,12 @@ export class GetInputParameters extends Construct {
         });
 */
 
-      //const cond3 = new CfnCondition(this, 'Condition3', { expression: Fn.conditionEquals(dash_hostname, '') });
+      const cond3 = new CfnCondition(this, 'Condition3', { expression: Fn.conditionEquals(dash_hostname, '') });
       //const test = Fn.conditionIf("Condition3", 1, 2);
+      
 
-
-      returnObject.dash = {
-        
-          hostname: Fn.conditionIf(Fn.conditionEquals(dash_hostname, '').toString(), 'https://d123.cloudfront.net', dash_hostname.valueAsString).toString(),
+      returnObject.dash = {        
+          hostname: Fn.conditionIf(cond3.logicalId, 'https://d123.cloudfront.net', dash_hostname.valueAsString).toString(),
           url_path: dash_url_path.valueAsString,
           ttl: dash_ttl.valueAsString,
         };

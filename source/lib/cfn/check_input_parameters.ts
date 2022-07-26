@@ -11,7 +11,7 @@
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
 
-import { CfnParameter } from "aws-cdk-lib";
+import { CfnCondition, CfnParameter, Fn } from "aws-cdk-lib";
 import { Construct } from "constructs";
 import { IConfiguration } from "../../helpers/validators/configuration";
 import { addParametersToInterface } from "./cfn_parameters";
@@ -231,19 +231,19 @@ export class GetInputParameters extends Construct {
 
     if (configuration.dash) {
       if (configuration.dash?.hostname === "H") {
-        const dash_hostname = new CfnParameter(this, "GG", {
+        const dash_hostname = new CfnParameter(this, "DashHostName", {
           type: "String",
           description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
-          default: "https://d123.cloudfront.net"
+          //default: "https://d123.cloudfront.net"
         });
 
-        const dash_url_path = new CfnParameter(this, "HH", {
+        const dash_url_path = new CfnParameter(this, "DashUrlPath", {
           type: "String",
           description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
           default: '/video/2/index.mpd'
         });
 
-        const dash_ttl = new CfnParameter(this, "II", {
+        const dash_ttl = new CfnParameter(this, "DashTtl", {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid. ",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],
@@ -273,8 +273,19 @@ export class GetInputParameters extends Construct {
           ],
         });
 
+        new CfnCondition(this, "DashHostNameValue", {
+          expression: Fn.conditionEquals(dash_hostname.valueAsString, "")
+        });
+
+        
+        const dashHostName = Fn.conditionIf(
+          "DashHostNameValue",
+          "https://d123.cloudfront.net",
+          dash_hostname.valueAsString
+        );
+
         returnObject.dash = {
-          hostname: dash_hostname.valueAsString,
+          hostname: dashHostName.toString(), //dash_hostname.valueAsString,
           url_path: dash_url_path.valueAsString,
           ttl: dash_ttl.valueAsString,
         };
@@ -289,19 +300,19 @@ export class GetInputParameters extends Construct {
 
     if (configuration.hls) {
       if (configuration.hls?.hostname === "H") {
-        const hls_hostname = new CfnParameter(this, "JJ", {
+        const hls_hostname = new CfnParameter(this, "HlsHostName", {
           type: "String",
           description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).",
           default: "https://d123.cloudfront.net"
         });
 
-        const hls_url_path = new CfnParameter(this, "KK", {
+        const hls_url_path = new CfnParameter(this, "HlsUrlPath", {
           type: "String",
           description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).",
           default: '/video/1/index.m3u8'
         });
 
-        const hls_ttl = new CfnParameter(this, "LL", {
+        const hls_ttl = new CfnParameter(this, "HlsTtl", {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid.",
           allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"],

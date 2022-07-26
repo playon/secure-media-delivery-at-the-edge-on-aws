@@ -14,7 +14,7 @@ const coreQuestions = [
   {
     type: "text",
     name: "stack_name",
-    message: "[Base configuration] --> Stack name",
+    message: "[Base module] --> Stack name",
     validate: (value: string) =>
       Joi.string().required().validate(value).error
         ? "The name of the stack is mandatory"
@@ -24,7 +24,7 @@ const coreQuestions = [
     type: "number",
     name: "wcu",
     message:
-      "[Base configuration] --> Set the capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500)",
+      "[Base module] --> Set the capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500)",
     validate: (value: number) =>
       Joi.number().min(2).required().validate(value).error &&
       Joi.number().max(1500).required().validate(value).error
@@ -35,7 +35,7 @@ const coreQuestions = [
     type: "number",
     name: "retention",
     message:
-      "[Base configuration] --> Set the retention time for compromised sessions (in minutes)",
+      "[Base module] --> Set the retention time for compromised sessions (in minutes)",
     validate: (value: number) =>
       Joi.number().min(1).required().validate(value).error
         ? "Retention is mandatory and must be a number higher than 1"
@@ -46,7 +46,7 @@ const coreQuestions = [
     type: "select",
     name: "rotate_secrets_frequency",
     message:
-      "[Base configuration] --> At what frequency do you want to rotate the secrets?",
+      "[Base module] --> At what frequency do you want to rotate the secrets?",
     choices: [
       { title: "Manual", value: "m" },
       { title: "Every day", value: "24h" },
@@ -61,7 +61,7 @@ const rotation_day_of_the_week_question = [
     type: "select",
     name: "value",
     message:
-      "[Base configuration] --> On which day of the week you would like to trigger it",
+      "[Base module] --> On which day of the week you would like to trigger it",
     choices: [
       { title: "Monday", value: "2" },
       { title: "Tuesday", value: "3" },
@@ -80,7 +80,7 @@ const rotation_week_of_month_question = [
     type: "select",
     name: "value",
     message:
-      "[Base configuration] --> On which week of the month you would like to trigger it",
+      "[Base module] --> On which week of the month you would like to trigger it",
     choices: [
       { title: "Week 1", value: "1" },
       { title: "Week 2", value: "2" },
@@ -96,7 +96,7 @@ const rotation_datetime_question = [
     type: "text",
     name: "value",
     message:
-      "[Base configuration] --> At what time of the day should take place \n (use the format HH:mm)",
+      "[Base module] --> At what time of the day should take place \n (use the format HH:mm)",
     validate: (value: string) =>
       Joi.string()
         .regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/)

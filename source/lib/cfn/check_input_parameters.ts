@@ -272,20 +272,20 @@ export class GetInputParameters extends Construct {
             },
           ],
         });
+        /*
 
-        new CfnCondition(this, "DashHostNameValue", {
+        var cond = new CfnCondition(this, "DashHostNameValue", {
           expression: Fn.conditionEquals(dash_hostname.valueAsString, "")
         });
+*/
 
+      //const cond3 = new CfnCondition(this, 'Condition3', { expression: Fn.conditionEquals(dash_hostname, '') });
+      //const test = Fn.conditionIf("Condition3", 1, 2);
+
+
+      returnObject.dash = {
         
-        const dashHostName = Fn.conditionIf(
-          "DashHostNameValue",
-          "https://d123.cloudfront.net",
-          dash_hostname.valueAsString
-        );
-
-        returnObject.dash = {
-          hostname: dashHostName.toString(), //dash_hostname.valueAsString,
+          hostname: Fn.conditionIf(Fn.conditionEquals(dash_hostname, '').toString(), 'https://d123.cloudfront.net', dash_hostname.valueAsString).toString(),
           url_path: dash_url_path.valueAsString,
           ttl: dash_ttl.valueAsString,
         };

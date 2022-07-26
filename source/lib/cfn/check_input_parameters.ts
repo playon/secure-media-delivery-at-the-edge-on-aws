@@ -67,7 +67,7 @@ export class GetInputParameters extends Construct {
           "17",
           "18",
           "19",
-          "2O",
+          "20",
           "21",
           "22",
           "23",

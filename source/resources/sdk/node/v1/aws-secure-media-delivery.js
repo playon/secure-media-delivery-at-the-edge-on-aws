@@ -82,9 +82,9 @@ class Secret{
         let sm_creds;
         let sm_region;
         if(params['profile']){
-            sm_creds = new AWS.SharedIniFileCredentials({profile: params['profile']});
+            sm_creds = new aws.SharedIniFileCredentials({profile: params['profile']});
         } else if(params['role']) {
-           sm_creds = new AWS.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
+           sm_creds = new aws.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
         }
 
         if(params['region']){
@@ -305,9 +305,9 @@ class Session{
         let ddb_creds;
         let ddb_region;
         if(params['profile']){
-            ddb_creds = new AWS.SharedIniFileCredentials({profile: params['profile']});
+            ddb_creds = new aws.SharedIniFileCredentials({profile: params['profile']});
         } else if(params['role']) {
-           ddb_creds = new AWS.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
+           ddb_creds = new aws.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
         }
 
         if(params['region']){

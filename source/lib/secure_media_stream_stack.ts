@@ -222,5 +222,10 @@ export class SecureMediaStreamingStack extends Stack {
       description: "CloudFront Function used to validate JWT token",
       value: checkToken.functionName
     });
+
+    new CfnOutput(this, "SessionRevocationTable", {
+      description: "Table that holds the sessions to be revoked",
+      value: sessionToRevoke.tableName
+    });
   }
 }

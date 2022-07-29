@@ -138,7 +138,7 @@ export class Api extends Construct {
       region: Aws.REGION,
     });
 
-    new CfnOutput(this, "CheckTokenFunction", {
+    new CfnOutput(this, "VideoAssetTable", {
       description: "Video asset table name",
       value: demoAssetsTable.tableName
     });

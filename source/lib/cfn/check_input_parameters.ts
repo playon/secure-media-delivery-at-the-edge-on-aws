@@ -247,7 +247,7 @@ export class GetInputParameters extends Construct {
         const dash_ttl = new CfnParameter(this, "DashTtl", {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid. ",
-          allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"]
+          allowedValues: ["", "+30m", "+1h", "+3h", "+6h", "+24h"]
         });
 
         addParametersToInterface({
@@ -308,7 +308,7 @@ export class GetInputParameters extends Construct {
         const hls_ttl = new CfnParameter(this, "HlsTtl", {
           type: "String",
           description: "Time period determining for how long newly issued token will be valid.",
-          allowedValues: ["+30m", "+1h", "+3h", "+6h", "+24h"]
+          allowedValues: ["", "+30m", "+1h", "+3h", "+6h", "+24h"]
         });
 
         addParametersToInterface({

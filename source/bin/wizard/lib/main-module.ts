@@ -6,10 +6,8 @@ import { onCancel } from "./handlers";
 import { IConfiguration } from "../../../helpers/validators/configuration";
 import { IMain } from "../../../helpers/validators/main";
 
-/**
- * A question prompting the user for the session invalidation
- * to allocate to a prototype.
- */
+console.log(Joi.number().min(1).required().validate(0).error)
+
 const coreQuestions = [
   {
     type: "text",
@@ -21,18 +19,17 @@ const coreQuestions = [
         : true,
   },
   {
-    type: "number",
+    type: "text",
     name: "wcu",
     message:
       "[Base module] --> Set the capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500)",
-    validate: (value: number) =>
-      Joi.number().min(2).required().validate(value).error &&
-      Joi.number().max(1500).required().validate(value).error
+    validate: (value: string) =>
+        Joi.number().min(2).required().validate(value).error || Joi.number().max(1500).required().validate(value).error
         ? "Capacity is mandatory and must be a number between 2 and 1500"
         : true,
   },
   {
-    type: "number",
+    type: "text",
     name: "retention",
     message:
       "[Base module] --> Set the retention time for compromised sessions (in minutes)",

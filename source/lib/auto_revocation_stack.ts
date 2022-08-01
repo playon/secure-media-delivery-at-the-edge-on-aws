@@ -92,7 +92,8 @@ export class AutoSessionRevocationStack extends Stack {
       handler: "index.handler",
       environment: {
         SUBMIT_QUERY_FUNCTION : autoRevocationWorflow.submitQueryFunction.functionName,
-        SOLUTION_IDENTIFIER: `AwsSolution/${configuration.solutionId}/${configuration.solutionVersion}`
+        SOLUTION_IDENTIFIER: `AwsSolution/${configuration.solutionId}/${configuration.solutionVersion}`,
+        METRICS: String(configuration.main.metrics)
       },
     });
 

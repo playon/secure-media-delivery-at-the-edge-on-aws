@@ -31,7 +31,6 @@ export const getOpts = async (): Promise<IConfiguration> => {
   if (result.error) {
     throw new Error(result.error.message);
   }
-
   // Returning validated options.
   return (result.value);
 };

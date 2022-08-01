@@ -11,8 +11,12 @@
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
  const aws = require('aws-sdk');
- const secretsmanager = new aws.SecretsManager({customUserAgent: process.env.SOLUTION_IDENTIFIER});
- var cloudfront = new aws.CloudFront({customUserAgent: process.env.SOLUTION_IDENTIFIER});
+
+ 
+ const secretsmanager = process.env.METRICS == "true" ? new aws.SecretsManager({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.SecretsManager();
+ var cloudfront = process.env.METRICS == "true" ?  new aws.CloudFront({customUserAgent: process.env.SOLUTION_IDENTIFIER}) :  new aws.CloudFront();
+ 
+
  var crypto = require("crypto");
  const fs = require('fs');
  

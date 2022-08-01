@@ -43,7 +43,6 @@ export const getAutoSessionStackProps = (): AutoSessionRevocationStackProps => {
   config.solutionId = solutionId;
   config.solutionVersion = solutionVersion;
  
-  
   const coreStack = new SecureMediaStreamingStack(
     app,
     config.main.stack_name,

@@ -57,7 +57,8 @@ const getConfiguration = async (): Promise<IConfiguration> => {
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "P",
       "wcu": "100",
-      "retention": "5"
+      "retention": "5", 
+      "metrics": true
     }
   };
 
@@ -80,15 +81,16 @@ const getConfiguration = async (): Promise<IConfiguration> => {
       }
     }
   }
-
+  configuration.main.metrics = true;
   return (configuration);
 };
 
 (async () => {
   const configuration = await getConfiguration();
-
+  
   // The pretty-printed version of the configuration.
   const data = JSON.stringify(configuration, null, 2);
+  
 
   console.log("\n--------------------- Summary -------------------\n")
   // Prompting the user to confirm.

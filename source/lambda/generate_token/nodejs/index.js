@@ -14,7 +14,8 @@
 const aws = require('aws-sdk');
 const awsSMD = require("aws-secure-media-delivery");
 
-const docClient = new aws.DynamoDB.DocumentClient({customUserAgent: process.env.SOLUTION_IDENTIFIER});
+const docClient = process.env.METRICS == "true" ? new aws.DynamoDB.DocumentClient({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.DynamoDB.DocumentClient();
+
 const stackName = process.env.STACK_NAME;
 const tableName = process.env.TABLE_NAME;
 
@@ -23,10 +24,6 @@ const response400 = {
     body: "Bad request"
 }
 
-const response401 = {
-    statusCode: 401,
-    body: "Unauthorized"
-}
 
 awsSMD.Secret.setDEBUG(true);
 let secret = new awsSMD.Secret(stackName,4);

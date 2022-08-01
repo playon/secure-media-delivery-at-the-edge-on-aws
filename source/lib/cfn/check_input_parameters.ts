@@ -216,6 +216,7 @@ export class GetInputParameters extends Construct {
             " *",
           wcu: wcu.valueAsString,
           retention: retention.valueAsString,
+          metrics: true
         },
       };
     } else {
@@ -226,6 +227,7 @@ export class GetInputParameters extends Construct {
           rotate_secrets_pattern: configuration.main.rotate_secrets_pattern,
           wcu: configuration.main.wcu,
           retention: configuration.main.retention,
+          metrics: configuration.main.metrics
         },
       };
     }

@@ -64,7 +64,8 @@ export class RotateSecretsWorkflow extends Construct {
           PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
           SECONDARY_KEY_NAME: props.secrets.secondarySecret.secretName,
           CFF_NAME: props.checkTokenFunction.functionName,
-          SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+          SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`,
+          METRICS: String(props.configuration.main.metrics)
 
         },
       }
@@ -113,7 +114,8 @@ export class RotateSecretsWorkflow extends Construct {
         TEMPORARY_KEY_NAME: props.secrets.temporarySecret.secretName,
         PRIMARY_KEY_NAME: props.secrets.primarySecret.secretName,
         SECONDARY_KEY_NAME: props.secrets.secondarySecret.secretName,
-        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`,
+        METRICS: String(props.configuration.main.metrics)
       },
     });
 

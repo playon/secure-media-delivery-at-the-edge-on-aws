@@ -10,8 +10,9 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    *
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
- const aws = require('aws-sdk');
- var lambda = new aws.Lambda({customUserAgent: process.env.SOLUTION_IDENTIFIER});
+
+const aws = require('aws-sdk');
+var lambda = process.env.METRICS == "true" ? new aws.Lambda({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.Lambda();
  
 
 exports.handler = async (event, context) => {

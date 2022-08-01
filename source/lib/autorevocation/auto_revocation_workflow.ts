@@ -55,7 +55,8 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       code: lambda.Code.fromAsset("lambda/prepare_query"),
       handler: "index.handler",
       environment: {
-        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`,
+        METRICS: String(props.configuration.main.metrics)
       },
       
     });
@@ -84,7 +85,8 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       environment: {
         TABLE_NAME: props.dynamodbTable.tableName,
         TTL: "7",
-        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`,
+        METRICS: String(props.configuration.main.metrics)
       },
     });
     addCfnSuppressRules(saveSessionsToDdb, [{ id: 'W58', reason: 'Lambda has CloudWatch permissions by using service role AWSLambdaBasicExecutionRole' }]);

@@ -64,13 +64,14 @@ export class Api extends Construct {
 
     addCfnSuppressRules(demoAssetsTable, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);
 
-
-    //load the DDB table with 2 items (one for HLS and one for DASH)
-    new CrLoadAssetsTable(this, "AssetsTable", {
-      table: demoAssetsTable,
-      configuration: props.configuration,
-    });
-
+    if(props.configuration.hls || props.configuration.dash){
+      //load the DDB table with 2 items (one for HLS and one for DASH)
+      new CrLoadAssetsTable(this, "AssetsTable", {
+        table: demoAssetsTable,
+        configuration: props.configuration,
+      });
+    }
+    
     //Lambda that will generate the token using the provided SDK
     const generateToken = new lambda.Function(this, "GenerateToken", {
       functionName: Aws.STACK_NAME + "_GenerateToken",
@@ -80,7 +81,8 @@ export class Api extends Construct {
       environment: {
         STACK_NAME: Aws.STACK_NAME,
         TABLE_NAME: demoAssetsTable.tableName,
-        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`,
+        METRICS: String(props.configuration.main.metrics)
       },
       layers: [cloudfrontTokenLayer],
     });
@@ -108,7 +110,8 @@ export class Api extends Construct {
       environment: {
         TABLE_NAME: props.sessionsTable.tableName,
         TTL: "7",
-        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`
+        SOLUTION_IDENTIFIER: `AwsSolution/${props.configuration.solutionId}/${props.configuration.solutionVersion}`,
+        METRICS: String(props.configuration.main.metrics)
       },
       layers: [cloudfrontTokenLayer],
     });

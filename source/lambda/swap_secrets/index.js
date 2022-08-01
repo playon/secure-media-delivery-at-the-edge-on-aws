@@ -12,7 +12,9 @@
  *********************************************************************************************************************/
  
  const aws = require('aws-sdk');
- const secretsmanager = new aws.SecretsManager({customUserAgent: process.env.SOLUTION_IDENTIFIER});
+ const secretsmanager = process.env.METRICS == "true" ? new aws.SecretsManager({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.SecretsManager();
+ 
+ 
  
  
  exports.handler = async (event, context) => {

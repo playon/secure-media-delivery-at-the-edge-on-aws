@@ -17,6 +17,7 @@ export interface IMain {
    rotate_secrets_pattern: string;
    wcu: string;
    retention: string;
+   metrics: boolean;
 
 }
 
@@ -30,4 +31,5 @@ export const coreSchema = Joi.object().keys({
   rotate_secrets_pattern: Joi.string().optional(),
   wcu:Joi.string().required(),
   retention:Joi.string().required(),
+  metrics: Joi.boolean().optional(),
 });

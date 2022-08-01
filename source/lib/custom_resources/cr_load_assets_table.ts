@@ -48,7 +48,6 @@ export class CrLoadAssetsTable extends Construct {
   private loadItems = (configuration: IConfiguration) => {
     var fileContent = fs.readFileSync("resources/mock/assets.json").toString();
     var itemsToInsert = new Array();
-
     if (configuration.hls) {
       const urlPath = configuration.hls?.url_path!;
       const path = urlPath.substring(0, urlPath.lastIndexOf("/")) + "/";
@@ -67,7 +66,6 @@ export class CrLoadAssetsTable extends Construct {
       );
       hlsFileContent = hlsFileContent.replace("CUSTOM_ID", "1");
       hlsFileContent = hlsFileContent.replace("CUSTOM_PATH", path);
-
       itemsToInsert.push({ PutRequest: { Item: JSON.parse(hlsFileContent) } });
     }
 

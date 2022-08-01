@@ -13,8 +13,9 @@
 
 const aws = require('aws-sdk');
 
-var wafv2 = new aws.WAFV2({ region: 'us-east-1', customUserAgent: process.env.SOLUTION_IDENTIFIER });
-var dynamodb = new aws.DynamoDB({customUserAgent: process.env.SOLUTION_IDENTIFIER});
+var wafv2 = process.env.METRICS == "true" ? new aws.WAFV2({ region: 'us-east-1', customUserAgent: process.env.SOLUTION_IDENTIFIER }) : new aws.WAFV2({ region: 'us-east-1' });
+var dynamodb = process.env.METRICS == "true" ? new aws.DynamoDB({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.DynamoDB();
+
 
 var crypto = require("crypto");
 

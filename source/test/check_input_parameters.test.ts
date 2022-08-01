@@ -15,7 +15,8 @@ test('Check input param - cdk', () => {
       "stack_name": "MYSTACK",
       "wcu": "100",
       "retention": "14",
-      "rotate_secrets_frequency": "m"
+      "rotate_secrets_frequency": "m",
+      "metrics": true
     },
     "api": {
       "demo": false
@@ -41,7 +42,8 @@ test('Check input param - cfn', () => {
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "P",
       "wcu": "100",
-      "retention": "14"
+      "retention": "14",
+      "metrics": true
     },
     "api": {
       "demo": true
@@ -77,7 +79,8 @@ test('Check input param - cdk hls & dash', () => {
       "rotate_secrets_frequency": "1m",
       "rotate_secrets_pattern": "m",
       "wcu": "100",
-      "retention": "14"
+      "retention": "14",
+      "metrics": true
     },
     "api": {
       "demo": true

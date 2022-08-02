@@ -24,7 +24,7 @@ fi
 
 export DIST_VERSION=$3
 export DIST_OUTPUT_BUCKET=$1
-export SOLUTION_ID=SO0030
+export SOLUTION_ID=SO0195
 export SOLUTION_NAME=$2
 export SOLUTION_TRADEMARKEDNAME=$2
 
@@ -87,9 +87,6 @@ sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
 # Run 'cdk synth' to generate raw solution outputs
 node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/SECURESTREAM.yaml
-
-#replace assets_bucket_name
-sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$BUILD_OUTPUT_BUCKET#g solution.context.json
 
 
 mv cdk.out/* $staging_dist_dir

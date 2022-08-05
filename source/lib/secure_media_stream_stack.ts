@@ -101,20 +101,6 @@ export class SecureMediaStreamingStack extends Stack {
         "CloudFront Function Token validator",
     });
 
-    //CloudFront Function used to fix the redirect for Media Tailor
-    new cloudfront.Function(
-      this,
-      "RedirectMediaTailorFunction",
-      {
-        code: cloudfront.FunctionCode.fromFile({
-          filePath: "cff/mediatailor_redirect/index.js",
-        }),
-        functionName: Aws.STACK_NAME + "_mediaTailorRedirect",
-        comment:
-          "CloudFront Function used to handle the redirection for MediaTailor",
-      }
-    );
-
     const secrets = new Secrets(this, "Secrets");
 
     //DynamoDB Table used to hold sessions to be revoked (manually added or automatically via the Step Function)

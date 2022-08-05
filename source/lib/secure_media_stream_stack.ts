@@ -98,7 +98,7 @@ export class SecureMediaStreamingStack extends Stack {
       }),
       functionName: Aws.STACK_NAME + "_checkJWTToken",
       comment:
-        "CloudFront Function used to check a JWT token",
+        "CloudFront Function Token validator",
     });
 
     //CloudFront Function used to fix the redirect for Media Tailor
@@ -219,7 +219,7 @@ export class SecureMediaStreamingStack extends Stack {
     });
 
     new CfnOutput(this, "CheckTokenFunction", {
-      description: "CloudFront Function used to validate JWT token",
+      description: "CloudFront Function Token validator",
       value: checkToken.functionName
     });
 

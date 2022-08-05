@@ -80,7 +80,7 @@
      params = {
          FunctionCode: Buffer.from(functionCodeAsStr),
          FunctionConfig: {
-             'Comment': 'CloudFront Function used to check a JWT token',
+             'Comment': 'CloudFront Function Token validator',
              'Runtime': 'cloudfront-js-1.0'
          },
          IfMatch: response['ETag'],

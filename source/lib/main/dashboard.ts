@@ -70,6 +70,26 @@ export class CWDashboard extends Construct {
       region: "us-east-1"
     });
 
+    const cffExecutionErrorsMetric = new cloudwatch.Metric({
+      namespace: "AWS/CloudFront",
+      metricName: "FunctionExecutionErrors",
+      period: Duration.minutes(5),
+      dimensionsMap: { FunctionName: props.cfFunctionName, Region: "Global" },
+      label: "Function Execution Errors",
+      statistic: "sum",
+      region: "us-east-1"
+    });
+
+    const cffThrottlesMetric = new cloudwatch.Metric({
+      namespace: "AWS/CloudFront",
+      metricName: "FunctionThrottles",
+      period: Duration.minutes(5),
+      dimensionsMap: { FunctionName: props.cfFunctionName, Region: "Global" },
+      label: "Function Throttles",
+      statistic: "sum",
+      region: "us-east-1"
+    });
+
     const cffInvocationsMetric = new cloudwatch.Metric({
       namespace: "AWS/CloudFront",
       metricName: "FunctionInvocations",
@@ -86,6 +106,22 @@ export class CWDashboard extends Construct {
       width: 24,
       setPeriodToTimeRange: true,
       left: [cffComputeUsageMetric],
+    });
+
+    const functionExecutionErrorsWidget = new cloudwatch.GraphWidget({
+      title: "Check JWT Token - Function Execution Errors (Sum)",
+      height: 6,
+      width: 24,
+      setPeriodToTimeRange: true,
+      left: [cffExecutionErrorsMetric],
+    });
+
+    const functionThrottlesWidget = new cloudwatch.GraphWidget({
+      title: "Check JWT Token - Function Throttles (Sum)",
+      height: 6,
+      width: 24,
+      setPeriodToTimeRange: true,
+      left: [cffThrottlesMetric],
     });
 
     const rotateSecretsWidget = new cloudwatch.GraphWidget({
@@ -122,6 +158,8 @@ export class CWDashboard extends Construct {
       rotateSecretsWidget,
       invocationsNbWidget,
       computeUsageWidget,
+      functionExecutionErrorsWidget,
+      functionThrottlesWidget,
       invocationsWidget
     );
   }

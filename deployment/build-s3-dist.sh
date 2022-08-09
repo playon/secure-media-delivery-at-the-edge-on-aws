@@ -86,7 +86,7 @@ chmod +x ./install_dependencies.sh && ./install_dependencies.sh
 sed -i'' -e s#MY_ASSETS_BUCKET_NAME#$DIST_OUTPUT_BUCKET#g solution.context.json
 
 # Run 'cdk synth' to generate raw solution outputs
-node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/SECURESTREAM.yaml
+node_modules/aws-cdk/bin/cdk synth --asset-metadata false --path-metadata false >$staging_dist_dir/secure-media-delivery-at-the-edge.yaml
 
 
 mv cdk.out/* $staging_dist_dir
@@ -114,7 +114,7 @@ for cdk_key in `ls  | grep '^asset'`; do
         current_asset_name=$item.zip
     fi
 
-    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/SECURESTREAM.yaml
+    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$VERSION/$asset_new_name#g" $staging_dist_dir/secure-media-delivery-at-the-edge.yaml
 
     let "i+=1"
 
@@ -142,10 +142,10 @@ ls $staging_dist_dir/
 echo "Move outputs from staging to template_dist_dir"
 
 echo "cp $template_dir/*.template $template_dist_dir/"
-cp $staging_dist_dir/SECURESTREAM.yaml $template_dist_dir/SECURESTREAM.template
+cp $staging_dist_dir/secure-media-delivery-at-the-edge.yaml $template_dist_dir/secure-media-delivery-at-the-edge.template
 
 
-rm SECURESTREAM.yaml
+rm secure-media-delivery-at-the-edge.yaml
 
 echo cp $cdk synth --asset-metadata /*.zip $build_dist_dir/
 cp $staging_dist_dir/*.zip $build_dist_dir/

@@ -32,6 +32,7 @@ export class GetInputParameters extends Construct {
         type: "Number",
         minValue: 2,
         maxValue: 1500,
+        default: 100,
         description:
           "Capacity limit expressed in WCUs for WAF Rule Group to keep the session list that should be blocked (between 2 and 1500).",
       });
@@ -40,6 +41,7 @@ export class GetInputParameters extends Construct {
       const retention = new CfnParameter(this, "Retention", {
         type: "Number",
         minValue: 1,
+        default: 30,
         description:
           "Retention time for compromised sessions (in minutes)",
       });
@@ -256,19 +258,19 @@ export class GetInputParameters extends Construct {
               scope: this,
               parameter: dash_hostname,
               groupLabel: "DASH stream",
-              parameterLabel: "Hostname for asset delivery",
+              parameterLabel: "Hostname for asset delivery (OPTIONAL)",
             },
             {
               scope: this,
               parameter: dash_url_path,
               groupLabel: "DASH stream",
-              parameterLabel: "Url path for asset delivery",
+              parameterLabel: "Url path for asset delivery (OPTIONAL)",
             },
             {
               scope: this,
               parameter: dash_ttl,
               groupLabel: "DASH stream",
-              parameterLabel: "TTL for token",
+              parameterLabel: "TTL for token (OPTIONAL)",
             },
           ],
         });
@@ -317,19 +319,19 @@ export class GetInputParameters extends Construct {
               scope: this,
               parameter: hls_hostname,
               groupLabel: "HLS stream",
-              parameterLabel: "Hostname for asset delivery",
+              parameterLabel: "Hostname for asset delivery [Optional] - if not specified, example values will be populated",
             },
             {
               scope: this,
               parameter: hls_url_path,
               groupLabel: "HLS stream",
-              parameterLabel: "Url path for asset delivery",
+              parameterLabel: "Url path for asset delivery [Optional] - if not specified, example values will be populated",
             },
             {
               scope: this,
               parameter: hls_ttl,
               groupLabel: "HLS stream",
-              parameterLabel: "TTL for token",
+              parameterLabel: "TTL for token [Optional] - if not specified, example values will be populated",
             },
           ],
         });

@@ -181,25 +181,25 @@ export class GetInputParameters extends Construct {
             scope: this,
             parameter: week_of_month,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Week of the month - Leave empty in case you prefer trigger key rotation workflow manually",
+            parameterLabel: "Week of the month - Leave empty in case you prefer trigger key rotation workflow manually.",
           },
           {
             scope: this,
             parameter: day_of_week,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Day of the week - Leave empty in case you prefer trigger key rotation workflow manually",
+            parameterLabel: "Day of the week - Leave empty in case you prefer trigger key rotation workflow manually.",
           },
           {
             scope: this,
             parameter: hours,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Hours - Leave empty in case you prefer trigger key rotation workflow manually",
+            parameterLabel: "Hours - Leave empty in case you prefer trigger key rotation workflow manually.",
           },
           {
             scope: this,
             parameter: minutes,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Minutes - Leave empty in case you prefer trigger key rotation workflow manually",
+            parameterLabel: "Minutes - Leave empty in case you prefer trigger key rotation workflow manually.",
           }
 
         ],
@@ -234,17 +234,17 @@ export class GetInputParameters extends Construct {
       if (configuration.dash?.hostname === "H") {
         const dash_hostname = new CfnParameter(this, "DashHostName", {
           type: "String",
-          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://)."
+          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).  [Optional] - if not specified, example values will be populated."
         });
 
         const dash_url_path = new CfnParameter(this, "DashUrlPath", {
           type: "String",
-          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file)."
+          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).  [Optional] - if not specified, example values will be populated."
         });
 
         const dash_ttl = new CfnParameter(this, "DashTtl", {
           type: "String",
-          description: "Time period determining for how long newly issued token will be valid. ",
+          description: "Time period determining for how long newly issued token will be valid. [Optional] - if not specified, example values will be populated.",
           allowedValues: ["", "+30m", "+1h", "+3h", "+6h", "+24h"]
         });
 
@@ -254,19 +254,19 @@ export class GetInputParameters extends Construct {
               scope: this,
               parameter: dash_hostname,
               groupLabel: "DASH stream",
-              parameterLabel: "Hostname for asset delivery (OPTIONAL)",
+              parameterLabel: "Hostname for asset delivery",
             },
             {
               scope: this,
               parameter: dash_url_path,
               groupLabel: "DASH stream",
-              parameterLabel: "Url path for asset delivery (OPTIONAL)",
+              parameterLabel: "Url path for asset delivery",
             },
             {
               scope: this,
               parameter: dash_ttl,
               groupLabel: "DASH stream",
-              parameterLabel: "TTL for token (OPTIONAL)",
+              parameterLabel: "TTL for token",
             },
           ],
         });
@@ -295,17 +295,17 @@ export class GetInputParameters extends Construct {
 
         const hls_hostname = new CfnParameter(this, "HlsHostName", {
           type: "String",
-          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://)."
+          description: "Domain name served by CloudFront distribution hosting video following protocol prefix (http:// or https://).  [Optional] - if not specified, example values will be populated."
         });
 
         const hls_url_path = new CfnParameter(this, "HlsUrlPath", {
           type: "String",
-          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file)."
+          description: "Full URL path of the video asset. This parameter must start with ‘/’ and point to an object used by the player to initiate a playback, like master manifest (mpd file).  [Optional] - if not specified, example values will be populated."
         });
 
         const hls_ttl = new CfnParameter(this, "HlsTtl", {
           type: "String",
-          description: "Time period determining for how long newly issued token will be valid.",
+          description: "Time period determining for how long newly issued token will be valid.  [Optional] - if not specified, example values will be populated.",
           allowedValues: ["", "+30m", "+1h", "+3h", "+6h", "+24h"]
         });
 
@@ -315,19 +315,19 @@ export class GetInputParameters extends Construct {
               scope: this,
               parameter: hls_hostname,
               groupLabel: "HLS stream",
-              parameterLabel: "Hostname for asset delivery [Optional] - if not specified, example values will be populated",
+              parameterLabel: "Hostname for asset delivery",
             },
             {
               scope: this,
               parameter: hls_url_path,
               groupLabel: "HLS stream",
-              parameterLabel: "Url path for asset delivery [Optional] - if not specified, example values will be populated",
+              parameterLabel: "Url path for asset delivery",
             },
             {
               scope: this,
               parameter: hls_ttl,
               groupLabel: "HLS stream",
-              parameterLabel: "TTL for token [Optional] - if not specified, example values will be populated",
+              parameterLabel: "TTL for token",
             },
           ],
         });

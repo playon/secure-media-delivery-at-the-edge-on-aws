@@ -179,43 +179,37 @@ export class GetInputParameters extends Construct {
             scope: this,
             parameter: week_of_month,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Week of the month",
+            parameterLabel: "Week of the month - Leave empty in case you prefer trigger key rotation workflow manually",
           },
           {
             scope: this,
             parameter: day_of_week,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Day of the week",
+            parameterLabel: "Day of the week - Leave empty in case you prefer trigger key rotation workflow manually",
           },
           {
             scope: this,
             parameter: hours,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Hours",
+            parameterLabel: "Hours - Leave empty in case you prefer trigger key rotation workflow manually",
           },
           {
             scope: this,
             parameter: minutes,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Minutes",
+            parameterLabel: "Minutes - Leave empty in case you prefer trigger key rotation workflow manually",
           }
 
         ],
       });
 
+      const rotationCondition = new CfnCondition(this, 'Week', { expression: Fn.conditionEquals(week_of_month, '') && Fn.conditionEquals(day_of_week, '')  && Fn.conditionEquals(hours, '') && Fn.conditionEquals(minutes, '')});
+
       returnObject = {
         main: {
           stack_name: "MYSTREAM",
           rotate_secrets_frequency: "1m",
-          rotate_secrets_pattern:
-            minutes.valueAsString +
-            " " +
-            hours.valueAsString +
-            " ? * " +
-            day_of_week.valueAsString +
-            "#" +
-            week_of_month.valueAsString +
-            " *",
+          rotate_secrets_pattern: Fn.conditionIf( rotationCondition.logicalId, "m",  minutes.valueAsString + " " + hours.valueAsString + " ? * " + day_of_week.valueAsString +  "#" + week_of_month.valueAsString + " *").toString(),
           wcu: wcu.valueAsString,
           retention: retention.valueAsString,
           metrics: true

@@ -151,7 +151,7 @@ function generateAthenaQuery(query_param) {
    )
    SELECT
       session_id,
-      (ip_rate + ip_penalty + referer_penalty + ua_penalty) as Score,
+      (ip_rate + ip_penalty + referer_penalty + ua_penalty) as score,
       ip_rate,
       ip_penalty,
       referer_penalty,

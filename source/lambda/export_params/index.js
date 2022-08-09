@@ -10,15 +10,15 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    *
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
-
-const aws = require('aws-sdk');
-var lambda = process.env.METRICS == "true" ? new aws.Lambda({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.Lambda();
+ const aws = require('aws-sdk');
+ var lambda = new aws.Lambda();
  
 
 exports.handler = async (event, context) => {
     console.log("event="+JSON.stringify(event));
 
-    event.Records.forEach( async (record) => {
+    for (var record of event.Records) { 
+
         console.log('Stream record: ', JSON.stringify(record));
 
         var db_item = record.dynamodb.NewImage;
@@ -55,11 +55,13 @@ exports.handler = async (event, context) => {
                 }
             }
         };
-        
-        await lambda.updateFunctionConfiguration(params).promise();
+        console.log("params="+JSON.stringify(params));
+        const result = await lambda.updateFunctionConfiguration(params).promise();
+        console.log(result);
         console.log(`Lambda function ${process.env.SUBMIT_QUERY_FUNCTION} configuration updated`);
+
         
-    });
+    }
 
     return "OK";
     

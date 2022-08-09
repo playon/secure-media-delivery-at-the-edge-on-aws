@@ -151,7 +151,7 @@ exports.handler = async (event, context) => {
         for (const item of sortedAutoSessions) {
             if (globalIndex <= parseInt(maxSessions)) {
                 myRuleName = String(getRandomAlphanumericString())
-                var currentRule2 = getFormattedRuleConfig(item['session_id']['S'], myRuleName, globalIndex)
+                var currentRule2 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule2)
                 globalIndex += 1
                 localIndex += 1

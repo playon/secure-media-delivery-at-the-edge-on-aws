@@ -110,9 +110,9 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         effect: iam.Effect.ALLOW,
         actions: ["athena:StartQueryExecution"],
         resources: [
-          "arn:aws:athena:*:*:workgroup/*",
+          "arn:aws:athena:*:*:workgroup/*",    
           "arn:aws:athena:*:*:datacatalog/*",
-        ],
+         ],
       })
     );
 
@@ -134,6 +134,9 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       "Start Athena Query",
       {
         queryString: sfn.JsonPath.stringAt("$.Payload"),
+        queryExecutionContext : {
+          databaseName: props.configuration.sessionRevocation?.db_name
+        },
         integrationPattern: sfn.IntegrationPattern.RUN_JOB,
         resultConfiguration: {
           outputLocation: {
@@ -184,6 +187,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
         retention: logs.RetentionDays.ONE_MONTH,
     });
     addCfnSuppressRules(logGroup, [{ id: 'W84', reason: 'We are satisfied with default KMS encryption on CloudWatchLogs LogGroup.' }]);
+
 
     // Step function to orchestrate Athena query to detect corrupted sessions and update DynamoDB Table with the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {

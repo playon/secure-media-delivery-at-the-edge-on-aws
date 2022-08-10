@@ -26,7 +26,7 @@ test('Create endpoints - demoWebsite=true', () => {
   // THEN
 
   const template = Template.fromStack(stack);
-  template.resourceCountIs("Custom::AWS", 2);
+  template.resourceCountIs("Custom::AWS", 1);
   template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   template.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
   template.resourceCountIs("AWS::S3::Bucket", 2);
@@ -57,7 +57,7 @@ test('Create endpoints - demoWebsite=false', () => {
   // THEN
 
   const template = Template.fromStack(stack);
-  template.resourceCountIs("Custom::AWS", 2);
+  template.resourceCountIs("Custom::AWS", 1);
   template.resourceCountIs("AWS::CloudFront::Distribution", 1);
   template.resourceCountIs("AWS::ApiGatewayV2::Api", 1);
   template.resourceCountIs("AWS::S3::Bucket", 2);

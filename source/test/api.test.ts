@@ -56,8 +56,8 @@ test('Create Api - demo=true', () => {
   const template = Template.fromStack(stack);
   template.resourceCountIs("AWS::Lambda::LayerVersion", 2);
   template.resourceCountIs("AWS::DynamoDB::Table", 2);
-  template.resourceCountIs("Custom::AWS", 3);
-  template.resourceCountIs("AWS::Lambda::Function",5);
+  template.resourceCountIs("Custom::AWS", 2);
+  template.resourceCountIs("AWS::Lambda::Function", 4);
   template.resourceCountIs("AWS::Logs::LogGroup", 2);
 
 
@@ -114,8 +114,8 @@ test('Create Api - demo=false', () => {
   const template = Template.fromStack(stack);
   template.resourceCountIs("AWS::Lambda::LayerVersion", 2);
   template.resourceCountIs("AWS::DynamoDB::Table", 2);
-  template.resourceCountIs("Custom::AWS", 3);
-  template.resourceCountIs("AWS::Lambda::Function",5);
+  template.resourceCountIs("Custom::AWS", 2);
+  template.resourceCountIs("AWS::Lambda::Function",4);
   template.resourceCountIs("AWS::Logs::LogGroup", 2);
 
 

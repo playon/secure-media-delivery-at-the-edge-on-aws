@@ -66,7 +66,6 @@ const getConfiguration = async (): Promise<IConfiguration> => {
 
   const components: Array<string>     = (await prompts.prompt(componentQuestion, { onCancel })).value;
   const allComponents = mainComponent.concat(components);
-  console.log(allComponents)
 
   // Iterating over the component prompts.
   for (const item of allComponents) {

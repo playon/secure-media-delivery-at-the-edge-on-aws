@@ -21,6 +21,9 @@ import {
   aws_cloudfront_origins as origins,
   aws_logs as logs,
   Duration,
+  custom_resources,
+  aws_iam as iam
+
 } from "aws-cdk-lib";
 
 import { Construct } from "constructs";
@@ -30,7 +33,6 @@ import { HttpIamAuthorizer } from "@aws-cdk/aws-apigatewayv2-authorizers-alpha";
 import { HttpLambdaIntegration } from "@aws-cdk/aws-apigatewayv2-integrations-alpha";
 import { CfnStage } from "aws-cdk-lib/aws-apigatewayv2";
 import { LogGroup } from "aws-cdk-lib/aws-logs";
-import { CRUpdateLERole } from "../custom_resources/cr_update_le_role";
 import { IFunction } from "aws-cdk-lib/aws-lambda";
 import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 
@@ -193,13 +195,31 @@ export class Endpoints extends Construct {
       }
     );
 
-    const apiArn = `arn:aws:execute-api:${region}:*:${httpApi.apiId}/*`;
+    const ssmSig4VersionArn = new custom_resources.AwsCustomResource(
+      this,
+      "SSMParameterVersion",
+      {
+        onUpdate: {
+          service: "SSM",
+          action: "getParameter",
+          parameters: { Name: `${props.sig4LambdaVersionParamName}` },
+          region: Aws.REGION,
+          physicalResourceId: custom_resources.PhysicalResourceId.of(`${props.sig4LambdaVersionParamName}`)
+        },
+        policy: custom_resources.AwsCustomResourcePolicy.fromStatements([
+          new iam.PolicyStatement({
+            effect: iam.Effect.ALLOW,
+            actions: ["ssm:GetParameter*"],
+            resources: [
+              `arn:aws:ssm:${Aws.REGION}:${Aws.ACCOUNT_ID}:parameter/*`,
+            ],
+          }),
+        ]),
+      }
+    );
 
-    const customResourceLE = new CRUpdateLERole(this, "CustomResourceLE", {
-      sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
-      sig4LambdaRoleArn: props.sig4LambdaRoleArn,
-      apiArn,
-    });
+    const lambdaEdgeVersionArn =
+      ssmSig4VersionArn.getResponseField("Parameter.Value");
 
     const httpApiOrigin = new origins.HttpOrigin(
       `${httpApi.apiId}.execute-api.${region}.amazonaws.com`
@@ -208,7 +228,7 @@ export class Endpoints extends Construct {
     const lambdaEdge = lambda.Version.fromVersionArn(
       this,
       "CfLambdaEdge",
-      customResourceLE.lambdaEdgeVersionArn
+      lambdaEdgeVersionArn
     );
 
     const s3origin = new origins.S3Origin(hostingBucket);

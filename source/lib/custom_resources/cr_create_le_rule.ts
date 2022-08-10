@@ -72,6 +72,18 @@ export class CRCreateLEWafRule extends Construct {
       ],
     });
 
+
+    const lambdaEdgePolicy = new iam.PolicyDocument({
+      statements: [
+        new iam.PolicyStatement({
+          resources: [`arn:aws:execute-api:${Aws.REGION}:*:*/*`],
+          actions: [
+            "execute-api:Invoke"
+          ],
+        })
+      ],
+    });
+
     const { managedPolicyArn } = iam.ManagedPolicy.fromAwsManagedPolicyName(
       "service-role/AWSLambdaBasicExecutionRole"
     );
@@ -115,6 +127,9 @@ export class CRCreateLEWafRule extends Construct {
           managedPolicyArn,
         },
       ],
+      inlinePolicies: {
+        myPolicy: lambdaEdgePolicy,
+      },
     });
 
     const archiverLayer = new lambda.LayerVersion(this, "ZipLocalLayer", {

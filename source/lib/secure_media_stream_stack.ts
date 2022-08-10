@@ -110,6 +110,7 @@ export class SecureMediaStreamingStack extends Stack {
       stream: ddb.StreamViewType.KEYS_ONLY,
       removalPolicy: RemovalPolicy.DESTROY,
       pointInTimeRecovery: true,
+      timeToLiveAttribute: "ttl"
     });
 
     addCfnSuppressRules(sessionToRevoke, [{ id: 'W74', reason: 'DynamoDB table has encryption enabled owned by Amazon.' }]);

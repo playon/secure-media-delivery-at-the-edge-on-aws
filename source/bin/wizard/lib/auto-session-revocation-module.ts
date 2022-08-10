@@ -25,7 +25,7 @@ const sessionRevocationQuestions = [
   {
     type: "text",
     name: "db_name",
-    message: "[AUTO SESSION REVOCATION] --> Athena Database name",
+    message: "\nMapping of Athena table attributes\n\n [AUTO SESSION REVOCATION] --> Athena Database name",
     validate: (value: string) =>
       Joi.string().required().validate(value).error
         ? "The name of the Database is mandatory"
@@ -124,7 +124,7 @@ const sessionRevocationQuestions = [
     type: "text",
     name: "lookback_period",
     initial: 10,
-    message: "[AUTO SESSION REVOCATION] --> Lookback period",
+    message: "\nAuto Revocation input parameters\n\n[AUTO SESSION REVOCATION] --> Lookback period",
     validate: (value: number) =>
       Joi.number().required().validate(value).error
         ? "Lookback period is mandatory"
@@ -160,7 +160,7 @@ const sessionRevocationQuestions = [
   {
     type: "select",
     name: "ua_penalty",
-    message: "[  SESSION REVOCATION] --> UA penalty",
+    message: "[AUTO SESSION REVOCATION] --> Multiple User-Agent penalty",
     choices: [
       { title: "true", value: 1 },
       { title: "false", value: 0 },
@@ -180,7 +180,7 @@ const sessionRevocationQuestions = [
     type: "text",
     name: "min_session_duration",
     initial: 30,
-    message: "[AUTO SESSION REVOCATION] --> Minimum sessions duration",
+    message: "[AUTO SESSION REVOCATION] --> Minimum session duration threshold (in minutes)",
     validate: (value: number) =>
       Joi.number().required().validate(value).error
         ? "Minimum sessions duration is mandatory"

@@ -1,0 +1,17 @@
+{
+  "main": {
+    "stack_name": "SOL01EDGE003",
+    "wcu": "99",
+    "retention": "19",
+    "rotate_secrets_frequency": "m",
+    "metrics": true
+  },
+  "api": {
+    "demo": true
+  },
+  "hls": {
+    "hostname": "https://dklf7fsi4gpzd.cloudfront.net",
+    "url_path": "/out/v1/00c6ff982d404e2f940b48495b243b3c/index.m3u8",
+    "ttl": "+3h"
+  }
+}

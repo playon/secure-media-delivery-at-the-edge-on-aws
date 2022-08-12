@@ -50,7 +50,6 @@ export class GetInputParameters extends Construct {
       const hours = new CfnParameter(this, "Hours", {
         type: "String",
         allowedValues: [
-          "",
           "00",
           "01",
           "02",
@@ -83,7 +82,6 @@ export class GetInputParameters extends Construct {
       const minutes = new CfnParameter(this, "Minutes", {
         type: "String",
         allowedValues: [
-          "",
           "00",
           "01",
           "02",
@@ -151,14 +149,14 @@ export class GetInputParameters extends Construct {
 
       const day_of_week = new CfnParameter(this, "DayOfTheWeek", {
         type: "String",
-        allowedValues: ["", "1", "2", "3", "4", "5", "6", "7"],
+        allowedValues: ["1", "2", "3", "4", "5", "6", "7"],
         description:
           "After selecting a week in a month, provide a specific day in that week when key rotation should occur. Value from 1 to 7, where 1 means Monday and 7 means Sunday.",
       });
 
       const week_of_month = new CfnParameter(this, "WeekOfTheMonth", {
         type: "String",
-        allowedValues: ["", "1", "2", "3", "4"],
+        allowedValues: ["1", "2", "3", "4"],
         description:
           "Specify the week number in each month that key rotation will be scheduled for. This parameter can be set to a value from a range 1 to 4.",
       });

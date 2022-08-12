@@ -215,7 +215,7 @@ export class RotateSecretsWorkflow extends Construct {
     const schedule_expression =
       props.configuration.main?.rotate_secrets_pattern;// || "m";
       console.log("schedule_expression="+schedule_expression);
-    if (schedule_expression !== "m") {
+    if (schedule_expression != "m") {
       // Trigger Sfn to rotate the secrets every X minutes
       const rule = new events.Rule(this, "Rule1", {
         schedule: events.Schedule.expression(

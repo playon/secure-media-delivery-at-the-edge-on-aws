@@ -10,35 +10,88 @@ Current version: **1.0.0**
 
 ## Description
 
-The Secure media stream delivery solution is a configurable and modular [AWS CDK](https://docs.aws.amazon.com/cdk/latest/guide/home.html) project. It can conditionally upon selection using the Wizard enable the deployment of the following components:
-
-- Base module
-- Automatic session invalidation
-- APIs
-- Demo website
+The solution can be deployed though CDK or by using a pre generated CloudFormation template.
+With CDK, you can selectively choose which modules and elements should be deployed for each new stack you create:
+  - Base module (always deployed)
+  - API module (optional)
+  - Demo website (optional)
+  - Auto session revocation (optional)
 
 ## Architecture
 
-Below is the architecture diagram.
+By deploying Secure Media Delivery solution in the existing environment with Amazon CloudFront and Media Origin service (depicted as a grey area in the diagram), a number of resources will be created. These resources play different roles and can be grouped into 3 functional modules as highlighted in the following reference architecture.
 
 <div align="center">
-  <img src="source/assets/diagrams/architecture.drawio.png" />
+  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0.jpg" />
+  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
+</div>
+In reference to Figure 1, deploying Secure Media Delivery solution in your environment will produce following infrastructure:
+
+
+### Base module:
+1.	An Amazon CloudFront Function that validates secure tokens, permitting or denying access to video content
+2.	An AWS Secrets Manager stored secrets holding signing keys for generating and validating viewers’ tokens
+3.	An AWS Step Functions workflow that coordinates key rotation process
+4.	An AWS WAF Rule Group containing the list of playback sessions that should be blocked as they get identified as compromised
+5.	An Amazon API Gateway public API used to process the requests to generate the tokens for video playback and to manually revoke specified playback sessions
+6.	An AWS Lambda Function associated with API Gateway that generate the token for video playback based on the retrieved metadata about the video assets and token parameters
+7.	Solution provided library, providing the necessary methods to generate the tokens, imported in the AWS Lambda Function
+
+### API Module:
+
+8.	An Amazon DynamoDB table storing metadata about video assets and corresponding parameters used to generate the tokens
+9.	An Amazon CloudFront distribution delivering the traffic from API Gateway and deliver demo website when enabled
+10.	Lambda@Edge function which signs outgoing requests towards API Gateway according to SigV4 specification
+11.	Demo website (when enabled) with video player embedded in it
+12.	Amazon S3 bucket storing static assets for demo website
+
+### Auto session revocation module
+
+13.	An Amazon EventBridge rule that runs periodically to invoke session revocation workflow in AWS Step Functions
+14.	Lambda functions invoked in Step Functions workflow that produce SQL query submitted to Amazon Athena, then to obtain the results from Athena and push move them forward in the processing pipeline
+15.	Amazon Athena executing SQL queries against CloudFront access logs to list the suspicious video playback session ids with abnormal traffic characteristics
+16.	 An Amazon DynamoDB table revocation list storing session ids that have been submitted to be revoked with additional information
+17.	Lambda function which compiles a final list of the playback sessions marked to be blocked and updates AWS WAF Rule Group with the appropriate rules matching selected sessions
+
+## Solution components
+
+### Base Module
+
+<div align="center">
+  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_base.jpg" />
   <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
 </div>
 
-#### **Rotate Secrets**
+Base module includes the solution components which are core and central to the solution, while rest of the modules expands on it.
+
+### Key Rotation workflow
 
 <div align="center">
-  <img src="source/assets/diagrams/rotate_secrets_sf.png" />
-  <div align="center"><sub>Rotate secrets (click to enlarge)</sub></div>
+  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_key_rotation.jpg" />
+  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
 </div>
 
-#### **Automatic session invalidation**
+This pipeline is initiated first time after the base module stack is deployed and after that periodically according to the key rotation setting specified when launching the solution. The configuration on when the key rotation process should be initiated is saved as EventBridge rule. Any time that workflow is initiated, the subsequent steps are controlled via AWS Step Functions workflow with the steps as depicted above.
+
+### API Module
 
 <div align="center">
-  <img src="source/assets/diagrams/automatic_session_revocation.png" />
-  <div align="center"><sub>Automatic session invalidation (click to enlarge)</sub></div>
+  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_apis.jpg" />
+  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
 </div>
+
+API Module is made available in the solution to represent an example of how to integrate token management process into playback API section of customer architecture. The central element of this module is API Gateway with two Lambda integrations responsible for performing token related operations, namely generate the token and revoke given session it. 
+
+### Auto session revocation module
+
+<div align="center">
+  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_auto_session.jpg" />
+  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
+</div>
+
+Auto session revocation module design leverages AWS Step Functions to coordinate this entire multi step process. Predefined workflow is invoked periodically as specified in the created EventBridge rule – for ongoing video delivery streaming it is reasonable to set that periodicity at the range of few minutes to reduce the time it takes to detect and block the suspicious sessions. 
+
+Note that before using auto revocation module, collection of access logs to S3 must be configured for each CloudFront distribution, the traffic of which should be analyzed through this process. It is also required to set up a database and a table in Athena referencing access logs in the S3 bucket.
 
 ## Tutorial
 
@@ -64,10 +117,19 @@ This options simply flollows the standard CDK deployment process. You will need 
 
 #### 2. Install the dependencies of the project to make it ready to use. To do so, simply run the below command.
 
+On Linux
+
   ```bash
   cd source
   ./install_dependencies.sh
   ```
+On Windows
+  
+  ```bash
+  cd source
+  ./install_dependencies.ps1
+  ```
+
 
 #### 3. Run the built-in wizard which will prompt you with questions about the modules to deploy
 

@@ -77,7 +77,7 @@ export class GetInputParameters extends Construct {
           "23",
         ],
         description:
-          "An hour when key rotation workflow will be triggered. Leave empty in case you prefer trigger key rotation workflow manually.",
+          "An hour when key rotation workflow will be triggered.",
       });
 
       const minutes = new CfnParameter(this, "Minutes", {
@@ -146,21 +146,21 @@ export class GetInputParameters extends Construct {
           "59",
         ],
         description:
-          "A minute in the selected hour when key rotation workflow will be triggered. Leave empty in case you prefer trigger key rotation workflow manually.",
+          "A minute in the selected hour when key rotation workflow will be triggered.",
       });
 
       const day_of_week = new CfnParameter(this, "DayOfTheWeek", {
         type: "String",
         allowedValues: ["", "1", "2", "3", "4", "5", "6", "7"],
         description:
-          "After selecting a week in a month, provide a specific day in that week when key rotation should occur. Value from 1 to 7, where 1 means Monday and 7 means Sunday. Leave empty in case you prefer trigger key rotation workflow manually.",
+          "After selecting a week in a month, provide a specific day in that week when key rotation should occur. Value from 1 to 7, where 1 means Monday and 7 means Sunday.",
       });
 
       const week_of_month = new CfnParameter(this, "WeekOfTheMonth", {
         type: "String",
         allowedValues: ["", "1", "2", "3", "4"],
         description:
-          "Specify the week number in each month that key rotation will be scheduled for. This parameter can be set to a value from a range 1 to 4. Leave empty in case you prefer trigger key rotation workflow manually.",
+          "Specify the week number in each month that key rotation will be scheduled for. This parameter can be set to a value from a range 1 to 4.",
       });
 
       addParametersToInterface({
@@ -181,39 +181,36 @@ export class GetInputParameters extends Construct {
             scope: this,
             parameter: week_of_month,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Week of the month (Optional)",
+            parameterLabel: "Week of the month",
           },
           {
             scope: this,
             parameter: day_of_week,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Day of the week (Optional)",
+            parameterLabel: "Day of the week",
           },
           {
             scope: this,
             parameter: hours,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Hours (Optional)",
+            parameterLabel: "Hours",
           },
           {
             scope: this,
             parameter: minutes,
             groupLabel: "Key Rotation Frequency",
-            parameterLabel: "Minutes (Optional)",
+            parameterLabel: "Minutes",
           }
 
         ],
       });
-
-      const rotationCondition = new CfnCondition(this, 'Week', { expression: Fn.conditionEquals(week_of_month, '') });
-      //const dashHostCondition = new CfnCondition(this, 'DashHostCondition', { expression: Fn.conditionEquals(dash_hostname, '') });
 
 
       returnObject = {
         main: {
           stack_name: "MYSTREAM",
           rotate_secrets_frequency: "1m",
-          rotate_secrets_pattern: Fn.conditionIf( rotationCondition.logicalId, "m",  minutes.valueAsString + " " + hours.valueAsString + " ? * " + day_of_week.valueAsString +  "#" + week_of_month.valueAsString + " *").toString(),
+          rotate_secrets_pattern: minutes.valueAsString + " " + hours.valueAsString + " ? * " + day_of_week.valueAsString +  "#" + week_of_month.valueAsString + " *",
           wcu: wcu.valueAsString,
           retention: retention.valueAsString,
           metrics: true

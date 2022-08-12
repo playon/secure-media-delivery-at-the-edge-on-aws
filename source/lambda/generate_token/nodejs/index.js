@@ -106,10 +106,13 @@ exports.handler = async (event, context) => {
         viewer_attributes['qs'] = request_querystrings;
     }
 
-    console.log(viewer_attributes);
-
-	
-    let playback_url = await token.generate(viewer_attributes, `${endpoint_hostname}${video_url}`, token_policy);
+	var original_url;
+	if(endpoint_hostname && video_url){
+		original_url = endpoint_hostname + video_url;
+	} else {
+		original_url = null;
+	}
+    let playback_url = await token.generate(viewer_attributes, original_url, token_policy);
     return {
         "statusCode": 200,
         "body": playback_url

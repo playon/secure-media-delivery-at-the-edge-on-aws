@@ -205,7 +205,9 @@ export class GetInputParameters extends Construct {
         ],
       });
 
-      const rotationCondition = new CfnCondition(this, 'Week', { expression: Fn.conditionEquals(week_of_month, '') && Fn.conditionEquals(day_of_week, '')  && Fn.conditionEquals(hours, '') && Fn.conditionEquals(minutes, '')});
+      const rotationCondition = new CfnCondition(this, 'Week', { expression: Fn.conditionEquals(week_of_month, '') });
+      //const dashHostCondition = new CfnCondition(this, 'DashHostCondition', { expression: Fn.conditionEquals(dash_hostname, '') });
+
 
       returnObject = {
         main: {

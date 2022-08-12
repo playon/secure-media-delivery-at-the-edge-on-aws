@@ -17,6 +17,9 @@ With CDK, you can selectively choose which modules and elements should be deploy
   - Demo website (optional)
   - Auto session revocation (optional)
 
+*** TODO - put the right URL
+Learn more about this solution at [Implementation Guide](https://aws.amazon.com/solutions/implementations/live-streaming-on-aws/)
+
 ## Architecture
 
 By deploying Secure Media Delivery solution in the existing environment with Amazon CloudFront and Media Origin service (depicted as a grey area in the diagram), a number of resources will be created. These resources play different roles and can be grouped into 3 functional modules as highlighted in the following reference architecture.
@@ -98,6 +101,9 @@ Note that before using auto revocation module, collection of access logs to S3 m
 Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
 
 ## Deployment
+
+*** TODO - put the right URL
+
 The solution can be deployed through the CloudFormation template available on the solution [home page](https://aws.amazon.com/solutions/implementations/live-streaming-on-aws/).
 
 ## Creating a custom build

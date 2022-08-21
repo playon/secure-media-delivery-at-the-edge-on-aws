@@ -82,7 +82,7 @@ async function updateRules(visibility, lockToken, rules) {
 async function querySessions() {
 
     var nowDate = new Date();
-    var retentionDateTime = new Date(nowDate.getTime() - parseInt(process.env.RETENTION) * 24 * 60 * 60000);
+    var retentionDateTime = new Date(nowDate.getTime() - parseInt(process.env.RETENTION) * 60000);
 
     var retentionEpochTimestamp = Math.round(retentionDateTime.getTime() / 1000)
 

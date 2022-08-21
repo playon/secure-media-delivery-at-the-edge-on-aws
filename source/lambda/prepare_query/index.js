@@ -146,8 +146,8 @@ function generateAthenaQuery(query_param) {
          max_time_point
          FROM Q2
          WHERE
-               (SELECT COUNT(*) FROM Q2) > ${query_param['min_sessions_number']}
-               AND time_range > ${query_param['min_session_duration']}
+               (SELECT COUNT(*) FROM Q2) >= ${query_param['min_sessions_number']}
+               AND time_range >= ${query_param['min_session_duration']}
    )
    SELECT
       session_id,

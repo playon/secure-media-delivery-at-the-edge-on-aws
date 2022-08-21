@@ -63,7 +63,7 @@ const sessionRevocationQuestions = [
   {
     type: "text",
     name: "referer_column_name",
-    initial: "referer",
+    initial: "referrer",
     message: "[AUTO SESSION REVOCATION] --> Referer column name",
     validate: (value: string) =>
       Joi.string().required().validate(value).error
@@ -180,7 +180,7 @@ const sessionRevocationQuestions = [
     type: "text",
     name: "min_session_duration",
     initial: 30,
-    message: "[AUTO SESSION REVOCATION] --> Minimum session duration threshold (in minutes)",
+    message: "[AUTO SESSION REVOCATION] --> Minimum session duration threshold (in seconds)",
     validate: (value: number) =>
       Joi.number().required().validate(value).error
         ? "Minimum sessions duration is mandatory"

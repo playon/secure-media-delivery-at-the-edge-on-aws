@@ -22,7 +22,7 @@ const componentQuestion = {
   hint: '- Space to select. Return to submit. \'a\' to toggle all.',
   choices: [
     { title: '[API]', 'value': 'b' },
-    { title: 'AUTO SESSION REVOCATION]', 'value': 'c' }
+    { title: '[AUTO SESSION REVOCATION]', 'value': 'c' }
   ]
 };
 

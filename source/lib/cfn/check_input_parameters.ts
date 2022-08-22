@@ -285,6 +285,12 @@ export class GetInputParameters extends Construct {
           ttl: configuration.dash?.ttl!,
         };
       }
+    } else {
+      returnObject.dash = {
+        hostname: "https://d123.cloudfront.net",
+        url_path: "/video/2/index.mpd",
+        ttl: "+30m",
+      };
     }
 
     if (configuration.hls) {
@@ -347,7 +353,14 @@ export class GetInputParameters extends Construct {
           ttl: configuration.hls?.ttl!,
         };
       }
+    } else {
+      returnObject.hls = {
+        hostname: "https://d123.cloudfront.net",
+        url_path: "/video/1/index.m3u8",
+        ttl: "+30m",
+      };
     }
+
     if (configuration.api) {
       returnObject.api = {
         demo: true,

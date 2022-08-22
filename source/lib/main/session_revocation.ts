@@ -87,7 +87,7 @@ export class SessionRevocation extends Construct {
           RULE_NAME: config.ruleNameParamName,
           RETENTION: config.configuration.main.retention,
           TABLE_NAME: config.sessionToRevoke.tableName,
-          MAX_SESSIONS: (parseInt(config.configuration.main.wcu) / 2).toString(),
+          MAX_SESSIONS: config.configuration.main.wcu,
           GSI_INDEX_NAME: config.gsi_index_name,
           SOLUTION_IDENTIFIER: `AwsSolution/${config.configuration.solutionId}/${config.configuration.solutionVersion}`,
           METRICS: String(config.configuration.main.metrics)

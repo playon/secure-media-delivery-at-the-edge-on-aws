@@ -133,7 +133,7 @@ exports.handler = async (event, context) => {
 
         for (const item of manualSessions) {
 
-            if (globalIndex <= parseInt(maxSessions)) {
+            if (globalIndex <= (parseInt(maxSessions)/2)) {
                 var myRuleName = String(getRandomAlphanumericString())
                 var currentRule1 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule1)
@@ -149,7 +149,7 @@ exports.handler = async (event, context) => {
         }
 
         for (const item of sortedAutoSessions) {
-            if (globalIndex <= parseInt(maxSessions)) {
+            if (globalIndex <= (parseInt(maxSessions)/2)) {
                 myRuleName = String(getRandomAlphanumericString())
                 var currentRule2 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule2)

@@ -6,8 +6,6 @@ import { onCancel } from "./handlers";
 import { IConfiguration } from "../../../helpers/validators/configuration";
 import { IMain } from "../../../helpers/validators/main";
 
-console.log(Joi.number().min(1).required().validate(0).error)
-
 const coreQuestions = [
   {
     type: "text",

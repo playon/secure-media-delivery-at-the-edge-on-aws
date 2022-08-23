@@ -112,7 +112,7 @@ exports.handler = async (event, context) => {
     var globalIndex = 1
     var localIndex = 1
     var rules = []
-    var maxSessions = process.env.MAX_SESSIONS
+    var maxSessions = parseInt(process.env.MAX_SESSIONS)/2;
     if (result['Items']) {
         var items = result['Items'];
         console.log(`${items.length} Sessions IDs from DynamoDB to process`)
@@ -133,7 +133,7 @@ exports.handler = async (event, context) => {
 
         for (const item of manualSessions) {
 
-            if (globalIndex <= (parseInt(maxSessions)/2)) {
+            if (globalIndex <= maxSessions) {
                 var myRuleName = String(getRandomAlphanumericString())
                 var currentRule1 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule1)
@@ -149,7 +149,7 @@ exports.handler = async (event, context) => {
         }
 
         for (const item of sortedAutoSessions) {
-            if (globalIndex <= (parseInt(maxSessions)/2)) {
+            if (globalIndex <= maxSessions) {
                 myRuleName = String(getRandomAlphanumericString())
                 var currentRule2 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule2)

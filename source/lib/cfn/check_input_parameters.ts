@@ -218,7 +218,7 @@ export class GetInputParameters extends Construct {
       returnObject = {
         main: {
           stack_name: "MYSTREAM",
-          rotate_secrets_frequency: "1m",
+          rotate_secrets_frequency: configuration.main.rotate_secrets_frequency,
           rotate_secrets_pattern: configuration.main.rotate_secrets_pattern,
           wcu: configuration.main.wcu,
           retention: configuration.main.retention,

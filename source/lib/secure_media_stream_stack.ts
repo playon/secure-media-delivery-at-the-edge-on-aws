@@ -65,7 +65,7 @@ export class SecureMediaStreamingStack extends Stack {
       WAF_RULE_NAME_SSM_PARAM: this.WAF_RULE_NAME_SSM_PARAM,
       WAF_RULE_ID_SSM_PARAM: this.WAF_RULE_ID_SSM_PARAM,
       DEPLOY_LE: parameters.customInputParameters.api ? true: false,
-      METRICS: String(parameters.customInputParameters.main.metrics),
+      METRICS: parameters.customInputParameters.main.metrics,
       SOLUTION_IDENTIFIER: `AwsSolution/${parameters.customInputParameters.solutionId}/${parameters.customInputParameters.solutionVersion}`,
     })
 

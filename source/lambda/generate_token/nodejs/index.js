@@ -112,10 +112,19 @@ exports.handler = async (event, context) => {
 	} else {
 		original_url = null;
 	}
-    let playback_url = await token.generate(viewer_attributes, original_url, token_policy);
+    const playback_url = await token.generate(viewer_attributes, original_url, token_policy);
+    const body = {
+        "playback_url": playback_url,
+        "token_policy" : {
+            "ip": token_policy['headers'].ip ? 1 : 0,
+            "ua": token_policy['headers'].ua ? 1 : 0,
+            "referer": token_policy['headers'].referer ? 1 : 0
+        }
+    };
     return {
         "statusCode": 200,
-        "body": playback_url
+        "body": 
+        JSON.stringify(body)
     };
 
 };

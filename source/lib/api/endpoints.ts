@@ -39,6 +39,7 @@ import { addCfnSuppressRules } from "../cfn_nag/cfn_nag_utils";
 export interface IConfigProps {
   generateTokenLambdaFunction: IFunction;
   saveSessionToDDBLambdaFunction: IFunction;
+  updateTokenLambdaFunction: IFunction;
   sig4LambdaVersionParamName: string;
   sig4LambdaRoleArn: string;
   demoWebsite: boolean;
@@ -146,6 +147,15 @@ export class Endpoints extends Construct {
       integration: new HttpLambdaIntegration(
         "RevokeSessionIntegration",
         props.saveSessionToDDBLambdaFunction
+      ),
+    });
+
+    httpApi.addRoutes({
+      path: "/updatetoken",
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new HttpLambdaIntegration(
+        "UpdateTokenIntegration",
+        props.updateTokenLambdaFunction
       ),
     });
 
@@ -272,6 +282,23 @@ export class Endpoints extends Construct {
           allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
         },
         "/sessionrevoke": {
+          origin: httpApiOrigin,
+          edgeLambdas: [
+            {
+              functionVersion: lambdaEdge,
+              eventType: cloudfront.LambdaEdgeEventType.ORIGIN_REQUEST,
+            },
+          ],
+          viewerProtocolPolicy:
+            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+          originRequestPolicy: myOriginRequestPolicy,
+          responseHeadersPolicy:
+            cloudfront.ResponseHeadersPolicy
+              .CORS_ALLOW_ALL_ORIGINS_WITH_PREFLIGHT,
+          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+        }, 
+        "/updatetoken": {
           origin: httpApiOrigin,
           edgeLambdas: [
             {

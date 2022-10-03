@@ -10,7 +10,10 @@ var crypto = require('crypto');
 //Response when JWT is not valid.
 var response401 = {
     statusCode: 401,
-    statusDescription: 'Unauthorized'
+    statusDescription: 'Unauthorized',
+    headers: {
+        'x-amz-error-type': { value: 'token' }
+    }
 };
 
 function logToConsole(message){
@@ -34,8 +37,8 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     // base64url decode and parse JSON
 
     try{    
-        var header = JSON.parse(_base64urlDecode(headerSeg));//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
-        var payload = JSON.parse(_base64urlDecode(payloadSeg));//'exports' non supported by CFF. Only used to run unit tests. Will be removed before deployment.
+        var header = JSON.parse(_base64urlDecode(headerSeg));
+        var payload = JSON.parse(_base64urlDecode(payloadSeg));
 
     } catch(e){
         console.log(e);

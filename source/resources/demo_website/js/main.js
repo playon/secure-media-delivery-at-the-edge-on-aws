@@ -47,6 +47,10 @@ function load() {
       $('#ip').each(function(){ this.checked = token_policy.ip == 1 ? true : false });
       $('#ua').each(function(){ this.checked = token_policy.ua == 1 ? true : false });
 
+      $('#ipvalue').html('IP: ' +token_policy.ip_value);
+      $('#uavalue').html('User Agent: ' + token_policy.ua_value);
+      $('#referevalue').html('Referer: ' + token_policy.referer_value);
+
       
 
       var l = getLocation(manifest_url);
@@ -124,6 +128,10 @@ function resetAllDivText() {
   $('#jwt_header').text('');
   $('#jwt_payload').html('');
   $("#video_div").addClass('d-none');
+
+  $('#ipvalue').html('');
+  $('#uavalue').html('');
+  $('#referevalue').html('');
 
 }
 

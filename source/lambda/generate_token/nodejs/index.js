@@ -117,8 +117,11 @@ exports.handler = async (event, context) => {
         "playback_url": playback_url,
         "token_policy" : {
             "ip": token_policy['headers'].ip ? 1 : 0,
+            "ip_value": viewer_ip,
             "ua": token_policy['headers'].ua ? 1 : 0,
-            "referer": token_policy['headers'].referer ? 1 : 0
+            "ua_value": headers['user-agent'],
+            "referer": token_policy['headers'].referer ? 1 : 0,
+            "referer_value": headers['referer']
         }
     };
     return {

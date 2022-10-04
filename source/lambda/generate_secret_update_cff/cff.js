@@ -10,10 +10,7 @@ var crypto = require('crypto');
 //Response when JWT is not valid.
 var response401 = {
     statusCode: 401,
-    statusDescription: 'Unauthorized',
-    headers: {
-        'x-amz-error-type': { value: 'token' }
-    }
+    statusDescription: 'Unauthorized'
 };
 
 function logToConsole(message){

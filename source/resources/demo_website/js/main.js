@@ -25,11 +25,13 @@ $('#dash').on('change', function () {
 });
 
 function load() {
+
   putStreamTypeLabel(CURRENT_STREAM)
   resetAllDivText();
   
   const idAsset = CURRENT_STREAM == HLS_STREAM ? 1 : 2;
   const urlToGet = `${location.protocol}\/\/${location.hostname}/tokengenerate?id=` + idAsset;
+
 
   $.ajax({
     type: 'GET',
@@ -47,9 +49,9 @@ function load() {
       $('#ip').each(function(){ this.checked = token_policy.ip == 1 ? true : false });
       $('#ua').each(function(){ this.checked = token_policy.ua == 1 ? true : false });
 
-      $('#ipvalue').html('IP: ' +token_policy.ip_value);
-      $('#uavalue').html('User Agent: ' + token_policy.ua_value);
-      $('#referevalue').html('Referer: ' + token_policy.referer_value);
+      $('#ipvalue').html(token_policy.ip_value);
+      $('#uavalue').html(token_policy.ua_value);
+      $('#referevalue').html(token_policy.referer_value);
 
       
 

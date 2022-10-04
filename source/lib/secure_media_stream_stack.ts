@@ -19,6 +19,7 @@ import {
   Duration,
   CfnOutput,
   aws_iam as iam,
+  aws_logs as logs,
   aws_cloudfront as cloudfront,
   aws_dynamodb as ddb,
 } from "aws-cdk-lib";

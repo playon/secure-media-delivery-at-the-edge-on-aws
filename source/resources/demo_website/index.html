@@ -178,23 +178,28 @@
               <div class="custom-control custom-switch">
                 <input type="checkbox" class="custom-control-input btn-danger" id="referer" onclick="toggle()"
                   unchecked="">
-                <label class="custom-control-label" for="referer">Enable/Disable Referrer in Token</label>
+                <label class="custom-control-label" for="referer">Enable/Disable Referer in Token</label>
               </div>
 
               <hr>
 
-              <p>
-                <a class="btn btn-link" data-toggle="collapse" href="#collapseExample" role="button" aria-expanded="false" aria-controls="collapseExample">
-                  Viewer attributes values
-                </a>
-                
-              </p>
-              <div class="collapse" id="collapseExample">
-                  <div id="ipvalue"></div>
-                  <div id="uavalue"></div>
-                  <div id="referevalue"></div>                  
+              <h5 class="card-title">Viewer attributes</h5>
+              <div >
+                  
+                  <dl class="row">
+                    <dd class="col-sm-3">IP address</dd>
+                    <dd class="col-sm-9" id="ipvalue"><div></dd>
+                  
+                    <dd class="col-sm-3">User Agent</dd>
+                    <dd class="col-sm-9" id="uavalue"> </dd>
+                    
+                    <dd class="col-sm-3">Referer</dd>
+                    <dd class="col-sm-9" id="referevalue"> </dd>
+                  </dl>
+
               </div>
 
+              
               <hr>
 
               <div class="col-md-12 text-center">
@@ -212,9 +217,9 @@
             </div>
             <div class="card-body">
               <p class="card-text"></p>
-              <h5 class="card-title">HEADER</h5>
+              <h5 class="card-title">Header</h5>
               <pre><code id="jwt_header"></code></pre>
-              <h5 class="card-title">PAYLOAD</h5>
+              <h5 class="card-title">Payload</h5>
               <pre><code id="jwt_payload"></code></pre>
             </div>
           </div>
@@ -228,7 +233,21 @@
 
   </div>
 
+  <hr>
 
+  <section class="header-section">
+    <div class=" mt-4 container">
+     
+      Resources
+      <ul>
+        <li><a href="https://aws.amazon.com/solutions/implementations/secure-media-delivery-at-the-edge/" target="_blank">Solution landing page</a></li>
+        <li><a href="https://docs.aws.amazon.com/solutions/latest/secure-media-delivery-at-the-edge/welcome.html"  target="_blank">Implementation Guide</a></li>
+        <li><a href="https://github.com/aws-solutions/secure-media-delivery-at-the-edge"  target="_blank">Source Code on AWS Solutions</a></li>
+        <li><a href="https://docs.aws.amazon.com/solutions/latest/secure-media-delivery-at-the-edge/access-tokens-management-guide.html"  target="_blank">Customize Token Parameters</a></li>
+      </ul> 
+      
+    </div>
+  </section>
 
   <script type="text/javascript">
     

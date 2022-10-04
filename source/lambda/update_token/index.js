@@ -1,5 +1,5 @@
 const aws = require('aws-sdk');
-var dynamodb = process.env.METRICS == "true" ?  new aws.DynamoDB.DocumentClient({customUserAgent: process.env.SOLUTION_IDENTIFIER}) :  new aws.DynamoDB.DocumentClient();
+const dynamodb = process.env.METRICS == "true" ?  new aws.DynamoDB.DocumentClient({customUserAgent: process.env.SOLUTION_IDENTIFIER}) :  new aws.DynamoDB.DocumentClient();
  
 
 exports.handler = async (event, context) => {

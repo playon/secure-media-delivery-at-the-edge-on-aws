@@ -54,12 +54,12 @@ exports.handler = async (event, context) => {
         viewer_ip = event.requestContext.http.sourceIp;
     }
 
-    var params = {
+    const params = {
         TableName: tableName,
         Key:{"id": id}
     };
 
-    var video_metadata = await docClient.get(params).promise();
+    const video_metadata = await docClient.get(params).promise();
     console.log("From DynamoDB:"+JSON.stringify(video_metadata));
     if(!video_metadata.Item){
         return {
@@ -68,9 +68,9 @@ exports.handler = async (event, context) => {
         };
     }
 
-    var endpoint_hostname = video_metadata.Item['endpoint_hostname'];
-    var video_url = video_metadata.Item['url_path'];
-    var token_policy = video_metadata.Item.token_policy;
+    const endpoint_hostname = video_metadata.Item['endpoint_hostname'];
+    const video_url = video_metadata.Item['url_path'];
+    const token_policy = video_metadata.Item.token_policy;
 
     if(token_policy['ip']) viewer_attributes['ip'] = viewer_ip;
 

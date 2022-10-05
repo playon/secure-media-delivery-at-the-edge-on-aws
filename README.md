@@ -1,4 +1,4 @@
-# Secure media stream delivery
+# Secure Media Delivery at the Edge on AWS
 
 AWS Solutions Implementation for Secure Media Stream Delivery at
 the Edge, served by Amazon CloudFront CDN.

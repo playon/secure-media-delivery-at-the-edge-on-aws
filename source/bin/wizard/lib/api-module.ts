@@ -67,9 +67,8 @@ function hostQuestions(type: string) {
       name: "url_path",
       message: "[API][" + type + "] --> URL path for existing playable asset",
       validate: (value: string) =>
-        Joi.string().required().validate(value).error
-          ? "URL path for existing playable asset is mandatory"
-          : true,
+        !value.startsWith('/') ? "URL path is mandatory and must start with /" : true,
+
     },
     {
       type: "select",

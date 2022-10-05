@@ -1,14 +1,56 @@
-# Secure media stream delivery
+# Secure Media Delivery at the Edge
 
-AWS Solutions Implementation for Secure Media Stream Delivery at
-the Edge, served by Amazon CloudFront CDN.
+The Secure Media Delivery at the Edge solution protects your premium video content delivered through Amazon CloudFront from unauthorized access. The solution offers an additional layer of security based on individual access tokens added to the delivery URL. Existing or new CloudFront configurations used for Live Streaming and VOD workloads can benefit from this solution, whereby streaming operations engineers can control access to video assets by issuing individual tokens for each authorized viewer, verified at the Edge by CloudFront Functions.
 
-Customers can deploy the solution to protect their video stream
-from unauthorize access by adding a cookieless tokenization embedded in the URL path.
+## On this Page
+- [Secure Media Delivery at the Edge](#secure-media-delivery-at-the-edge)
+  - [On this Page](#on-this-page)
+  - [Architecture Overview](#architecture-overview)
+  - [Deployment](#deployment)
+  - [WorkFlow Overview](#workflow-overview)
+    - [Base module:](#base-module)
+    - [API Module:](#api-module)
+    - [Auto session revocation module](#auto-session-revocation-module)
+  - [Solution components](#solution-components)
+    - [Base Module](#base-module-1)
+    - [Key Rotation workflow](#key-rotation-workflow)
+    - [API Module](#api-module-1)
+    - [Auto session revocation module](#auto-session-revocation-module-1)
+  - [Creating a custom build](#creating-a-custom-build)
+    - [Prerequisites:](#prerequisites)
+    - [Options 1: Deploying through the CDK.](#options-1-deploying-through-the-cdk)
+      - [1. Clone the repo.](#1-clone-the-repo)
+      - [2. Install the dependencies of the project to make it ready to use. To do so, simply run the below command.](#2-install-the-dependencies-of-the-project-to-make-it-ready-to-use-to-do-so-simply-run-the-below-command)
+      - [3. Run the built-in wizard which will prompt you with questions about the modules to deploy](#3-run-the-built-in-wizard-which-will-prompt-you-with-questions-about-the-modules-to-deploy)
+      - [4. Ensure that the AWS CDK has been bootsrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.](#4-ensure-that-the-aws-cdk-has-been-bootsrapped-on-the-target-account-this-is-typically-the-case-if-you-have-never-used-aws-cdk-before-on-the-account)
+      - [5. Deploy the solution using the following command.](#5-deploy-the-solution-using-the-following-command)
+    - [Option 2: Generate a CloudFormation template.](#option-2-generate-a-cloudformation-template)
+      - [1. Clone the repo](#1-clone-the-repo-1)
+      - [2. Running unit tests for customization](#2-running-unit-tests-for-customization)
+      - [3. Create an Amazon S3 Bucket](#3-create-an-amazon-s3-bucket)
+      - [4. Create the deployment packages](#4-create-the-deployment-packages)
+      - [5. Launch the CloudFormation template.](#5-launch-the-cloudformation-template)
+  - [License](#license)
+  - [Information](#information)
+  - [Requirements](#requirements)
 
-Current version: **1.0.0**
+## Architecture Overview
 
-## Description
+<div align="center">
+  <img src="architecture.png" />
+  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
+</div>
+
+Deploying Secure Media Delivery solution in your environment will produce following infrastructure. 
+
+
+## Deployment
+
+The solution is deployed using a CloudFormation template. For details on deploying the solution please see the details on the solution home page: [Secure Media Delivery at the Edge](https://aws.amazon.com/solutions/implementations/secure-media-delivery-at-the-edge/)
+
+## WorkFlow Overview 
+
+Customers can deploy the solution to protect their video stream from unauthorized access by adding a cookie-less tokenization embedded in the URL path.
 
 The solution can be deployed though CDK or by using a pre generated CloudFormation template.
 With CDK, you can selectively choose which modules and elements should be deployed for each new stack you create:
@@ -17,19 +59,8 @@ With CDK, you can selectively choose which modules and elements should be deploy
   - Demo website (optional)
   - Auto session revocation (optional)
 
-*** TODO - put the right URL
-Learn more about this solution at [Implementation Guide](https://aws.amazon.com/solutions/implementations/live-streaming-on-aws/)
-
-## Architecture
-
-By deploying Secure Media Delivery solution in the existing environment with Amazon CloudFront and Media Origin service (depicted as a grey area in the diagram), a number of resources will be created. These resources play different roles and can be grouped into 3 functional modules as highlighted in the following reference architecture.
-
-<div align="center">
-  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0.jpg" />
-  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
-</div>
-In reference to Figure 1, deploying Secure Media Delivery solution in your environment will produce following infrastructure:
-
+HTML guide [here](https://docs.aws.amazon.com/solutions/latest/secure-media-delivery-at-the-edge/welcome.html)
+PDF guide [here](https://docs.aws.amazon.com/solutions/latest/secure-media-delivery-at-the-edge/secure-media-delivery-at-the-edge.pdf)
 
 ### Base module:
 1.	An Amazon CloudFront Function that validates secure tokens, permitting or denying access to video content
@@ -96,18 +127,9 @@ Auto session revocation module design leverages AWS Step Functions to coordinate
 
 Note that before using auto revocation module, collection of access logs to S3 must be configured for each CloudFront distribution, the traffic of which should be analyzed through this process. It is also required to set up a database and a table in Athena referencing access logs in the S3 bucket.
 
-## Tutorial
-
-Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
-
-## Deployment
-
-*** TODO - put the right URL
-
-The solution can be deployed through the CloudFormation template available on the solution [home page](https://aws.amazon.com/solutions/implementations/live-streaming-on-aws/).
-
 ## Creating a custom build
 
+Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
 ### Prerequisites:
 * [AWS Command Line Interface](https://aws.amazon.com/cli/)
 * Node.js 12.x or later
@@ -204,6 +226,7 @@ aws s3 sync ./global-s3-assets/ s3://my-bucket-us-east-1/secure-media-delivery-a
 #### 5. Launch the CloudFormation template.
 * Get the link of the VIDEOSTREAM.template uploaded to your Amazon S3 bucket.
 * Deploy the solution.
+
 
 ## License
 

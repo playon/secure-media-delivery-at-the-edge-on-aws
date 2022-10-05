@@ -22,7 +22,7 @@ test('Create endpoints - demoWebsite=true', () => {
     updateTokenLambdaFunction: myLmbda,
     sig4LambdaVersionParamName: "sig4LambdaVersionParamName",
     sig4LambdaRoleArn: "sig4LambdaRoleArn",
-    demoWebsite: true
+    demo: true
   });
   // THEN
 
@@ -54,7 +54,7 @@ test('Create endpoints - demoWebsite=false', () => {
     updateTokenLambdaFunction: myLmbda,
     sig4LambdaVersionParamName: "sig4LambdaVersionParamName",
     sig4LambdaRoleArn: "sig4LambdaRoleArn",
-    demoWebsite: false
+    demo: false
   });
   // THEN
 

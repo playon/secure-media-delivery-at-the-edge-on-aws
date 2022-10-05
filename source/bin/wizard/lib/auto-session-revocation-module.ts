@@ -63,7 +63,7 @@ const sessionRevocationQuestions = [
   {
     type: "text",
     name: "referer_column_name",
-    initial: "referrer",
+    initial: "referer",
     message: "[AUTO SESSION REVOCATION] --> Referer column name",
     validate: (value: string) =>
       Joi.string().required().validate(value).error

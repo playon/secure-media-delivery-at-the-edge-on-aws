@@ -42,7 +42,7 @@ export interface IConfigProps {
   updateTokenLambdaFunction: IFunction;
   sig4LambdaVersionParamName: string;
   sig4LambdaRoleArn: string;
-  demoWebsite: boolean;
+  demo: boolean;
 }
 
 export class Endpoints extends Construct {
@@ -97,8 +97,7 @@ export class Endpoints extends Construct {
       { id: "W41", reason: "Encryption done" },
     ]);
 
-    const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";
-
+    const folder = props.demo ? "demo_website" : "empty_demo_website";
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       sources: [s3deploy.Source.asset("resources/" + folder)],
       destinationBucket: hostingBucket,
@@ -244,7 +243,7 @@ export class Endpoints extends Construct {
     const s3origin = new origins.S3Origin(hostingBucket);
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
-      comment: Aws.STACK_NAME + " - Demo website Secure Media Delivery",
+      comment: Aws.STACK_NAME + " - Demo website Secure Media Delivery at the Edge on AWS",
       defaultRootObject: "index.html",
       enableLogging: true,
       logBucket: s3Logs,

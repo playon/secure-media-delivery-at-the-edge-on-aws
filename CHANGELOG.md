@@ -15,5 +15,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.0] - 2022-10-15
 ### Added
 - Upgrade wizard enforce http or https protocol
-- Upgrade demo website with QRcode and parameters selector
-- Add header in CFF is token invalid
+- Upgrade demo website with QRcode, token parameters selector and links to solutions page

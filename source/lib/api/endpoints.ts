@@ -98,7 +98,8 @@ export class Endpoints extends Construct {
     ]);
 
     const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";
-
+    console.log("folder="+folder);
+    console.log("props.demoWebsite="+props.demoWebsite)
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       sources: [s3deploy.Source.asset("resources/" + folder)],
       destinationBucket: hostingBucket,

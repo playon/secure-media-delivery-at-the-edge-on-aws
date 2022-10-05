@@ -42,7 +42,7 @@ export interface IConfigProps {
   updateTokenLambdaFunction: IFunction;
   sig4LambdaVersionParamName: string;
   sig4LambdaRoleArn: string;
-  demoWebsite: boolean;
+  demo: boolean;
 }
 
 export class Endpoints extends Construct {
@@ -97,9 +97,7 @@ export class Endpoints extends Construct {
       { id: "W41", reason: "Encryption done" },
     ]);
 
-    const folder = props.demoWebsite ? "demo_website" : "empty_demo_website";
-    console.log("folder="+folder);
-    console.log("props.demoWebsite="+props.demoWebsite)
+    const folder = props.demo ? "demo_website" : "empty_demo_website";
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       sources: [s3deploy.Source.asset("resources/" + folder)],
       destinationBucket: hostingBucket,

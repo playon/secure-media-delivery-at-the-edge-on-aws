@@ -175,7 +175,7 @@ export class Api extends Construct {
       updateTokenLambdaFunction: updateToken,
       sig4LambdaVersionParamName: props.sig4LambdaVersionParamName,
       sig4LambdaRoleArn: props.sig4LambdaRoleArn,
-      demoWebsite: props.configuration.api?.demo as boolean
+      demo: props.configuration.api?.demo as boolean
     });
 
     //build a CloudWatch Dashboard to display some metrics from generateToken Lambda

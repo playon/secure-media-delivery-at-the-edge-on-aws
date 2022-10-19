@@ -91,7 +91,7 @@ const rotation_datetime_question = [
     type: "text",
     name: "value",
     message:
-      "[Base module] --> At what time of the day should take place \n (use the format HH:mm)",
+      "[Base module] --> At what time of the day should take place (use the format HH:mm, events use UTC+0 time zone) ",
     validate: (value: string) =>
       Joi.string()
         .regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/)

@@ -17,6 +17,7 @@ dist
 .venv
 deployment/global-s3-assets
 deployment/regional-s3-assets
+deployment/staging
 open-source/
 
 # Temporary folders

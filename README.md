@@ -132,8 +132,8 @@ Note that before using auto revocation module, collection of access logs to S3 m
 Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
 ### Prerequisites:
 * [AWS Command Line Interface](https://aws.amazon.com/cli/)
-* Node.js 12.x or later
-* AWS CDK 2.24.1
+* Node.js 16.x or later
+* AWS CDK 2.79.1
 
 The are 2 options for deploying the solution: using the CDK deployment tools or running the build script to generate a CFN template and the packaged lambda code.
 
@@ -243,12 +243,12 @@ The below information displays approximate values associated with deploying and 
 Metric | Value
 ------ | ------
 **Deployment Time** | 5-10 minutes (depending on the selected options)
-**CDK Version** | 2.24.1
+**CDK Version** | 2.79.1
 
 ## Requirements
 
 - An AWS Account ([How to create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/?nc1=h_ls) | [How to create an AWS Organization account](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html))
-- [Node JS 12+](https://nodejs.org/en/) must be installed on the deployment machine. ([Instructions](https://nodejs.org/en/download/))
-- The [AWS CDK 2.24.1](https://aws.amazon.com/en/cdk/) must be installed on the deployment machine. ([Instructions](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html))
+- [Node JS 16+](https://nodejs.org/en/) must be installed on the deployment machine. ([Instructions](https://nodejs.org/en/download/))
+- The [AWS CDK 2.79.1](https://aws.amazon.com/en/cdk/) must be installed on the deployment machine. ([Instructions](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html))
 
 

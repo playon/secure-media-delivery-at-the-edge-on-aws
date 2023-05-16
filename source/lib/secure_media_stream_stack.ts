@@ -34,6 +34,7 @@ import { RotateSecretsWorkflow } from "./main/rotate_secrets_workflow";
 import { Secrets } from "./main/secrets";
 import { SessionRevocation } from "./main/session_revocation";
 import { addCfnSuppressRules } from "./cfn_nag/cfn_nag_utils";
+import { applyAppRegistry } from './application_registry/application_registry';
 
 export interface SecureMediaStreamStackProps extends StackProps {
   readonly description: string
@@ -201,6 +202,9 @@ export class SecureMediaStreamingStack extends Stack {
         sig4LambdaRoleArn: crCreateLEWafRule.roleToPass.roleArn        
       });
     }
+
+    // Service Catalog Application Registry
+    applyAppRegistry(this, appConfig);
 
     new CfnOutput(this, "RoleArn", {
       description: "The ARN of the role to be assumed by SDK",

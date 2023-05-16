@@ -32,17 +32,4 @@ phases:
 
 artifacts:
   files:
-      - deployment/**/*
-      - source/**/*
-      - .gitignore
-      - .github/*
-      - .github/**/*
-      - sonar-project.properties
-      - buildspec.yml
-      - CHANGELOG.md
-      - .cfnnag_*
-      - NOTICE
-      - LICENSE
-      - CONTRIBUTING.md
-      - CODE_OF_CONDUCT.md
-      - README.md
+      - "**/*"

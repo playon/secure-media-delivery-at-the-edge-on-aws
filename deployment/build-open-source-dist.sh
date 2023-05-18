@@ -62,11 +62,11 @@ echo "--------------------------------------------------------------------------
 echo "[Packing] Files from the root level of the project"
 echo "------------------------------------------------------------------------------"
 
-echo "cp $source_template_dir/../LICENSE.txt $dist_dir"
-cp $source_template_dir/../LICENSE.txt $dist_dir
+echo "cp $source_template_dir/../LICENSE $dist_dir"
+cp $source_template_dir/../LICENSE $dist_dir
 
-echo "cp $source_template_dir/../NOTICE.txt $dist_dir"
-cp $source_template_dir/../NOTICE.txt $dist_dir
+echo "cp $source_template_dir/../NOTICE $dist_dir"
+cp $source_template_dir/../NOTICE $dist_dir
 
 echo "cp $source_template_dir/../README.md $dist_dir"
 cp $source_template_dir/../README.md $dist_dir
@@ -82,6 +82,12 @@ cp $source_template_dir/../CHANGELOG.md $dist_dir
 
 echo "cp $source_template_dir/../.gitignore $dist_dir"
 cp $source_template_dir/../.gitignore $dist_dir
+
+echo "cp $source_template_dir/../deployment/run-unit-tests.sh $dist_dir/deployment/"
+cp $source_template_dir/../deployment/run-unit-tests.sh $dist_dir/deployment/
+
+echo "cp $source_template_dir/../deployment/build-s3-dist.sh $dist_dir/deployment/"
+cp $source_template_dir/../deployment/build-s3-dist.sh $dist_dir/deployment/
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Clean up the open-source distributable"

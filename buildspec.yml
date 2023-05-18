@@ -36,6 +36,7 @@ artifacts:
       - source/**/*
       - .gitignore
       - .github/*
+      - .github/**/*
       - sonar-project.properties
       - buildspec.yml
       - CHANGELOG.md
@@ -43,3 +44,4 @@ artifacts:
       - NOTICE
       - LICENSE
       - CONTRIBUTING.md
+      - CODE_OF_CONDUCT.md

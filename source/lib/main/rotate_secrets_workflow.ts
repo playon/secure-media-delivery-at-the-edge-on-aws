@@ -97,7 +97,7 @@ export class RotateSecretsWorkflow extends Construct {
     addCfnSuppressRules(myLogs, [{ id: 'W84', reason: 'CloudWatch log group is always encrypted by default.' }]);
 
 
-    new CrInitSecrets(this, "Init", {
+    new CrInitSecrets(this, "Init", { // NOSONAR
       functionArn: generateSecretUpdateCff.functionArn,
       functionName: generateSecretUpdateCff.functionName,
     });
@@ -231,7 +231,7 @@ export class RotateSecretsWorkflow extends Construct {
 
     this.workflowArn = workflow.stateMachineArn;
 
-    new CfnOutput(this, "SFRotateSecrets", {
+    new CfnOutput(this, "SFRotateSecrets", { // NOSONAR
       value: workflow.stateMachineName,
       description: "The name of the Step Function to rotate secrets",
     });

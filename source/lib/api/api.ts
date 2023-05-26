@@ -66,7 +66,7 @@ export class Api extends Construct {
 
     if(props.configuration.hls || props.configuration.dash){
       //load the DDB table with 2 items (one for HLS and one for DASH)
-      new CrLoadAssetsTable(this, "AssetsTable", {
+      new CrLoadAssetsTable(this, "AssetsTable", { // NOSONAR
         table: demoAssetsTable,
         configuration: props.configuration,
       });
@@ -169,7 +169,7 @@ export class Api extends Construct {
     props.secrets.primarySecret.grantRead(generateToken);
     props.secrets.secondarySecret.grantRead(generateToken);
     //endpoint creation using a CloudFront Distribution in front of an HTTP API
-    new Endpoints(this, "Endpoints", {
+    new Endpoints(this, "Endpoints", { // NOSONAR
       generateTokenLambdaFunction: generateToken,
       saveSessionToDDBLambdaFunction: saveManualSession,
       updateTokenLambdaFunction: updateToken,
@@ -184,7 +184,7 @@ export class Api extends Construct {
       region: Aws.REGION,
     });
 
-    new CfnOutput(this, "VideoAssetTable", {
+    new CfnOutput(this, "VideoAssetTable", { // NOSONAR
       description: "Video asset table name",
       value: demoAssetsTable.tableName
     });

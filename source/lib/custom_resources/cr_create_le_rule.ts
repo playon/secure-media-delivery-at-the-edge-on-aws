@@ -140,7 +140,7 @@ export class CRCreateLEWafRule extends Construct {
       description: "Layer used to zip lambda edge file",
     });
 
-    new triggers.TriggerFunction(this, "UsEast1Trigger", {
+    new triggers.TriggerFunction(this, "UsEast1Trigger", { // NOSONAR
       functionName: Aws.STACK_NAME + "_CustomResourceUsEast1",
       runtime: lambda.Runtime.NODEJS_16_X,
       handler: "index.handler",

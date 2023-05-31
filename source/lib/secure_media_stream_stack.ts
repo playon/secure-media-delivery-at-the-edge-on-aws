@@ -193,7 +193,7 @@ export class SecureMediaStreamingStack extends Stack {
 
     if (parameters.customInputParameters.api) {
       //if the API module was selected in the wizard, deploy the required resources
-      new Api(this, "Api", {
+      new Api(this, "Api", { // NOSONAR
         configuration: parameters.customInputParameters,
         secrets: secrets,
         dashboard: dashboard,
@@ -206,17 +206,17 @@ export class SecureMediaStreamingStack extends Stack {
     // Service Catalog Application Registry
     applyAppRegistry(this, appConfig);
 
-    new CfnOutput(this, "RoleArn", {
+    new CfnOutput(this, "RoleArn", { // NOSONAR
       description: "The ARN of the role to be assumed by SDK",
       value: role4sdk.roleArn,
     });
 
-    new CfnOutput(this, "CheckTokenFunction", {
+    new CfnOutput(this, "CheckTokenFunction", { // NOSONAR
       description: "CloudFront Function Token validator",
       value: checkToken.functionName
     });
 
-    new CfnOutput(this, "SessionRevocationTable", {
+    new CfnOutput(this, "SessionRevocationTable", { // NOSONAR
       description: "Table that holds the sessions to be revoked",
       value: sessionToRevoke.tableName
     });

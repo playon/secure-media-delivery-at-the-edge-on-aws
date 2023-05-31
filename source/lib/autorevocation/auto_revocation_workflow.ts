@@ -216,7 +216,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
       rule.addTarget(new targets.SfnStateMachine(workflow));
     }
 
-    new CfnOutput(this, "SessionInvalidateName", {
+    new CfnOutput(this, "SessionInvalidateName", { // NOSONAR
       value: workflow.stateMachineName,
       description: "State machine used to detect sessions to invalidate",
     });

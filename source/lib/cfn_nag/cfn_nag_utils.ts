@@ -10,7 +10,7 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    *
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
-import { CfnCondition, CfnResource, Resource } from "aws-cdk-lib";
+import { CfnResource, Resource } from "aws-cdk-lib";
 
 
 interface CfnNagSuppressRule {

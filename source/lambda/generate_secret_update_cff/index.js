@@ -44,7 +44,7 @@
      let newContent = "";
      const allFileContents = fs.readFileSync('cff.js', 'utf-8');
      allFileContents.split(/\r?\n/).forEach(line => {
-         let newLine = "";
+         let newLine;
  
          line = line.trim()
  

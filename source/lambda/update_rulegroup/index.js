@@ -110,7 +110,7 @@ exports.handler = async (event, context) => {
 
     const result = await querySessions();
     let globalIndex = 1
-    let localIndex = 1
+    let localIndex
     let rules = []
     const maxSessions = parseInt(process.env.MAX_SESSIONS)/2;
     if (result['Items']) {
@@ -131,6 +131,7 @@ exports.handler = async (event, context) => {
             return b['score']['N'] - a['score']['N'];
         });
 
+        localIndex = 1
         for (const item of manualSessions) {
 
             if (globalIndex <= maxSessions) {
@@ -144,10 +145,9 @@ exports.handler = async (event, context) => {
                 break
             }
             console.log(`${(localIndex - 1)} MANUAL Sessions IDs to add to Rule Group`)
-
-            localIndex = 1
         }
 
+        localIndex = 1
         for (const item of sortedAutoSessions) {
             if (globalIndex <= maxSessions) {
                 const myRuleName = String(getRandomAlphanumericString())

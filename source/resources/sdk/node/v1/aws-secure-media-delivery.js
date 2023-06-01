@@ -35,8 +35,7 @@ function validateIPv6(address){
     }
     //checking if number of groups does not equal expected value
     if(parts_groups_sum > 8) return false;
-    if(address_parts.length == 1 && parts_groups_sum != 8) return false;
-    return true;
+    return !(address_parts.length == 1 && parts_groups_sum != 8);
 }
 
 function expandIPv6(address){
@@ -206,8 +205,7 @@ class Secret{
             let low_level_keys = Object.keys(obj['primary']);
             if (low_level_keys.length != 2) return false
             if(!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
-            if(typeof(obj['primary'].uuid) != 'string' || typeof(obj['primary'].value) != 'string')  return false;
-            return true;
+            return !(typeof(obj['primary'].uuid) != 'string' || typeof(obj['primary'].value) != 'string');
         } else if(top_level_keys.length == 2){
             if(!(top_level_keys.includes('primary') && top_level_keys.includes('secondary'))) return false;
             for (let key of Object.entries(obj)){

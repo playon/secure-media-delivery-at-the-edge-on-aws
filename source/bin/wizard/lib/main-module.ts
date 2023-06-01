@@ -118,8 +118,8 @@ export class MainModule implements PromptComponent {
     if (configuration.main.rotate_secrets_frequency !== "m") {
       //Minutes	Hours	Day_of_month	Month	Day_of_week	Year
       //MIN HOUR * * DAY *
-      var day_of_the_week = "*";
-      var day_of_the_month = "?";
+      let day_of_the_week = "*";
+      const day_of_the_month = "?";
 
       if (configuration.main.rotate_secrets_frequency === "1w") {
         const day = await prompts.prompt(rotation_day_of_the_week_question, {

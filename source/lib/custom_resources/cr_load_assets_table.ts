@@ -46,13 +46,13 @@ export class CrLoadAssetsTable extends Construct {
   }
 
   private loadItems = (configuration: IConfiguration) => {
-    var fileContent = fs.readFileSync("resources/mock/assets.json").toString();
-    var itemsToInsert = new Array();
+    let fileContent = fs.readFileSync("resources/mock/assets.json").toString();
+    let itemsToInsert = new Array();
     if (configuration.hls) {
       const urlPath = configuration.hls?.url_path;
       const path = urlPath.substring(0, urlPath.lastIndexOf("/")) + "/";
 
-      var hlsFileContent = fileContent.replace(
+      let hlsFileContent = fileContent.replace(
         "CUSTOM_HOST_NAME",
         configuration.hls?.hostname
       );
@@ -72,7 +72,7 @@ export class CrLoadAssetsTable extends Construct {
     if (configuration.dash) {
       const urlPath = configuration.dash?.url_path;
       const path = urlPath.substring(0, urlPath.lastIndexOf("/")) + "/";
-      var dashFileContent = fileContent.replace(
+      let dashFileContent = fileContent.replace(
         "CUSTOM_HOST_NAME",
         configuration.dash?.hostname
       );

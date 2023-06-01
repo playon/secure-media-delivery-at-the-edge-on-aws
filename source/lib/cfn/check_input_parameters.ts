@@ -24,7 +24,7 @@ export class GetInputParameters extends Construct {
   constructor(scope: Construct, id: string, configuration: IConfiguration) {
     super(scope, id);
 
-    var returnObject: IConfiguration;
+    let returnObject: IConfiguration;
 
     if (configuration.main.rotate_secrets_pattern === "P") {
 

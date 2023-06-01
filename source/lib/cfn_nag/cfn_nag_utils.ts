@@ -37,17 +37,3 @@ export function addCfnSuppressRules(resource: Resource | CfnResource | undefined
   }
 }
 
-/**
- * Adds CDK condition to the CDK resource.
- * @param resource The CDK resource.
- * @param condition The CDK condition.
- */
-export function addCfnCondition(resource: Resource | CfnResource | undefined, condition: CfnCondition) {
-  if (typeof resource === 'undefined') return;
-
-  if (resource instanceof Resource) {
-    resource = resource.node.defaultChild as CfnResource;
-  }
-
-  (resource as CfnResource).cfnOptions.condition = condition;
-}

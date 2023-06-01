@@ -280,9 +280,9 @@ export class GetInputParameters extends Construct {
         };
       } else {
         returnObject.dash = {
-          hostname: configuration.dash?.hostname!,
-          url_path: configuration.dash?.url_path!,
-          ttl: configuration.dash?.ttl!,
+          hostname: configuration.dash?.hostname,
+          url_path: configuration.dash?.url_path,
+          ttl: configuration.dash?.ttl,
         };
       }
     } else {
@@ -348,9 +348,9 @@ export class GetInputParameters extends Construct {
         };
       } else {
         returnObject.hls = {
-          hostname: configuration.hls?.hostname!,
-          url_path: configuration.hls?.url_path!,
-          ttl: configuration.hls?.ttl!,
+          hostname: configuration.hls?.hostname,
+          url_path: configuration.hls?.url_path,
+          ttl: configuration.hls?.ttl,
         };
       }
     } else {

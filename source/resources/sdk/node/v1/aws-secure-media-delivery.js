@@ -241,7 +241,7 @@ class Session{
     static _ddbClient = null;
     static revocationTable = '';
 
-    static setDEBUG(val=true){
+    static setDEBUG(val=true){ // NOSONAR - javascript:S4144 - functions are in separate classes. Issue is not significant enough to refactor.
         if(typeof(val)=='boolean'){
             this._debug = val;
         }
@@ -340,7 +340,7 @@ class Token{
         this.defaultTokenPolicy = defaultTokenPolicy;
     }
   
-    static setDEBUG(val=true){
+    static setDEBUG(val=true){ // NOSONAR - javascript:S4144 - functions are in separate classes. Issue is not significant enough to refactor.
         if(typeof(val)=='boolean'){
             this._debug = val;
         }

@@ -55,7 +55,7 @@ export const getAutoSessionStackProps = (): AutoSessionRevocationStackProps => {
   );
 
   if (config.sessionRevocation) {
-    new AutoSessionRevocationStack(
+    new AutoSessionRevocationStack( // NOSONAR - typescript:S1848 - false positive for cdk code
       app,
       config.main.stack_name + "AutoSessionRevocation",
       config,

@@ -34,11 +34,11 @@ let token = new awsSMD.Token(secret);
 exports.handler = async (event, context) => {
     
     console.log(JSON.stringify(event))
-    var id;
-    var viewer_attributes = {};
-    var headers = event.headers;
-    var request_querystrings = event.queryStringParameters;
-    var viewer_ip;
+    let id;
+    let viewer_attributes = {};
+    const headers = event.headers;
+    let request_querystrings = event.queryStringParameters;
+    let viewer_ip;
 
     if(event['queryStringParameters'] && event.queryStringParameters['id']){
         id = event.queryStringParameters['id'];
@@ -106,7 +106,7 @@ exports.handler = async (event, context) => {
         viewer_attributes['qs'] = request_querystrings;
     }
 
-	var original_url;
+	let original_url;
 	if(endpoint_hostname && video_url){
 		original_url = endpoint_hostname + video_url;
 	} else {

@@ -109,9 +109,9 @@ exports.handler = async (event, context) => {
     console.log("event=" + JSON.stringify(event));
 
     const result = await querySessions();
-    var globalIndex = 1
-    var localIndex = 1
-    var rules = []
+    let globalIndex = 1
+    let localIndex = 1
+    let rules = []
     const maxSessions = parseInt(process.env.MAX_SESSIONS)/2;
     if (result['Items']) {
         const items = result['Items'];
@@ -134,7 +134,7 @@ exports.handler = async (event, context) => {
         for (const item of manualSessions) {
 
             if (globalIndex <= maxSessions) {
-                var myRuleName = String(getRandomAlphanumericString())
+                const myRuleName = String(getRandomAlphanumericString())
                 const currentRule1 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule1)
                 globalIndex += 1
@@ -150,7 +150,7 @@ exports.handler = async (event, context) => {
 
         for (const item of sortedAutoSessions) {
             if (globalIndex <= maxSessions) {
-                myRuleName = String(getRandomAlphanumericString())
+                const myRuleName = String(getRandomAlphanumericString())
                 const currentRule2 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
                 rules.push(currentRule2)
                 globalIndex += 1

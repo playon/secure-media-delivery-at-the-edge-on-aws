@@ -25,11 +25,11 @@
      const secondaryKeyName = process.env.SECONDARY_KEY_NAME;
  
      //get temporary secret
-     var params = {
+     let params = {
          SecretId: temporaryKeyName
      };
  
-     var responseSecret = await secretsmanager.getSecretValue(params).promise();
+     let responseSecret = await secretsmanager.getSecretValue(params).promise();
      console.log(responseSecret);
  
      const temporarySecretAsJson = JSON.parse(responseSecret.SecretString);
@@ -47,7 +47,7 @@
      const primarySecretKeyName = Object.keys(primarySecretAsJson)[0];
      const primarySecretKeyValue = Object.values(primarySecretAsJson)[0];
  
-     var objectSecondary = {};
+     let objectSecondary = {};
      objectSecondary[primarySecretKeyName] = primarySecretKeyValue;
 
      //set primary value to secondary secret
@@ -57,7 +57,7 @@
      };
      await secretsmanager.putSecretValue(params).promise();
  
-     var objectPrimary = {};
+     let objectPrimary = {};
      objectPrimary[temporarySecretKeyName] = temporarySecretKeyValue;
 
      //set temporary value to primary secret
@@ -68,7 +68,7 @@
  
      await secretsmanager.putSecretValue(params).promise();
  
-     var objectTemporary = {};
+     let objectTemporary = {};
      objectTemporary["INITIALIZED_KEY"] = "INITIALIZED_VALUE";
 
      //delete the temporary keys

@@ -1,14 +1,14 @@
 //DO NOT CHANGE THIS LINE
-var secrets = { "secret1_key_to_replace": "secret1_value_to_replace", "secret2_key_to_replace": "secret2_value_to_replace"};
+const secrets = { "secret1_key_to_replace": "secret1_value_to_replace", "secret2_key_to_replace": "secret2_value_to_replace"};
 // END
 
 //DEBUG FLAG
-var DEBUG = true;
+let DEBUG = true;
 
-var crypto = require('crypto');
+const crypto = require('crypto');
 
 //Response when JWT is not valid.
-var response401 = {
+const response401 = {
     statusCode: 401,
     statusDescription: 'Unauthorized'
 };
@@ -21,19 +21,19 @@ function logToConsole(message){
 function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, noVerify) {
 
     // check segments
-    var segments = token.split('.');
+    const segments = token.split('.');
     if (segments.length !== 3) {
         throw new Error('Not enough or too many segments in JWT token');
     }
 
     // All segment should be base64url
-    var headerSeg = segments[0];
-    var payloadSeg = segments[1];
-    var signatureSeg = segments[2];
+    const headerSeg = segments[0];
+    const payloadSeg = segments[1];
+    const signatureSeg = segments[2];
 
     // base64url decode and parse JSON
-    var header;
-    var payload;
+    let header;
+    let payload;
 
 
     try{    
@@ -46,9 +46,9 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
     }
 
     if (!noVerify) {
-        var alg = header['alg'];
-        var signingMethod;
-        var signingType;
+        const alg = header['alg'];
+        let signingMethod;
+        let signingType;
 
         if (alg=='HS256'){
             signingMethod = 'sha256';
@@ -58,7 +58,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
         }
 
         // Verify signature. `sign` will return base64 string.
-        var signingInput = [headerSeg, payloadSeg].join('.');
+        const signingInput = [headerSeg, payloadSeg].join('.');
         if (!_verify_signature(signingInput, secrets[header.kid], signingMethod, signingType, signatureSeg)) {
             throw new Error('JWT signature verification failed');
         }
@@ -75,15 +75,15 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 
 
         //check if request URL is not in the exclusion list and omit remaining validations if so
-        for (var i=0; i<payload.exc.length; i++){
+        for (let i=0; i<payload.exc.length; i++){
             if (uri.startsWith(payload.exc[i])) {
                 return payload;
             }
         }
 
         //validate if the request URL matches paths covered by the token
-        var uri_match = false;
-        for (var j=0; j<payload.paths.length; j++){
+        let uri_match = false;
+        for (let j=0; j<payload.paths.length; j++){
             if (uri.startsWith(payload.paths[j])) {
                     uri_match = true;
                 break;
@@ -94,7 +94,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
             throw new Error('URI path doesn\'t match any path in the token');
         }
 
-        var full_ip;
+        let full_ip;
         if(payload['ip']){
             if(!payload['ip_ver']) throw new Error("Missing ip_ver claim required when ip claim is set to true");
             if(parseInt(payload['ip_ver']) != 4 && parseInt(payload['ip_ver'] != 6)) throw new Error("Incorrect ip_ver claim value. Must be either 4 or 6");
@@ -103,7 +103,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
                 full_ip = ip;
             } else if(ip.includes(':')){
                 if(payload['ip_ver'] != 6) throw new Error("Viewer's IP version (6) doesn't match ip_ver claim");
-                var hextets = ip.split(':').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
+                const hextets = ip.split(':').map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
                 full_ip = hextets.join(':');
             } else {
                 throw new Error("Viewer's IP version not recognized");
@@ -119,7 +119,7 @@ function checkJWTToken(token, uri, session_id, http_headers, querystrings, ip, n
 }
 
 function _verify_intsig(payload_jwt, intsig_key, method, type, sessionId, request_headers, request_querystrings, request_ip) {
-    var indirect_attr = '';
+    let indirect_attr = '';
 
     //recreating signing input based on JWT payload claims and request attributes
     if (payload_jwt['ip']){
@@ -209,27 +209,27 @@ function decodeString(str) {
   
 function processJWTToken(myEvent){
 
-    var headers = myEvent.request.headers;
+    const headers = myEvent.request.headers;
 
-    var querystrings = myEvent.request.querystring;
-    var uri = myEvent.request.uri;
-    var viewer_ip = myEvent.viewer.ip;
+    const querystrings = myEvent.request.querystring;
+    const uri = myEvent.request.uri;
+    const viewer_ip = myEvent.viewer.ip;
 
 
-    var sessionId;
+    let sessionId;
 
-    var pathArray = uri.split('/');
+    const pathArray = uri.split('/');
 
     //initial checks if token is present
-    var auth_sequence = pathArray[1];
+    const auth_sequence = pathArray[1];
     if(!auth_sequence || pathArray.length < 3){
         throw new Error("Error: No token is present");
     }
 
     //inputs grooming and setting internal variables
-    var auth_sequence_array = auth_sequence.split('.');
+    const auth_sequence_array = auth_sequence.split('.');
     if(auth_sequence_array.length == 4) sessionId=auth_sequence_array.shift();
-    var jwtToken = auth_sequence_array.join('.');
+    const jwtToken = auth_sequence_array.join('.');
 
     //sanity check of the JWT token length
     if (jwtToken.length < 60) {
@@ -238,7 +238,7 @@ function processJWTToken(myEvent){
 
     //removing token part of the URL path to restore original URL path pattern recognizable by the Origin
     pathArray.splice(1,1);
-    var newUri = pathArray.join("/")
+    const newUri = pathArray.join("/")
 
     try{
         checkJWTToken(jwtToken, newUri, sessionId, headers, querystrings, viewer_ip);
@@ -253,8 +253,8 @@ function processJWTToken(myEvent){
 function handler(event) {
     logToConsole(event);
     try{
-        var request = event.request;
-        var newUri = processJWTToken(event);
+        let request = event.request;
+        const newUri = processJWTToken(event);
         //returning original playback URL to continue on the request path
         request.uri = newUri
         console.log("X_JWT_CHECK VALID");

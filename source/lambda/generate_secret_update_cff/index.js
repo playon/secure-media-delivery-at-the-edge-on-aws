@@ -30,7 +30,7 @@
      const day = String(dateObj.getUTCDate());
      const year = String(dateObj.getUTCFullYear());
  
-     var nowDate = year + month + day;
+     const nowDate = year + month + day;
      return nowDate + '_' + randomKeySuffix;
  }
  
@@ -41,10 +41,10 @@
  
  async function getCffUpdatedCode(secret1Key, secret1Value, secret2Key, secret2Value) {
  
-     var newContent = "";
+     let newContent = "";
      const allFileContents = fs.readFileSync('cff.js', 'utf-8');
      allFileContents.split(/\r?\n/).forEach(line => {
-         var newLine = "";
+         let newLine = "";
  
          line = line.trim()
  
@@ -71,11 +71,11 @@
  
      console.log("Get ETAG for CloudFront Function " + process.env.CFF_NAME);
  
-     var params = {
+     let params = {
          Name: process.env.CFF_NAME
      };
  
-     var response = await cloudfront.describeFunction(params).promise();
+     let response = await cloudfront.describeFunction(params).promise();
      console.log("Update CloudFront Function Code");
      params = {
          FunctionCode: Buffer.from(functionCodeAsStr),
@@ -115,9 +115,9 @@
          //update temporary secret  with a new value
          const newSecretKey = generateSecretKey();
          const newSecretValue = generateSecretValue();
-         var objectTemporary = {};
+         let objectTemporary = {};
          objectTemporary[newSecretKey] = newSecretValue;
-         var params = {
+         let params = {
              SecretId: temporaryKeyName,
              SecretString: JSON.stringify(objectTemporary)
          };
@@ -127,9 +127,9 @@
          console.log("Initialize primary secret")
  
          //update primary secret  with a new value
-         var newPrimarySecretKey = generateSecretKey();
-         var newPrimarySecretValue = generateSecretValue();
-         var objectPrimary = {};
+         const newPrimarySecretKey = generateSecretKey();
+         const newPrimarySecretValue = generateSecretValue();
+         let objectPrimary = {};
          objectPrimary[newPrimarySecretKey] = newPrimarySecretValue;
          params = {
              SecretId: primaryKeyName,
@@ -141,9 +141,9 @@
          console.log("Initialize temporary secret")
  
          //update secondary secret  with a new value
-         var newSecondarySecretKey = generateSecretKey();
-         var newSecondarySecretValue = generateSecretValue();
-         var objectSecondary = {};
+         const newSecondarySecretKey = generateSecretKey();
+         const newSecondarySecretValue = generateSecretValue();
+         let objectSecondary = {};
          objectSecondary[newSecondarySecretKey] = newSecondarySecretValue;
          params = {
              SecretId: secondaryKeyName,
@@ -162,10 +162,10 @@
          // Update temporary secret with a new value
          const newSecretKey = generateSecretKey();
          const newSecretValue = generateSecretValue();
-         var objectTemporary = {};
+         let objectTemporary = {};
          objectTemporary[newSecretKey] = newSecretValue;
  
-         var params = {
+         let params = {
              SecretId: temporaryKeyName,
              SecretString: JSON.stringify(objectTemporary)
          };
@@ -177,12 +177,12 @@
              SecretId: primaryKeyName
          };
  
-         var responseSecret = await secretsmanager.getSecretValue(params).promise();
+         const responseSecret = await secretsmanager.getSecretValue(params).promise();
  
-         var primarySecretAsJson = JSON.parse(responseSecret.SecretString);
+         const primarySecretAsJson = JSON.parse(responseSecret.SecretString);
  
-         var primarySecretKeyName = Object.keys(primarySecretAsJson)[0];
-         var primarySecretKeyValue = Object.values(primarySecretAsJson)[0];
+         const primarySecretKeyName = Object.keys(primarySecretAsJson)[0];
+         const primarySecretKeyValue = Object.values(primarySecretAsJson)[0];
  
          await getCffUpdatedCode(newSecretKey, newSecretValue, primarySecretKeyName, primarySecretKeyValue);
  

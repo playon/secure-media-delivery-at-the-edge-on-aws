@@ -94,7 +94,7 @@ const rotation_datetime_question = [
       "[Base module] --> At what time of the day should take place (use the format HH:mm, events use UTC+0 time zone) ",
     validate: (value: string) =>
       Joi.string()
-        .regex(/^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/)
+        .regex(/^(0\d|1\d|2[0-3]):[0-5]\d$/)
         .validate(value).error
         ? "The expected format is HH:mm"
         : true,

@@ -10,9 +10,16 @@ function log(message){
 }
 
 function validateIPv4(address){
-    //validate if input address matches with IPv4 regex pattern, with single regex statement
-    let ipv4_regex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-    return ipv4_regex.test(address);
+    //validate if input address matches with IPv4 format
+    let ipv4_parts_regex = /^(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
+    //input is split into four parts, then each part is validated against regex
+    let address_parts = address.split('.');
+    if (address_parts.length != 4) return false;
+    for (let part of address_parts) {
+        if(!ipv4_parts_regex.test(part)) return false;
+    }
+
+    return true;
 }
 
 function validateIPv6(address){
@@ -481,3 +488,4 @@ exports.Token = Token;
 exports.Secret = Secret;
 exports.Session = Session;
 exports.validateIPv6 = validateIPv6;
+exports.validateIPv4 = validateIPv4;

@@ -26,3 +26,4 @@ adm-zip                             MIT
 constructs                          Apache-2.0
 source-map-support                  MIT     
 watch                               Apache-2.0
+aws-sdk-client-mock                 MIT

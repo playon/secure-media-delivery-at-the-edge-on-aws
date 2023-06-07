@@ -5,9 +5,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-## [1.2.0] - 2023-05-31
+## [1.2.0] - 2023-06-30
 ### Changed
 - Integrated Service Catalog App Registry into the solution.
+- All AWS Lambda functions have been updated to the NodeJS 18 runtime.
+- Along with NodeJS 18 runtime upgrade, [aws-sdk v2](https://github.com/aws/aws-sdk-js) has been updated to [aws-sdk v3](https://github.com/aws/aws-sdk-js-v3)
+
+### Removed
+- [aws-sdk v2](https://github.com/aws/aws-sdk-js) has been removed from Lambda Layers
 
 ## [1.1.4] - 2023-06-1
 ### Changed

@@ -11,10 +11,11 @@
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
 
-const aws = require('aws-sdk');
+const { DynamoDBDocument } = require("@aws-sdk/lib-dynamodb");
+const { DynamoDB } = require("@aws-sdk/client-dynamodb");
 const awsSMD = require("aws-secure-media-delivery");
 
-const docClient = process.env.METRICS == "true" ? new aws.DynamoDB.DocumentClient({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.DynamoDB.DocumentClient();
+const docClient = process.env.METRICS == "true" ? DynamoDBDocument.from(new DynamoDB({ customUserAgent: process.env.SOLUTION_IDENTIFIER })) : DynamoDBDocument.from(new DynamoDB());
 
 const stackName = process.env.STACK_NAME;
 const tableName = process.env.TABLE_NAME;
@@ -105,7 +106,7 @@ exports.handler = async (event, context) => {
         Key:{"id": id}
     };
 
-    const video_metadata = await docClient.get(params).promise();
+    const video_metadata = await docClient.get(params);
     console.log("From DynamoDB:"+JSON.stringify(video_metadata));
     if(!video_metadata.Item){
         return {

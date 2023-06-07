@@ -142,7 +142,7 @@ export class CRCreateLEWafRule extends Construct {
 
     new triggers.TriggerFunction(this, "UsEast1Trigger", { // NOSONAR
       functionName: Aws.STACK_NAME + "_CustomResourceUsEast1",
-      runtime: lambda.Runtime.NODEJS_16_X,
+      runtime: lambda.Runtime.NODEJS_18_X,
       handler: "index.handler",
       timeout: Duration.seconds(600),
       code: lambda.Code.fromAsset("lambda/custom_resource_us_east_1"),

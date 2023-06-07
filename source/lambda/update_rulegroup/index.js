@@ -11,10 +11,11 @@
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
 
-const aws = require('aws-sdk');
+const { DynamoDB } = require("@aws-sdk/client-dynamodb");
+const { WAFV2 } = require("@aws-sdk/client-wafv2");
 
-const wafv2 = process.env.METRICS == "true" ? new aws.WAFV2({ region: 'us-east-1', customUserAgent: process.env.SOLUTION_IDENTIFIER }) : new aws.WAFV2({ region: 'us-east-1' });
-const dynamodb = process.env.METRICS == "true" ? new aws.DynamoDB({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.DynamoDB();
+const wafv2 = process.env.METRICS == "true" ? new WAFV2({ region: 'us-east-1', customUserAgent: process.env.SOLUTION_IDENTIFIER }) : new WAFV2({ region: 'us-east-1' });
+const dynamodb = process.env.METRICS == "true" ? new DynamoDB({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new DynamoDB();
 
 
 const crypto = require("crypto");
@@ -25,7 +26,7 @@ function getFormattedRuleConfig(sessionId, ruleName, priority) {
         "Priority": priority,
         "Statement": {
             "ByteMatchStatement": {
-                "SearchString": sessionId,
+                "SearchString": Buffer.from(sessionId),
                 "FieldToMatch": {
                     "UriPath": {
 
@@ -61,7 +62,7 @@ async function getCurrentRules() {
         Name: process.env.RULE_NAME,
         Scope: 'CLOUDFRONT'
     };
-    return wafv2.getRuleGroup(params).promise()
+    return wafv2.getRuleGroup(params);
 }
 
 async function updateRules(visibility, lockToken, rules) {
@@ -75,7 +76,7 @@ async function updateRules(visibility, lockToken, rules) {
         LockToken: lockToken,
         Rules: rules
     };
-    return wafv2.updateRuleGroup(params).promise();
+    return wafv2.updateRuleGroup(params);
 
 }
 
@@ -97,7 +98,7 @@ async function querySessions() {
         TableName: process.env.TABLE_NAME
     };
 
-    return dynamodb.query(params).promise();
+    return dynamodb.query(params);
 }
 
 function getRandomAlphanumericString() {

@@ -10,11 +10,12 @@
  *  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions    *
  *  and limitations under the License.                                                                                *
  *********************************************************************************************************************/
- const aws = require('aws-sdk');
+ const { CloudFront } = require("@aws-sdk/client-cloudfront");
+ const { SecretsManager } = require("@aws-sdk/client-secrets-manager");
 
  
- const secretsmanager = process.env.METRICS == "true" ? new aws.SecretsManager({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new aws.SecretsManager();
- const cloudfront = process.env.METRICS == "true" ?  new aws.CloudFront({customUserAgent: process.env.SOLUTION_IDENTIFIER}) :  new aws.CloudFront();
+ const secretsmanager = process.env.METRICS == "true" ? new SecretsManager({customUserAgent: process.env.SOLUTION_IDENTIFIER}) : new SecretsManager();
+ const cloudfront = process.env.METRICS == "true" ?  new CloudFront({customUserAgent: process.env.SOLUTION_IDENTIFIER}) :  new CloudFront();
 
 
  const crypto = require("crypto");
@@ -75,7 +76,7 @@
          Name: process.env.CFF_NAME
      };
  
-     let response = await cloudfront.describeFunction(params).promise();
+     let response = await cloudfront.describeFunction(params);
      console.log("Update CloudFront Function Code");
      params = {
          FunctionCode: Buffer.from(functionCodeAsStr),
@@ -87,7 +88,7 @@
          Name: process.env.CFF_NAME
      };
  
-     response = await cloudfront.updateFunction(params).promise();
+     response = await cloudfront.updateFunction(params);
      console.log("response = "+JSON.stringify(response));
      
      console.log("Publish CloudFront Function");
@@ -95,7 +96,7 @@
          IfMatch: response['ETag'],
          Name: process.env.CFF_NAME
      };
-     await cloudfront.publishFunction(params).promise();
+     await cloudfront.publishFunction(params);
  
  
      console.log("Cloudfront Function updated");
@@ -122,7 +123,7 @@
              SecretString: JSON.stringify(objectTemporary)
          };
  
-         await secretsmanager.putSecretValue(params).promise();
+         await secretsmanager.putSecretValue(params);
  
          console.log("Initialize primary secret")
  
@@ -136,7 +137,7 @@
              SecretString: JSON.stringify(objectPrimary)
          };
  
-         await secretsmanager.putSecretValue(params).promise();
+         await secretsmanager.putSecretValue(params);
  
          console.log("Initialize temporary secret")
  
@@ -150,7 +151,7 @@
              SecretString: JSON.stringify(objectSecondary)
          };
  
-         await secretsmanager.putSecretValue(params).promise();
+         await secretsmanager.putSecretValue(params);
  
  
          await getCffUpdatedCode(newPrimarySecretKey, newPrimarySecretValue, newSecondarySecretKey, newSecondarySecretValue);
@@ -170,14 +171,14 @@
              SecretString: JSON.stringify(objectTemporary)
          };
  
-         await secretsmanager.putSecretValue(params).promise();
+         await secretsmanager.putSecretValue(params);
  
          //get primary secret
          params = {
              SecretId: primaryKeyName
          };
  
-         const responseSecret = await secretsmanager.getSecretValue(params).promise();
+         const responseSecret = await secretsmanager.getSecretValue(params);
  
          const primarySecretAsJson = JSON.parse(responseSecret.SecretString);
  

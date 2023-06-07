@@ -1,6 +1,5 @@
-const aws = require("aws-sdk") // we still need to require this
 const awsSMD = require('../resources/sdk/node/v1/aws-secure-media-delivery.js');
-jest.mock("aws-sdk") // jest will automatically find the mock
+import awsSdkMock from "./__mocks__/aws-sdk-mock";
 
 awsSMD.Token.setDEBUG(true);
 awsSMD.Secret.setDEBUG(true);
@@ -11,6 +10,14 @@ let token = new awsSMD.Token(secret);
 
 
 describe("Check token generation", () => {
+  let mocks: any[] = [];
+  beforeEach(() => {
+      mocks = awsSdkMock.mockAllAWSClients();
+  });
+
+  afterEach(() => {
+      awsSdkMock.reseMocks(mocks);
+  });
 
   test("Without IP, token generated ", async () => {
 

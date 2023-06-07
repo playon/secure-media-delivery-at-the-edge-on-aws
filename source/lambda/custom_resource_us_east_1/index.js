@@ -16,10 +16,12 @@ let path = require("path");
 let AdmZip = require("adm-zip");
 
 
-const AWS = require('aws-sdk');
-const lambda = process.env.METRICS == "true" ? new AWS.Lambda({ customUserAgent: process.env.SOLUTION_IDENTIFIER, region: 'us-east-1' }) : new AWS.Lambda({ region: 'us-east-1' });
-const ssm = process.env.METRICS == "true" ? new AWS.SSM({ customUserAgent: process.env.SOLUTION_IDENTIFIER }) : new AWS.SSM();
-const wafv2 = process.env.METRICS == "true" ? new AWS.WAFV2({ customUserAgent: process.env.SOLUTION_IDENTIFIER, region: 'us-east-1' }) : new AWS.WAFV2({ region: 'us-east-1' });
+const { Lambda } = require("@aws-sdk/client-lambda");
+const { SSM } = require("@aws-sdk/client-ssm");
+const { WAFV2 } = require("@aws-sdk/client-wafv2");
+const lambda = process.env.METRICS == "true" ? new Lambda({ customUserAgent: process.env.SOLUTION_IDENTIFIER, region: 'us-east-1' }) : new Lambda({ region: 'us-east-1' });
+const ssm = process.env.METRICS == "true" ? new SSM({ customUserAgent: process.env.SOLUTION_IDENTIFIER }) : new SSM();
+const wafv2 = process.env.METRICS == "true" ? new WAFV2({ customUserAgent: process.env.SOLUTION_IDENTIFIER, region: 'us-east-1' }) : new WAFV2({ region: 'us-east-1' });
 
 
 exports.handler = async (event, context) => {
@@ -63,7 +65,7 @@ async function createLambdaEdge() {
             Description: 'Sign sign4 requests'
         };
 
-        let result = await lambda.createFunction(params).promise();
+        let result = await lambda.createFunction(params);
         functionArn = result.FunctionArn;
         await publishLEVersion(functionArn);
     } catch (error) {
@@ -88,7 +90,7 @@ async function publishLEVersion(functionArn) {
         while (!isFunctionStateActive) {
             let response = await lambda.getFunctionConfiguration({
                 FunctionName: functionArn
-            }).promise();
+            });
             console.log(`Response from get function configuration ${JSON.stringify(response)}`)
             if (response.State === 'Active' || retry > 10) {
                 isFunctionStateActive = true
@@ -103,7 +105,7 @@ async function publishLEVersion(functionArn) {
             FunctionName: functionArn
         };
 
-        let result = await lambda.publishVersion(params).promise();
+        let result = await lambda.publishVersion(params);
         await saveToSSM(process.env.LAMBDA_VERSION, `${functionArn}:${result.Version}`)
 
     } catch (error) {
@@ -128,7 +130,7 @@ async function createWafRuleGroup() {
             Rules: [],
         };
 
-        let result = await wafv2.createRuleGroup(params).promise();
+        let result = await wafv2.createRuleGroup(params);
         await saveToSSM(process.env.RULE_ID, result.Summary.Id)
 
     } catch (error) {
@@ -150,7 +152,7 @@ async function saveToSSM(paramName, paramValue) {
         Type: 'String',
         Overwrite: true
     };
-    const request = await ssm.putParameter(params).promise();
+    const request = await ssm.putParameter(params);
     return request.Parameter;
 }
 

@@ -1,19 +1,20 @@
 const exportParams = require('../lambda/export_params/index.js');
-
-jest.mock("aws-sdk")
+import awsSdkMock from "./__mocks__/aws-sdk-mock";
 
 describe('process.env', () => {
-  const env = process.env
+  const env = process.env;
+  let mocks: any[] = [];
 
   beforeEach(() => {
-      jest.resetModules()
+      mocks = awsSdkMock.mockAllAWSClients();
       process.env = {  
          SUBMIT_QUERY_FUNCTION: "myFunction"
        };
   })
 
   afterEach(() => {
-      process.env = env
+      process.env = env;
+      awsSdkMock.reseMocks(mocks);
   })
 
 

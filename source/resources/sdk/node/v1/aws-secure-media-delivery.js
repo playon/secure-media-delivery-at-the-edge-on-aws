@@ -1,4 +1,7 @@
-const aws = require('aws-sdk');
+const { DynamoDB } = require("@aws-sdk/client-dynamodb");
+const { SecretsManager } = require("@aws-sdk/client-secrets-manager");
+const { fromIni } = require("@aws-sdk/credential-providers");
+const { fromTemporaryCredentials } = require("@aws-sdk/credential-providers");
 const b64url = require('base64url');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
@@ -8,6 +11,29 @@ const net = require('node:net');
 
 function log(message){
     if(this._debug || this._debug == undefined) console.log("[DEBUG] " + message);
+}
+
+function getCredentialsAndRegion(params) {
+    let credentials, region;
+    if (params['profile']) {
+        credentials = fromIni({ profile: params['profile'] });
+    } else if (params['role']) {
+        credentials = fromTemporaryCredentials({
+            params: {
+                RoleArn: params['role'],
+                RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`,
+            },
+        });
+    }
+    if (params['region']) {
+        region = params['region'];
+    } else if (!process.env.AWS_REGION) {
+        region = 'us-east-1';
+    }
+    return {
+        credentials,
+        region,
+    }
 }
 
 function expandIPv6(address){
@@ -50,21 +76,8 @@ class Secret{
     }
 
     initSMClient(params={}){
-        let sm_creds;
-        let sm_region;
-        if(params['profile']){
-            sm_creds = new aws.SharedIniFileCredentials({profile: params['profile']});
-        } else if(params['role']) {
-           sm_creds = new aws.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
-        }
-
-        if(params['region']){
-            sm_region = params['region'];
-        } else if(aws.config && !aws.config.region){
-            sm_region = 'us-east-1';
-        }
         try{
-            this._smClient = new aws.SecretsManager({credentials: sm_creds, region: sm_region});
+            this._smClient = new SecretsManager(getCredentialsAndRegion(params));
         } catch(e) {
             Secret.logger(`Couldn't create SecretsManager client: ${e}`);
             return false;
@@ -79,8 +92,8 @@ class Secret{
         let primarySecret_json;
         let secondarySecret_json;
         try{
-            let sm_promise_primary = this._smClient.getSecretValue({SecretId: secret_name_primary}).promise();
-            let sm_promise_secondary = this._smClient.getSecretValue({SecretId: secret_name_secondary}).promise();
+            let sm_promise_primary = this._smClient.getSecretValue({SecretId: secret_name_primary});
+            let sm_promise_secondary = this._smClient.getSecretValue({SecretId: secret_name_secondary});
             let smResponses = await Promise.all([sm_promise_primary,sm_promise_secondary]);
             primarySecret_json = Secret._getSecretKV(smResponses[0]);
             secondarySecret_json = Secret._getSecretKV(smResponses[1]);
@@ -269,7 +282,7 @@ class Session{
         };
 		
 		try{
-			await Session._ddbClient.putItem(params).promise();
+			await Session._ddbClient.putItem(params);
             return true;
 		} catch(e){
             console.log("ERROR: "+e)
@@ -280,21 +293,8 @@ class Session{
     } 
 
     static initDBClient(params={}){
-        let ddb_creds;
-        let ddb_region;
-        if(params['profile']){
-            ddb_creds = new aws.SharedIniFileCredentials({profile: params['profile']});
-        } else if(params['role']) {
-           ddb_creds = new aws.ChainableTemporaryCredentials({params: {RoleArn: params['role'], RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`}}); 
-        }
-
-        if(params['region']){
-            ddb_region = params['region'];
-        } else if(aws.config && !aws.config.region){
-            ddb_region = 'us-east-1';
-        }
         try{
-            this._ddbClient = new aws.DynamoDB({credentials: ddb_creds, region: ddb_region});
+            this._ddbClient = new DynamoDB(getCredentialsAndRegion(params));
         } catch(e) {
             Session.logger(`Couldn't create DynamoDB client: ${e}`);
             return false;

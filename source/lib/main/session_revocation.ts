@@ -78,7 +78,7 @@ export class SessionRevocation extends Construct {
       this,
       "UpdateRuleGroup",
       {
-        runtime: lambda.Runtime.NODEJS_16_X,
+        runtime: lambda.Runtime.NODEJS_18_X,
         functionName: Aws.STACK_NAME + "_UpdateRuleGroup",
         code: lambda.Code.fromAsset("lambda/update_rulegroup"),
         handler: "index.handler",

@@ -113,7 +113,9 @@ exports.handler = async (event, context) => {
     let localIndex
     let rules = []
     const maxSessions = parseInt(process.env.MAX_SESSIONS)/2;
-    if (result['Items']) {
+    if (!result['Items']) {
+        console.log("No Session ID from DynamoDB Table. Nothing to do.")
+    } else {
         const items = result['Items'];
         console.log(`${items.length} Sessions IDs from DynamoDB to process`)
 
@@ -133,17 +135,17 @@ exports.handler = async (event, context) => {
 
         localIndex = 1
         for (const item of manualSessions) {
-
-            if (globalIndex <= maxSessions) {
-                const myRuleName = String(getRandomAlphanumericString())
-                const currentRule1 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
-                rules.push(currentRule1)
-                globalIndex += 1
-                localIndex += 1
-            } else {
+            if (globalIndex > maxSessions) {
                 console.log("Max items added to rule group reached, stopping iteration through results from dynamodb")
                 break
             }
+
+            const myRuleName = String(getRandomAlphanumericString())
+            const currentRule1 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)
+            rules.push(currentRule1)
+            globalIndex += 1
+            localIndex += 1
+
             console.log(`${(localIndex - 1)} MANUAL Sessions IDs to add to Rule Group`)
         }
 
@@ -169,8 +171,6 @@ exports.handler = async (event, context) => {
             await updateRules(attachedRules['RuleGroup']['VisibilityConfig'], attachedRules['LockToken'], rules)
         }
 
-    } else {
-        console.log("No Session ID from DynamoDB Table. Nothing to do.")
     }
 
 

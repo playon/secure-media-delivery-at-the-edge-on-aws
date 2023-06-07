@@ -158,74 +158,82 @@ class Secret{
 
     async retrieveKeys(key_alias = 'all'){
         let isExpired = this._checkIfExpired();
-        if((!this._last_updated) || (isExpired && (!this._lock))){
-            Secret.logger('Starting key retrival');
-            this._lock = true;
-            try{
-                if (this.retrieveMode == 'native') {
-                    //TO-DO: add timeout
-                    let provisional_keys = await this._getSMSecret();
-                    if(Secret.validateKeys(provisional_keys)){
-                        this.keys = provisional_keys;
-                        this._last_updated = Math.floor(Date.now()/1000);
-                    } else {
-                        throw new Error("Invalid format of the returned keys");
-                    }
-                } else if(this.retrieveMode == 'custom'){
-                    //TO-DO: add timeout
-                    let provisional_keys = await this.retrieveFunction(...this.retrieveFunctionArgs);
-                    if(Secret.validateKeys(provisional_keys)){
-                        this.keys = provisional_keys;
-                        this._last_updated = Math.floor(Date.now()/1000);
-                    } else {
-                        throw new Error("Invalid format of the returned keys");
-                    }
-                }
-            } catch(e){
-                console.log(e);
-                Secret.logger(`failed to retrieve the keys: ${e}`);
-            } finally{
-                this._lock = false;
-            }
-            if(this.keys){
-                if(key_alias == 'all'){
-                    return this.keys;
-                } else {
-                    return this.keys[key_alias];
-                }
-            } else {
-                throw new Error("Key retrival failed and no previously set key is available");
-            }
-        } else {
-            if(key_alias == 'all'){
+        if (this._last_updated && ((!isExpired) || this._lock)) {
+            if (key_alias == 'all') {
                 return this.keys;
-            } else {
-                return this.keys[key_alias];
             }
+            return this.keys[key_alias];
         }
+
+        Secret.logger('Starting key retrival');
+        this._lock = true;
+        try {
+            if (this.retrieveMode == 'native') {
+                //TO-DO: add timeout
+                let provisional_keys = await this._getSMSecret();
+                if (!Secret.validateKeys(provisional_keys)) {
+                    throw new Error("Invalid format of the returned keys");
+                }
+                this.keys = provisional_keys;
+                this._last_updated = Math.floor(Date.now() / 1000);
+            } else if (this.retrieveMode == 'custom') {
+                //TO-DO: add timeout
+                let provisional_keys = await this.retrieveFunction(...this.retrieveFunctionArgs);
+                if (!Secret.validateKeys(provisional_keys)) {
+                    throw new Error("Invalid format of the returned keys");
+                }
+                this.keys = provisional_keys;
+                this._last_updated = Math.floor(Date.now() / 1000);
+            }
+        } catch (e) {
+            console.log(e);
+            Secret.logger(`failed to retrieve the keys: ${e}`);
+        } finally {
+            this._lock = false;
+        }
+
+        if (this.keys) {
+            if (key_alias == 'all') {
+                return this.keys;
+            }
+            return this.keys[key_alias];
+        }
+
+        throw new Error("Key retrival failed and no previously set key is available");
     }
 
     static validateKeys(obj){
         let top_level_keys = Object.keys(obj);
-        if(top_level_keys.length == 1){
-            if(!top_level_keys.includes('primary')) return false;
-            let low_level_keys = Object.keys(obj['primary']);
-            if (low_level_keys.length != 2) return false
-            if(!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
-            return !(typeof(obj['primary'].uuid) != 'string' || typeof(obj['primary'].value) != 'string');
-        } else if(top_level_keys.length == 2){
-            if(!(top_level_keys.includes('primary') && top_level_keys.includes('secondary'))) return false;
-            for (let key of Object.entries(obj)){
-                let low_level_keys = Object.keys(key[1]);
-                if (low_level_keys.length != 2) return false
-                if(!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
-                if(typeof(key[1].uuid) != 'string' || typeof(key[1].value) != 'string')  return false;
-            }
-            return true;
-        } else {
-            return false;
+
+        switch (top_level_keys.length) {
+            case 1:
+                let low_level_keys = Object.keys(obj['primary']);
+                return Secret._validate_primary(top_level_keys, low_level_keys, obj['primary'].uuid, obj['primary'].value);
+
+            case 2:
+                return Secret._validate_secondary(top_level_keys, Object.entries(obj));
+
+            default:
+                return false;
         }
-        
+    }
+
+    static _validate_primary(top_level_keys, low_level_keys, uuid, value) {
+        if (!top_level_keys.includes('primary')) return false;
+        if (low_level_keys.length != 2) return false
+        if (!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
+        return !(typeof (uuid) != 'string' || typeof (value) != 'string');
+    }
+
+    static _validate_secondary(top_level_keys, entries) {
+        if (!(top_level_keys.includes('primary') && top_level_keys.includes('secondary'))) return false;
+        for (let key of entries) {
+            let low_level_keys = Object.keys(key[1]);
+            if (low_level_keys.length != 2) return false
+            if (!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
+            if (typeof (key[1].uuid) != 'string' || typeof (key[1].value) != 'string') return false;
+        }
+        return true;
     }
 
     static _getSecretKV(smResponse){
@@ -356,44 +364,30 @@ class Token{
     _sign(input, key, method){
         return b64url(crypto.createHmac(method, key).update(input).digest());
     }
-    
-    async generate(viewer_attributes, playback_url=null, token_policy = self.defaultTokenPolicy, secret_alias = 'primary'){
-        let keys = await this.secret.retrieveKeys();
-        if(!keys[secret_alias]) throw new Error("Provided secret alias can't be found in the retrived secret");
-        let playback_url_qs = {};
-        if(playback_url){
-            playback_url_qs = qs.parse(playback_url);
+
+    _populate_ip(viewer_attributes, jwt_payload) {
+        let fullIP;
+        if(viewer_attributes['ip'].includes('.') && validateIPv4(viewer_attributes['ip'])){
+            jwt_payload['ip_ver']=4;
+            fullIP = viewer_attributes['ip'];
+        } else if(validateIPv6(viewer_attributes['ip'])){
+            jwt_payload['ip_ver']=6;
+            fullIP = expandIPv6(viewer_attributes['ip']);
+        } else {
+            throw new Error("Invalid viewer's IP format");
         }
 
-        let jwt_payload = {
-            ip: false,
-            co: false,
-            cty: false,
-            reg: false,
-            ssn: false,
-            exp: '',
-            headers: [],
-            qs: [],
-            intsig: '',
-            paths: [],
-            exc: []
-        }
+        return { fullIP, jwt_payload };
+    }
 
+    _populate_boolean_items(token_policy, viewer_attributes, jwt_payload) {
         let intsig_input = '';
-
         if (token_policy['ip']) {
-            let fullIP;
-            if(viewer_attributes['ip'].includes('.') && validateIPv4(viewer_attributes['ip'])){
-                jwt_payload['ip_ver']=4;
-                fullIP = viewer_attributes['ip'];
-            } else if(validateIPv6(viewer_attributes['ip'])){
-                jwt_payload['ip_ver']=6;
-                fullIP = expandIPv6(viewer_attributes['ip']);
-            } else {
-                throw new Error("Invalid viewer's IP format");
-            }
+            const populated_ip = this._populate_ip(viewer_attributes, jwt_payload);
+            jwt_payload = populated_ip.jwt_payload;
+            
             jwt_payload['ip']=true;
-            intsig_input += fullIP + ':';
+            intsig_input += populated_ip.fullIP + ':';
         }
 
         if (token_policy['co']){
@@ -423,6 +417,34 @@ class Token{
             }
             intsig_input += this.payloadSsn + ':';
         }
+
+        return { jwt_payload, intsig_input };
+    }
+
+    _populate_exp(token_policy, jwt_payload) {
+        if(token_policy['exp'].startsWith('+')){
+            if(token_policy['exp'].endsWith('h')){
+                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*3600;
+            } else if(token_policy['exp'].endsWith('m')){
+                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*60;
+            } else {
+                throw new Error("Invalid exp format");
+            }
+        } else {
+            let parsedExp = parseInt(token_policy['exp']);
+            if(parsedExp <= 0){
+                throw new Error("Invalid exp format");
+            }
+            jwt_payload['exp'] = parsedExp;
+        }
+
+        return jwt_payload;
+    }
+
+    _populate_jwt_payload(token_policy, viewer_attributes, jwt_payload, playback_url_qs, secret_alias) {
+        const boolean_items = this._populate_boolean_items(token_policy, viewer_attributes, jwt_payload);
+        jwt_payload = boolean_items.jwt_payload;
+        let intsig_input = boolean_items.intsig_input;
          
         if (token_policy['headers'] && token_policy['headers'].length){
             token_policy['headers'].forEach((header)=>{
@@ -439,10 +461,10 @@ class Token{
             });
         }
 
-		if(intsig_input){
+        if(intsig_input){
 			intsig_input = intsig_input.slice(0,-1);
 			Token.logger("Input for internal signature: ", intsig_input); 
-			jwt_payload['intsig'] = this._sign(intsig_input, keys[secret_alias].value, 'sha256')
+			jwt_payload['intsig'] = this._sign(intsig_input, secret_alias.value, 'sha256')
         } else {
 			delete jwt_payload['intsig'];
 		}
@@ -452,23 +474,35 @@ class Token{
 
         if (token_policy['nbf']) jwt_payload['nbf'] = parseInt(token_policy['nbf']);
 
-        if(token_policy['exp'].startsWith('+')){
-            if(token_policy['exp'].endsWith('h')){
-                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*3600;
-            } else if(token_policy['exp'].endsWith('m')){
-                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*60;
-            } else {
-                throw new Error("Invalid exp format");
-            }
-        } else {
-            let parsedExp = parseInt(token_policy['exp']);
-            if(parsedExp > 0){
-                jwt_payload['exp'] = parsedExp;
-            } else {
-                throw new Error("Invalid exp format");
-            }
+        jwt_payload = this._populate_exp(token_policy, jwt_payload);
+        
+
+        return jwt_payload;
+    }
+    
+    async generate(viewer_attributes, playback_url=null, token_policy = self.defaultTokenPolicy, secret_alias = 'primary'){
+        let keys = await this.secret.retrieveKeys();
+        if(!keys[secret_alias]) throw new Error("Provided secret alias can't be found in the retrived secret");
+        let playback_url_qs = {};
+        if(playback_url){
+            playback_url_qs = qs.parse(playback_url);
         }
 
+        let jwt_payload = {
+            ip: false,
+            co: false,
+            cty: false,
+            reg: false,
+            ssn: false,
+            exp: '',
+            headers: [],
+            qs: [],
+            intsig: '',
+            paths: [],
+            exc: []
+        }
+
+        jwt_payload = this._populate_jwt_payload(token_policy, viewer_attributes, jwt_payload, playback_url_qs, keys[secret_alias]);
 
         this.encoded_jwt = jwt.sign( jwt_payload, keys[secret_alias].value, {algorithm: 'HS256', keyid: keys[secret_alias].uuid});
 
@@ -477,9 +511,9 @@ class Token{
             playback_url_array.splice(3,0,`${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`);
             this.output_playback_url = playback_url_array.join('/');
             return this.output_playback_url;
-        } else{
-            return `${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`;
         }
+
+        return `${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`;
     }
 
 }
@@ -488,4 +522,3 @@ exports.Token = Token;
 exports.Secret = Secret;
 exports.Session = Session;
 exports.validateIPv6 = validateIPv6;
-exports.validateIPv4 = validateIPv4;

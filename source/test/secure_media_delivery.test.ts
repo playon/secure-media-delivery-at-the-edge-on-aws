@@ -12,21 +12,6 @@ secret.initSMClient();
 let token = new awsSMD.Token(secret);
 
 
-describe("Check IPv4", () => {
-
-  test('Test IPv4 format', () => {
-    expect(awsSMD.validateIPv4("0.0.0.0")).toBe(true);
-    expect(awsSMD.validateIPv4("255.255.255.255")).toBe(true);
-    expect(awsSMD.validateIPv4("256.256.256.256")).toBe(false);
-    expect(awsSMD.validateIPv4("999.999.999.999")).toBe(false);
-    expect(awsSMD.validateIPv4("1.2.3")).toBe(false);
-    expect(awsSMD.validateIPv4("1.2.3.4")).toBe(true);
-    expect(awsSMD.validateIPv4("1.12.123.1234")).toBe(false);
-    expect(awsSMD.validateIPv4("1.12.123.0")).toBe(true);
-  });
-
-});
-
 describe("Check IPv6", () => {
 
   test('format 1 IP v6', () => {

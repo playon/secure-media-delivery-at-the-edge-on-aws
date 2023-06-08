@@ -30,7 +30,7 @@
     "ts-jest": "^29.1.0",
     "ts-node": "^10.7.0",
     "typescript": "^5.0.4",
-    "zip-local": "^0.3.5"
+    "adm-zip": "^0.5.10"
   },
   "dependencies": {
     "@aws-cdk/aws-apigatewayv2-alpha": "^2.15.0-alpha.0",

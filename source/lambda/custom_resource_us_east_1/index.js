@@ -13,7 +13,7 @@
 
 let fs = require("fs");
 let path = require("path");
-const zipLocal = require("zip-local");
+let AdmZip = require("adm-zip");
 
 
 const AWS = require('aws-sdk');
@@ -41,13 +41,15 @@ async function createLambdaEdge() {
     const le_path = "./le.js";
     const tmp_le_path = "/tmp/le.js";
     const code_path = path.resolve(le_zip_path)
+    let zip = new AdmZip();
     try {
         //zipping le.js
         console.log("copy " + le_path + " to " + tmp_le_path);
         fs.copyFileSync(le_path, tmp_le_path);
 
         console.log("zipping " + tmp_le_path + " into " + le_zip_path)
-        zipLocal.sync.zip(tmp_le_path).compress().save(le_zip_path);
+        zip.addLocalFile(tmp_le_path);
+        zip.writeZip(le_zip_path);
         console.log("zip created");
         // Creates Edge Lambda
         const params = {

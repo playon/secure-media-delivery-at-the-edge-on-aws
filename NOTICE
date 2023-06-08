@@ -22,7 +22,7 @@ jest                                MIT
 ts-jest                             MIT
 ts-node                             MIT
 typescript                          Apache-2.0
-zip-local                           MIT
+adm-zip                             MIT
 constructs                          Apache-2.0
 source-map-support                  MIT     
 watch                               Apache-2.0

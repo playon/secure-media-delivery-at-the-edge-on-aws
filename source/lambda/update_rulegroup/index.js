@@ -109,13 +109,14 @@ exports.handler = async (event, context) => {
     console.log("event=" + JSON.stringify(event));
 
     const result = await querySessions();
-    let globalIndex = 1
-    let localIndex
-    let rules = []
-    const maxSessions = parseInt(process.env.MAX_SESSIONS)/2;
     if (!result['Items']) {
         console.log("No Session ID from DynamoDB Table. Nothing to do.")
     } else {
+        let globalIndex = 1
+        let localIndex
+        let rules = []
+        const maxSessions = parseInt(process.env.MAX_SESSIONS) / 2;
+        
         const items = result['Items'];
         console.log(`${items.length} Sessions IDs from DynamoDB to process`)
 

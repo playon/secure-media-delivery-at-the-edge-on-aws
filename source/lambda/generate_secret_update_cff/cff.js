@@ -82,30 +82,23 @@ function _verify_token(params) {
     }
 
     if (payload.exp && Date.now() > payload.exp * 1000) {
-        logToConsole(`JWT expiry: ${payload.exp}, current time: ${Date.now}`);
+        logToConsole(`JWT expiry: ${payload.exp}, current time: ${Date.now()}`);
         throw new Error('Token expired');
     }
 
     if (payload.nbf && Date.now() < payload.nbf * 1000) {
-        logToConsole(`JWT nbf: ${payload.nbf}, current time: ${Date.now}`);
+        logToConsole(`JWT nbf: ${payload.nbf}, current time: ${Date.now()}`);
         throw new Error('Token not yet valid');
     }
 
 
     //check if request URL is not in the exclusion list and omit remaining validations if so
-    for (let url of payload.exc) {
-        if (uri.startsWith(url)) {
-            return true;
-        }
+    if (payload.exc.some(uri.startsWith.bind(uri))) {
+        return true;
     }
 
     //validate if the request URL matches paths covered by the token
-    let uri_match = false;
-    let j = 0;
-    while ((!uri_match) && j < payload.paths.length) {
-        uri_match = uri.startsWith(payload.paths[j]);
-        j++;
-    }
+    const uri_match = payload.paths.some(uri.startsWith.bind(uri));
     if (!uri_match) {
         logToConsole(`request uri: ${uri}`)
         throw new Error('URI path doesn\'t match any path in the token');

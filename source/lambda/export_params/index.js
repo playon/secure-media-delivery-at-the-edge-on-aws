@@ -17,7 +17,7 @@
 exports.handler = async (event, context) => {
     console.log("event="+JSON.stringify(event));
 
-    for (let record of event.Records) { 
+    for (const record of event.Records) { 
 
         console.log('Stream record: ', JSON.stringify(record));
 

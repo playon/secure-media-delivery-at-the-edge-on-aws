@@ -3,23 +3,11 @@ const b64url = require('base64url');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const qs = require('querystring');
+const net = require('node:net');
 
 
 function log(message){
     if(this._debug || this._debug == undefined) console.log("[DEBUG] " + message);
-}
-
-function validateIPv4(address){
-    //validate if input address matches with IPv4 format
-    let ipv4_parts_regex = /^(25[0-5]|2[0-4]\d|[01]?\d\d?)$/;
-    //input is split into four parts, then each part is validated against regex
-    let address_parts = address.split('.');
-    if (address_parts.length != 4) return false;
-    for (let part of address_parts) {
-        if(!ipv4_parts_regex.test(part)) return false;
-    }
-
-    return true;
 }
 
 function validateIPv6(address){
@@ -227,7 +215,7 @@ class Secret{
 
     static _validate_secondary(top_level_keys, entries) {
         if (!(top_level_keys.includes('primary') && top_level_keys.includes('secondary'))) return false;
-        for (let key of entries) {
+        for (const key of entries) {
             let low_level_keys = Object.keys(key[1]);
             if (low_level_keys.length != 2) return false
             if (!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
@@ -367,7 +355,7 @@ class Token{
 
     _populate_ip(viewer_attributes, jwt_payload) {
         let fullIP;
-        if(viewer_attributes['ip'].includes('.') && validateIPv4(viewer_attributes['ip'])){
+        if(viewer_attributes['ip'].includes('.') && net.isIPv4(viewer_attributes['ip'])){
             jwt_payload['ip_ver']=4;
             fullIP = viewer_attributes['ip'];
         } else if(validateIPv6(viewer_attributes['ip'])){

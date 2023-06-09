@@ -32,7 +32,7 @@ awsSMD.Token.setDEBUG(true)
 let token = new awsSMD.Token(secret);
 
 function _populate_country_region_city(token_policy, headers) {
-    let viewer_attributes = {};
+    const viewer_attributes = {};
 
     if(token_policy['co']){
         if(headers['cloudfront-viewer-country']){

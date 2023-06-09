@@ -115,7 +115,7 @@
          //update temporary secret  with a new value
          const newSecretKey = generateSecretKey();
          const newSecretValue = generateSecretValue();
-         let objectTemporary = {};
+         const objectTemporary = {};
          objectTemporary[newSecretKey] = newSecretValue;
          let params = {
              SecretId: temporaryKeyName,
@@ -129,7 +129,7 @@
          //update primary secret  with a new value
          const newPrimarySecretKey = generateSecretKey();
          const newPrimarySecretValue = generateSecretValue();
-         let objectPrimary = {};
+         const objectPrimary = {};
          objectPrimary[newPrimarySecretKey] = newPrimarySecretValue;
          params = {
              SecretId: primaryKeyName,
@@ -143,7 +143,7 @@
          //update secondary secret  with a new value
          const newSecondarySecretKey = generateSecretKey();
          const newSecondarySecretValue = generateSecretValue();
-         let objectSecondary = {};
+         const objectSecondary = {};
          objectSecondary[newSecondarySecretKey] = newSecondarySecretValue;
          params = {
              SecretId: secondaryKeyName,
@@ -162,7 +162,7 @@
          // Update temporary secret with a new value
          const newSecretKey = generateSecretKey();
          const newSecretValue = generateSecretValue();
-         let objectTemporary = {};
+         const objectTemporary = {};
          objectTemporary[newSecretKey] = newSecretValue;
  
          let params = {

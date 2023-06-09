@@ -47,7 +47,7 @@
      const primarySecretKeyName = Object.keys(primarySecretAsJson)[0];
      const primarySecretKeyValue = Object.values(primarySecretAsJson)[0];
  
-     let objectSecondary = {};
+     const objectSecondary = {};
      objectSecondary[primarySecretKeyName] = primarySecretKeyValue;
 
      //set primary value to secondary secret
@@ -57,7 +57,7 @@
      };
      await secretsmanager.putSecretValue(params).promise();
  
-     let objectPrimary = {};
+     const objectPrimary = {};
      objectPrimary[temporarySecretKeyName] = temporarySecretKeyValue;
 
      //set temporary value to primary secret
@@ -68,7 +68,7 @@
  
      await secretsmanager.putSecretValue(params).promise();
  
-     let objectTemporary = {};
+     const objectTemporary = {};
      objectTemporary["INITIALIZED_KEY"] = "INITIALIZED_VALUE";
 
      //delete the temporary keys

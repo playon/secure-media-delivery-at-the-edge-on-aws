@@ -61,6 +61,8 @@ export class Endpoints extends Construct {
         ignorePublicAcls: true,
         restrictPublicBuckets: true,
       }),
+      versioned: true,
+      enforceSSL: true,
     });
 
     addCfnSuppressRules(s3Logs, [
@@ -85,6 +87,8 @@ export class Endpoints extends Construct {
         ignorePublicAcls: true,
         restrictPublicBuckets: true
        }),
+       versioned: true,
+       enforceSSL: true,
     });
 
     addCfnSuppressRules(hostingBucket, [

@@ -54,7 +54,9 @@ export class AutoSessionRevocationStack extends Stack {
         blockPublicAcls: true,
         ignorePublicAcls: true,
         restrictPublicBuckets: true
-       }),
+      }),
+      versioned: true,
+      enforceSSL: true,
     });
 
     addCfnSuppressRules(sqlQueryBucket, [{ id: 'W51', reason: 'The bucket is used to store results from Athena Query' }]);

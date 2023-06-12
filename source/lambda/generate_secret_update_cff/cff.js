@@ -93,12 +93,12 @@ function _verify_token(params) {
 
 
     //check if request URL is not in the exclusion list and omit remaining validations if so
-    if (payload.exc.some(uri.startsWith.bind(uri))) {
+    if (payload.exc.some(uri.startsWith, uri)) {
         return true;
     }
 
     //validate if the request URL matches paths covered by the token
-    const uri_match = payload.paths.some(uri.startsWith.bind(uri));
+    const uri_match = payload.paths.some(uri.startsWith, uri);
     if (!uri_match) {
         logToConsole(`request uri: ${uri}`)
         throw new Error('URI path doesn\'t match any path in the token');

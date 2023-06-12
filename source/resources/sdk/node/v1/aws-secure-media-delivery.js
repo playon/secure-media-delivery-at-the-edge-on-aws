@@ -10,29 +10,6 @@ function log(message){
     if(this._debug || this._debug == undefined) console.log("[DEBUG] " + message);
 }
 
-function validateIPv6(address){
-    //validate if input address matches with expected IPv6 format. 
-    let ipv6_parts_regex = /^([0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}$/;
-    //Input is splitt into two parts assuming two-colon separator can exist then each side of the address is validated against regex
-    let address_parts = address.split('::');
-    if(address_parts.length>2) return false; //only a single two-colon seperator is allowed
-    let parts_groups_sum = 0;
-    for (let part of address_parts){
-        let part_groups = part.split(':');
-        parts_groups_sum += part_groups.length;
-        if(part_groups.length == 1 && part_groups[0] == ''){
-            //skip when address starts or ends with two-colon
-            continue;
-        } else {
-            if(!ipv6_parts_regex.test(part)) return false;
-        }
-
-    }
-    //checking if number of groups does not equal expected value
-    if(parts_groups_sum > 8) return false;
-    return !(address_parts.length == 1 && parts_groups_sum != 8);
-}
-
 function expandIPv6(address){
     let hextets_abbrev = address.split(':');
     if (hextets_abbrev.slice(-1) == '') {
@@ -358,7 +335,7 @@ class Token{
         if(viewer_attributes['ip'].includes('.') && net.isIPv4(viewer_attributes['ip'])){
             jwt_payload['ip_ver']=4;
             fullIP = viewer_attributes['ip'];
-        } else if(validateIPv6(viewer_attributes['ip'])){
+        } else if(net.isIPv6(viewer_attributes['ip'])){
             jwt_payload['ip_ver']=6;
             fullIP = expandIPv6(viewer_attributes['ip']);
         } else {
@@ -509,4 +486,3 @@ class Token{
 exports.Token = Token;
 exports.Secret = Secret;
 exports.Session = Session;
-exports.validateIPv6 = validateIPv6;

@@ -135,7 +135,7 @@ export class CRCreateLEWafRule extends Construct {
     });
 
     const archiverLayer = new lambda.LayerVersion(this, "AdmZipLayer", {
-      compatibleRuntimes: [lambda.Runtime.NODEJS_16_X],
+      compatibleRuntimes: [lambda.Runtime.NODEJS_18_X],
       code: lambda.Code.fromAsset("lambda/layers/admzip"),
       description: "Layer used to zip lambda edge file",
     });

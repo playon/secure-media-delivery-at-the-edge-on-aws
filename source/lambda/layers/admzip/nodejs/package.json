@@ -9,6 +9,9 @@
   "dependencies": {
     "adm-zip": "^0.5.10"
   },
-  "author": "",
-  "license": "ISC"
+  "author": {
+    "name": "Amazon Web Services",
+    "url": "https://aws.amazon.com/solutions"
+  },
+  "license": "Apache-2.0"
 }

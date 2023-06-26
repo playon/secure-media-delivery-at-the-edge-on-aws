@@ -43,6 +43,8 @@ echo "rm -rf $dist_dir"
 rm -rf $dist_dir
 echo "mkdir -p $dist_dir"
 mkdir -p $dist_dir
+echo "mkdir -p $dist_dir/deployment"
+mkdir -p $dist_dir/deployment
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] GitHub templates"

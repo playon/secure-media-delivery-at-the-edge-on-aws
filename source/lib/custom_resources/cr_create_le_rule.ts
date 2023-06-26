@@ -43,7 +43,7 @@ export class CRCreateLEWafRule extends Construct {
     const triggerPolicy = new iam.PolicyDocument({
       statements: [
         new iam.PolicyStatement({
-          resources: ["*"],
+          resources: [`arn:aws:lambda:*:${Aws.ACCOUNT_ID}:function:*`],
           actions: [
             "lambda:CreateFunction",
             "lambda:PublishVersion",

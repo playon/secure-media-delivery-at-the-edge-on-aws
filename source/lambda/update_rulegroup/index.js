@@ -131,7 +131,7 @@ exports.handler = async (event, context) => {
             return e['type']['S'] == 'AUTO';
         });
 
-        const sortedAutoSessions = autoSessions.sort((a, b) => {
+        autoSessions.sort((a, b) => {
             return b['score']['N'] - a['score']['N'];
         });
 
@@ -152,7 +152,7 @@ exports.handler = async (event, context) => {
         }
 
         localIndex = 1
-        for (const item of sortedAutoSessions) {
+        for (const item of autoSessions) {
             if (globalIndex <= maxSessions) {
                 const myRuleName = String(getRandomAlphanumericString())
                 const currentRule2 = getFormattedRuleConfig('/' + item['session_id']['S'], myRuleName, globalIndex)

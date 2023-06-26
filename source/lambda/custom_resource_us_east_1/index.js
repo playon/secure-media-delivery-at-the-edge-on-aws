@@ -61,7 +61,7 @@ async function createLambdaEdge() {
             FunctionName: process.env.STACK_NAME + '_Sig4LE', /* required */
             Handler: 'le.handler', /* required */
             Role: process.env.ROLE_ARN, /* required */
-            Runtime: 'nodejs14.x', /* required */
+            Runtime: 'nodejs18.x', /* required */
             Description: 'Sign sign4 requests'
         };
 

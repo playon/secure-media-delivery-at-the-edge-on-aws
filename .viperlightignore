@@ -12,3 +12,6 @@ source/.typescript/lambda/layers/aws-nodesdk-custom-config/node_modules
 source/.typescript/cdk.out
 source/.typescript/lambda/layers/aws-nodesdk-custom-config/coverage
 source/.typescript/package-lock.json
+
+[node-npmoutdated]
+aws-sdk-client-mock=2.2.0

@@ -11,7 +11,7 @@ const app = new App();
 const solutionName = 'secure-media-delivery-at-the-edge-on-aws';
 const solutionId = app.node.tryGetContext('solution_id');
 const solutionDisplayName = app.node.tryGetContext('solution_name');
-const solutionVersion = `v${app.node.tryGetContext('solution_version')}`;
+const solutionVersion = app.node.tryGetContext('solution_version');
 const description = `(${solutionId}) - ${solutionDisplayName}. Version ${solutionVersion}`;
 
 export const getMainStackProps = (config: IConfiguration): SecureMediaStreamStackProps => {

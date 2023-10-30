@@ -85,6 +85,9 @@ cp $source_template_dir/../CHANGELOG.md $dist_dir
 echo "cp $source_template_dir/../.gitignore $dist_dir"
 cp $source_template_dir/../.gitignore $dist_dir
 
+echo "cp $source_template_dir/../solution-manifest.yaml $dist_dir"
+cp $source_template_dir/../solution-manifest.yaml $dist_dir
+
 echo "cp $source_template_dir/../deployment/run-unit-tests.sh $dist_dir/deployment/"
 cp $source_template_dir/../deployment/run-unit-tests.sh $dist_dir/deployment/
 
@@ -98,8 +101,6 @@ echo $dist_dir
 # General cleanup of node_modules and package-lock.json files
 echo "find $dist_dir -iname "node_modules" -type d -exec rm -rf "{}" \; 2> /dev/null"
 find $dist_dir -iname "node_modules" -type d -exec rm -rf "{}" \; 2> /dev/null
-echo "find $dist_dir -iname "package-lock.json" -type f -exec rm -f "{}" \; 2> /dev/null"
-find $dist_dir -iname "package-lock.json" -type f -exec rm -f "{}" \; 2> /dev/null
 
 echo "------------------------------------------------------------------------------"
 echo "[Packing] Create GitHub (open-source) zip file"

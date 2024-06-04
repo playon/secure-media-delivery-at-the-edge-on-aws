@@ -110,7 +110,7 @@ echo "--------------------------------------------------------------------------
 echo "cd $dist_dir"
 cd $dist_dir
 echo "zip -q -r9 ../$1.zip ."
-zip -q -r9 ../$1.zip .
+zip -q -r9 ../$1.zip . -x ../Config
 
 # Cleanup any temporary/unnecessary files
 echo "Clean up open-source folder"

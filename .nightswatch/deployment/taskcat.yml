@@ -1,0 +1,73 @@
+# For Solutions which need email address as Parameter, you can use nightswatch domain email address.
+# Any email sent to <anything>@dashboard.solutionsbuilder.aws.dev will be stored in S3 bucket for 2days and auto-deleted.
+
+# If parameters are same across every region:
+general:
+  auth:
+    default: 'SecureMediaDelivery' # Your aws profile should be defined inside scripts/env.sh file.
+project:
+  name:  secure-media-delivery-at-the-edge-on-aws
+  shorten_stack_name: true
+  template: secure-media-delivery-at-the-edge-on-aws.template
+# Due to below error converted regions to individual test. 
+# Resource handler returned message: 
+# "Invalid request provided: AWS::CloudFront::OriginRequestPolicy: Another origin request policy with the same name already exists within the aws account. 
+# (Service: CloudFront, Status Code: 409, Request ID: 81c1a62d-7228-47b7-b006-68219ab71b97)" 
+# (RequestToken: 76b7508e-44ce-0fdb-f711-a1e6a1b6ac19, HandlerErrorCode: InvalidRequest)
+tests:
+  test-t1:
+    parameters:
+      InputParametersWeekOfTheMonth65553131: '1'
+      InputParametersDayOfTheWeek7311ACB1: '1'
+      InputParametersHours5BE49991: '01'
+      InputParametersMinutesC6043A78: '01'
+      InputParametersDashHostName4EB8C3EA: ''
+      InputParametersDashUrlPathBF2CBBDA: ''
+      InputParametersDashTtl7191AAE0: ''
+      InputParametersHlsHostName197E1D97: ''
+      InputParametersHlsUrlPath33EABDD0: ''
+      InputParametersHlsTtl74CAB599: ''
+    regions:
+      - us-west-2
+  test-t2:
+    parameters:
+      InputParametersWeekOfTheMonth65553131: '1'
+      InputParametersDayOfTheWeek7311ACB1: '1'
+      InputParametersHours5BE49991: '01'
+      InputParametersMinutesC6043A78: '01'
+      InputParametersDashHostName4EB8C3EA: ''
+      InputParametersDashUrlPathBF2CBBDA: ''
+      InputParametersDashTtl7191AAE0: ''
+      InputParametersHlsHostName197E1D97: ''
+      InputParametersHlsUrlPath33EABDD0: ''
+      InputParametersHlsTtl74CAB599: ''
+    regions:
+      - us-east-2
+  test-t3:
+    parameters:
+      InputParametersWeekOfTheMonth65553131: '1'
+      InputParametersDayOfTheWeek7311ACB1: '1'
+      InputParametersHours5BE49991: '01'
+      InputParametersMinutesC6043A78: '01'
+      InputParametersDashHostName4EB8C3EA: ''
+      InputParametersDashUrlPathBF2CBBDA: ''
+      InputParametersDashTtl7191AAE0: ''
+      InputParametersHlsHostName197E1D97: ''
+      InputParametersHlsUrlPath33EABDD0: ''
+      InputParametersHlsTtl74CAB599: ''
+    regions:
+      - us-east-1
+  test-t4:
+    parameters:
+      InputParametersWeekOfTheMonth65553131: '1'
+      InputParametersDayOfTheWeek7311ACB1: '1'
+      InputParametersHours5BE49991: '01'
+      InputParametersMinutesC6043A78: '01'
+      InputParametersDashHostName4EB8C3EA: ''
+      InputParametersDashUrlPathBF2CBBDA: ''
+      InputParametersDashTtl7191AAE0: ''
+      InputParametersHlsHostName197E1D97: ''
+      InputParametersHlsUrlPath33EABDD0: ''
+      InputParametersHlsTtl74CAB599: ''
+    regions:
+      - eu-west-1

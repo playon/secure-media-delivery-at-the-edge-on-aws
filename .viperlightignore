@@ -4,6 +4,7 @@ Config
 # Use of opensource-codeofconduct email for amazon is expected
 CODE_OF_CONDUCT.md:4
 CONTRIBUTING.md:51
+SECURITY.md:10
 
 ^dist/
 source/.typescript/node_modules

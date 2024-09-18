@@ -82,6 +82,9 @@ cp $source_template_dir/../CONTRIBUTING.md $dist_dir
 echo "cp $source_template_dir/../CHANGELOG.md $dist_dir"
 cp $source_template_dir/../CHANGELOG.md $dist_dir
 
+echo "cp $source_template_dir/../SECURITY.md $dist_dir"
+cp $source_template_dir/../SECURITY.md $dist_dir
+
 echo "cp $source_template_dir/../.gitignore $dist_dir"
 cp $source_template_dir/../.gitignore $dist_dir
 

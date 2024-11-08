@@ -1,4 +1,11 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 'use strict';
+
+import videojs from 'video.js';
+import QRious from 'qrious';
+import $ from 'jquery';
 
 var player = videojs('my_video_1');
 

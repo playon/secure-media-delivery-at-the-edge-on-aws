@@ -101,7 +101,7 @@ export class Endpoints extends Construct {
       { id: "W41", reason: "Encryption done" },
     ]);
 
-    const folder = props.demo ? "demo_website" : "empty_demo_website";
+    const folder = props.demo ? "demo_website/dist" : "empty_demo_website";
     new s3deploy.BucketDeployment(this, "DeployWebsite", { // NOSONAR
       sources: [s3deploy.Source.asset("resources/" + folder)],
       destinationBucket: hostingBucket,

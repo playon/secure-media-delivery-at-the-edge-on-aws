@@ -17,3 +17,6 @@ source/.typescript/package-lock.json
 [node-npmoutdated]
 # newer version (v3.0.0) has a breaking change that is incompatible with the solution
 aws-sdk-client-mock=2.2.0
+
+[files-aws]
+source/resources/demo_website/package-lock.json

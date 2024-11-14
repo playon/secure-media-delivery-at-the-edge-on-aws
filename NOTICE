@@ -40,6 +40,7 @@ THIRD PARTY COMPONENTS
 **********************
 This software includes third party software subject to the following copyrights:
 
+qrcode                                                                  MIT
 prettier                                                                MIT
 prompts                                                                 MIT
 babel__traverse                                                         MIT
@@ -552,7 +553,6 @@ bootstrap                                                               MIT
 @popperjs/core                                                          MIT
 jquery                                                                  MIT
 popper.js                                                               MIT
-qrious                                                                  GPL-3.0
 video.js                                                                Apache-2.0
 @babel/runtime                                                          MIT
 regenerator-runtime                                                     MIT

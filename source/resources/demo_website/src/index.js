@@ -8,11 +8,11 @@ import './css/app.css';
 import $ from 'jquery';
 import 'bootstrap';
 import videojs from 'video.js';
-import QRious from 'qrious';
+import QRCode from 'qrcode'
 
 window.$ = $;
 window.jQuery = $;
 window.videojs = videojs;
-window.QRious = QRious;
+window.QRCode = QRCode;
 
 import './js/main.js';

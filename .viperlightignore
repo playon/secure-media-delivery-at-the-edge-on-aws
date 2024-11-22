@@ -13,6 +13,7 @@ source/.typescript/lambda/layers/aws-nodesdk-custom-config/node_modules
 source/.typescript/cdk.out
 source/.typescript/lambda/layers/aws-nodesdk-custom-config/coverage
 source/.typescript/package-lock.json
+source/resources/demo_website/package-lock.json
 
 [node-npmoutdated]
 # newer version (v3.0.0) has a breaking change that is incompatible with the solution

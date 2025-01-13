@@ -17,33 +17,43 @@ async function cleanWAFGroups() {
     // waf will be interacting with the GLOBAL region and it requires region to be set to us-east-1
     const client = new WAFV2Client({ region: 'us-east-1', credentials });
 
-    console.log("Fetching WAF Rule Groups")
+    console.log("Fetching WAF Rule Groups");
     const listCommand = new ListRuleGroupsCommand({ Scope: "CLOUDFRONT" });
-    const response = await client.send(listCommand)
-    console.log(`Deleting ${response.RuleGroups.length} Rule groups`)
+    const response = await client.send(listCommand);
+    console.log(`Attempting to delete ${response.RuleGroups.length} Rule groups`);
+
     for (const ruleGroup of response.RuleGroups) {
         const ruleGroupName = ruleGroup["Name"];
         const ruleGroupId = ruleGroup["Id"];
         const ruleGroupLockToken = ruleGroup["LockToken"];
 
-        console.log(`Deleting Rule group with Name ${ruleGroupName}\nId ${ruleGroupId}`);
-        const deleteCommand = new DeleteRuleGroupCommand({
-            Scope: 'CLOUDFRONT',
-            Name: ruleGroupName,
-            Id: ruleGroupId,
-            LockToken: ruleGroupLockToken,
-        });
-        await client.send(deleteCommand);
+        console.log(`Processing Rule group: Name ${ruleGroupName}, Id ${ruleGroupId}`);
 
-        // Wait until fresh resources stabilize e.g. VOD CloudFront
-        console.log('5 seconds timeout before deleting next rule group');
+        try {
+            console.log(`Attempting to delete Rule group: ${ruleGroupName}`);
+            const deleteCommand = new DeleteRuleGroupCommand({
+                Scope: 'CLOUDFRONT',
+                Name: ruleGroupName,
+                Id: ruleGroupId,
+                LockToken: ruleGroupLockToken,
+            });
+            await client.send(deleteCommand);
+            console.log(`Successfully deleted Rule group: ${ruleGroupName}`);
+        } catch (error) {
+            console.error(`Error deleting Rule group ${ruleGroupName}:`, error.message);
+            // Log the full error for debugging
+            console.error('Full error:', JSON.stringify(error, null, 2));
+        }
+
+        console.log('5 seconds timeout before processing next rule group');
         await timeoutUtils.delay(
             timeoutUtils.Duration.ofSeconds(5).getMilliseconds(),
         );
-
-        console.log(`Deleted Rule group with Name ${ruleGroupName}\nId ${ruleGroupId}`);
     }
+
+    console.log("Finished processing all Rule groups");
 }
+
 
 async function cleanSSMParameters(region) {
     const { SSMClient, DescribeParametersCommand, DeleteParametersCommand } = require('@aws-sdk/client-ssm');

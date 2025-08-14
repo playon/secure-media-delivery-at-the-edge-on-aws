@@ -1,459 +1,658 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+/**
+ * Optimized AWS Secure Media Delivery Node.js SDK
+ * 
+ * This is an optimized version of the original SDK with improvements for:
+ * - Performance and memory efficiency
+ * - Error handling and resilience
+ * - Code maintainability and best practices
+ * - Security and validation
+ */
+
 const { DynamoDB } = require("@aws-sdk/client-dynamodb");
 const { SecretsManager } = require("@aws-sdk/client-secrets-manager");
-const { fromIni } = require("@aws-sdk/credential-providers");
-const { fromTemporaryCredentials } = require("@aws-sdk/credential-providers");
-const b64url = require('base64url');
+const { fromIni, fromTemporaryCredentials } = require("@aws-sdk/credential-providers");
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const qs = require('querystring');
-const net = require('node:net');
+const { URL } = require('url');
+const { isIPv4, isIPv6 } = require('net');
 
+// Constants for better maintainability
+const CONSTANTS = {
+    DEFAULT_REGION: 'us-east-1',
+    DEFAULT_SESSION_LENGTH: 12,
+    MIN_SESSION_LENGTH: 7,
+    MAX_RETRY_ATTEMPTS: 3,
+    RETRY_DELAY_MS: 1000,
+    JWT_ALGORITHM: 'HS256',
+    HASH_ALGORITHM: 'sha256'
+};
 
-function log(message){
-    if(this._debug || this._debug == undefined) console.log("[DEBUG] " + message);
-}
+// Utility functions
+const utils = {
+    /**
+     * Optimized logging function with proper context binding
+     */
+    createLogger: (context) => (message) => {
+        if (context._debug) {
+            console.log(`[DEBUG] ${context.constructor.name}: ${message}`);
+        }
+    },
 
-function getCredentialsAndRegion(params) {
-    let credentials, region;
-    if (params['profile']) {
-        credentials = fromIni({ profile: params['profile'] });
-    } else if (params['role']) {
-        credentials = fromTemporaryCredentials({
-            params: {
-                RoleArn: params['role'],
-                RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`,
-            },
-        });
-    }
-    if (params['region']) {
-        region = params['region'];
-    } else if (!process.env.AWS_REGION) {
-        region = 'us-east-1';
-    }
-    return {
-        credentials,
-        region,
-    }
-}
+    /**
+     * Improved IPv6 expansion with better error handling
+     */
+    expandIPv6: (address) => {
+        try {
+            // Use Node.js built-in validation first
+            if (!isIPv6(address)) {
+                throw new Error(`Invalid IPv6 address: ${address}`);
+            }
 
-function expandIPv6(address){
-    let hextets_abbrev = address.split(':');
-    if (hextets_abbrev.slice(-1) == '') {
-        hextets_abbrev.pop();  //when prefix ends with :: this creates two empty elements in an array
-    }
-    if (hextets_abbrev[0] == '') {
-        hextets_abbrev.shift();  //when prefix starts with :: this creates two empty elements in an array
-    }
-    //add leading zeros in extets and expand two-collon (::) notation
-    let hextets = hextets_abbrev.map(item => { return(item.length ? Array(5-item.length).join('0')+item : '')});
-    if(hextets.indexOf('')>-1) {
-        hextets.splice.apply(hextets,[hextets.indexOf(''),1].concat(Array(9-hextets.length).fill('0000')));
-    }
-    return hextets.join(':');
-}
+            const parts = address.split(':');
+            const expandedParts = [];
+            let doubleColonIndex = -1;
 
-class Secret{
+            // Find double colon position
+            for (let i = 0; i < parts.length; i++) {
+                if (parts[i] === '' && doubleColonIndex === -1) {
+                    doubleColonIndex = i;
+                } else if (parts[i] !== '') {
+                    expandedParts.push(parts[i].padStart(4, '0'));
+                }
+            }
 
-    static _debug = false;
-    static logger = log;
+            // Handle double colon expansion
+            if (doubleColonIndex !== -1) {
+                const missingParts = 8 - expandedParts.length;
+                const beforeDoubleColon = expandedParts.slice(0, doubleColonIndex);
+                const afterDoubleColon = expandedParts.slice(doubleColonIndex);
+                
+                return [
+                    ...beforeDoubleColon,
+                    ...Array(missingParts).fill('0000'),
+                    ...afterDoubleColon
+                ].join(':');
+            }
 
-    static setDEBUG(val=true){
-        if(typeof(val)=='boolean'){
-            this._debug = val;
+            return expandedParts.join(':');
+        } catch (error) {
+            throw new Error(`IPv6 expansion failed: ${error.message}`);
+        }
+    },
+
+    /**
+     * Improved credentials and region resolution
+     */
+    getCredentialsAndRegion: (params = {}) => {
+        const config = {};
+
+        // Credentials resolution with validation
+        if (params.profile) {
+            if (typeof params.profile !== 'string') {
+                throw new Error('Profile must be a string');
+            }
+            config.credentials = fromIni({ profile: params.profile });
+        } else if (params.role) {
+            if (typeof params.role !== 'string') {
+                throw new Error('Role ARN must be a string');
+            }
+            config.credentials = fromTemporaryCredentials({
+                params: {
+                    RoleArn: params.role,
+                    RoleSessionName: `SecureMediaDelivery-SDK-${Date.now()}`,
+                },
+            });
+        }
+
+        // Region resolution with fallback
+        config.region = params.region || process.env.AWS_REGION || CONSTANTS.DEFAULT_REGION;
+
+        return config;
+    },
+
+    /**
+     * Retry mechanism for AWS API calls
+     */
+    retryOperation: async (operation, maxRetries = CONSTANTS.MAX_RETRY_ATTEMPTS) => {
+        let lastError;
+        
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                return await operation();
+            } catch (error) {
+                lastError = error;
+                
+                // Don't retry on certain error types
+                if (error.name === 'ValidationException' || 
+                    error.name === 'AccessDeniedException' ||
+                    attempt === maxRetries) {
+                    throw error;
+                }
+                
+                // Exponential backoff
+                const delay = CONSTANTS.RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+        
+        throw lastError;
+    },
+
+    /**
+     * Input validation helpers
+     */
+    validateRequired: (value, name) => {
+        if (value === null || value === undefined || value === '') {
+            throw new Error(`${name} is required`);
+        }
+    },
+
+    validateString: (value, name) => {
+        if (typeof value !== 'string') {
+            throw new Error(`${name} must be a string`);
+        }
+    },
+
+    validateNumber: (value, name) => {
+        if (typeof value !== 'number' || isNaN(value)) {
+            throw new Error(`${name} must be a valid number`);
         }
     }
+};
 
-    constructor(stackName, ttl, retrieveMode = 'native', retrieveFunction = null, retrieveFunctionArgs = []){
-        this.keys = null;
-        this._last_updated = null;
-        this._lock = false;
+/**
+ * Optimized Secret class with improved error handling and performance
+ */
+class Secret {
+    static _debug = false;
+
+    constructor(stackName, ttl, retrieveMode = 'native', retrieveFunction = null, retrieveFunctionArgs = []) {
+        // Input validation
+        utils.validateRequired(stackName, 'stackName');
+        utils.validateString(stackName, 'stackName');
+        utils.validateRequired(ttl, 'ttl');
+        utils.validateNumber(ttl, 'ttl');
+
+        if (ttl <= 0) {
+            throw new Error('TTL must be greater than 0');
+        }
+
         this.stackName = stackName;
-        this._smClient = null;
         this.ttl = ttl;
         this.retrieveMode = retrieveMode;
         this.retrieveFunction = retrieveFunction;
-        this.retrieveFunctionArgs = retrieveFunctionArgs;
-    }
-
-    initSMClient(params={}){
-        try{
-            this._smClient = new SecretsManager(getCredentialsAndRegion(params));
-        } catch(e) {
-            Secret.logger(`Couldn't create SecretsManager client: ${e}`);
-            return false;
-        }
-        return true;
+        this.retrieveFunctionArgs = retrieveFunctionArgs || [];
         
-    }
+        // Private properties
+        this._keys = null;
+        this._lastUpdated = null;
+        this._lock = false;
+        this._smClient = null;
+        this._logger = utils.createLogger(this);
 
-    async _getSMSecret(){
-        let secret_name_primary = `${this.stackName}_PrimarySecret`;
-        let secret_name_secondary = `${this.stackName}_SecondarySecret`;
-        let primarySecret_json;
-        let secondarySecret_json;
-        try{
-            let sm_promise_primary = this._smClient.getSecretValue({SecretId: secret_name_primary});
-            let sm_promise_secondary = this._smClient.getSecretValue({SecretId: secret_name_secondary});
-            let smResponses = await Promise.all([sm_promise_primary,sm_promise_secondary]);
-            primarySecret_json = Secret._getSecretKV(smResponses[0]);
-            secondarySecret_json = Secret._getSecretKV(smResponses[1]);
-
-        } catch (e){
-            throw new Error(`Couldn't retrieve SecretsManager secrets: ${e}`);
-        }        
-
-        return {
-            'primary': {
-                'uuid': Object.keys(primarySecret_json)[0],
-                'value': Object.values(primarySecret_json)[0]
-            },
-            'secondary': {
-                'uuid': Object.keys(secondarySecret_json)[0],
-                'value': Object.values(secondarySecret_json)[0]
-            }
+        // Validate custom retrieval setup
+        if (retrieveMode === 'custom' && typeof retrieveFunction !== 'function') {
+            throw new Error('retrieveFunction must be a function when retrieveMode is custom');
         }
-                
     }
 
-    getKeyValue(key_alias){
-        return this.keys['key_alias'].value;
+    static setDEBUG(val = true) {
+        if (typeof val === 'boolean') {
+            this._debug = val;
+        }
     }
-    getKeyUUID(key_alias){
-        return this.keys['key_alias'].uuid;
-    }
-    
-    _checkIfExpired(){
-        if(!this._last_updated){
-            Secret.logger('Keys have not been set yet');
-            return null;
-        } else if(Math.floor(Date.now()/1000)-this._last_updated  > this.ttl) {
+
+    /**
+     * Initialize Secrets Manager client with improved error handling
+     */
+    initSMClient(params = {}) {
+        try {
+            const config = utils.getCredentialsAndRegion(params);
+            this._smClient = new SecretsManager(config);
+            this._logger('SecretsManager client initialized successfully');
             return true;
-        } else {
+        } catch (error) {
+            this._logger(`Failed to create SecretsManager client: ${error.message}`);
             return false;
         }
-
     }
 
-    async retrieveKeys(key_alias = 'all'){
-        let isExpired = this._checkIfExpired();
-        if (this._last_updated && ((!isExpired) || this._lock)) {
-            if (key_alias == 'all') {
-                return this.keys;
+    /**
+     * Optimized secret retrieval with proper error handling and retries
+     */
+    async _getSMSecret() {
+        const secretNamePrimary = `${this.stackName}_PrimarySecret`;
+        const secretNameSecondary = `${this.stackName}_SecondarySecret`;
+
+        try {
+            // Use retry mechanism for AWS API calls
+            const [primaryResponse, secondaryResponse] = await Promise.all([
+                utils.retryOperation(() => this._smClient.getSecretValue({ SecretId: secretNamePrimary })),
+                utils.retryOperation(() => this._smClient.getSecretValue({ SecretId: secretNameSecondary }))
+            ]);
+
+            const primarySecret = this._parseSecretValue(primaryResponse);
+            const secondarySecret = this._parseSecretValue(secondaryResponse);
+
+            return {
+                primary: {
+                    uuid: Object.keys(primarySecret)[0],
+                    value: Object.values(primarySecret)[0]
+                },
+                secondary: {
+                    uuid: Object.keys(secondarySecret)[0],
+                    value: Object.values(secondarySecret)[0]
+                }
+            };
+        } catch (error) {
+            throw new Error(`Failed to retrieve secrets: ${error.message}`);
+        }
+    }
+
+    /**
+     * Improved secret value parsing with better error handling
+     */
+    _parseSecretValue(response) {
+        try {
+            let secretString;
+            
+            if (response.SecretString) {
+                secretString = response.SecretString;
+            } else if (response.SecretBinary) {
+                secretString = Buffer.from(response.SecretBinary, 'base64').toString('utf-8');
+            } else {
+                throw new Error('No secret string or binary found in response');
             }
-            return this.keys[key_alias];
+
+            const parsed = JSON.parse(secretString);
+            
+            if (!parsed || typeof parsed !== 'object') {
+                throw new Error('Secret must be a valid JSON object');
+            }
+
+            return parsed;
+        } catch (error) {
+            throw new Error(`Failed to parse secret value: ${error.message}`);
+        }
+    }
+
+    /**
+     * Fixed key access methods (original had bugs)
+     */
+    getKeyValue(keyAlias) {
+        if (!this._keys || !this._keys[keyAlias]) {
+            throw new Error(`Key '${keyAlias}' not found`);
+        }
+        return this._keys[keyAlias].value;
+    }
+
+    getKeyUUID(keyAlias) {
+        if (!this._keys || !this._keys[keyAlias]) {
+            throw new Error(`Key '${keyAlias}' not found`);
+        }
+        return this._keys[keyAlias].uuid;
+    }
+
+    /**
+     * Improved expiration check with better time handling
+     */
+    _checkIfExpired() {
+        if (!this._lastUpdated) {
+            this._logger('Keys have not been set yet');
+            return null;
+        }
+        
+        const now = Math.floor(Date.now() / 1000);
+        const elapsed = now - this._lastUpdated;
+        return elapsed > this.ttl;
+    }
+
+    /**
+     * Optimized key retrieval with proper concurrency control
+     */
+    async retrieveKeys(keyAlias = 'all') {
+        const isExpired = this._checkIfExpired();
+        
+        // Return cached keys if valid and not locked
+        if (this._lastUpdated && !isExpired && !this._lock) {
+            return this._filterKeys(keyAlias);
         }
 
-        Secret.logger('Starting key retrival');
-        this._lock = true;
-        try {
-            if (this.retrieveMode == 'native') {
-                //TO-DO: add timeout
-                let provisional_keys = await this._getSMSecret();
-                if (!Secret.validateKeys(provisional_keys)) {
-                    throw new Error("Invalid format of the returned keys");
-                }
-                this.keys = provisional_keys;
-                this._last_updated = Math.floor(Date.now() / 1000);
-            } else if (this.retrieveMode == 'custom') {
-                //TO-DO: add timeout
-                let provisional_keys = await this.retrieveFunction(...this.retrieveFunctionArgs);
-                if (!Secret.validateKeys(provisional_keys)) {
-                    throw new Error("Invalid format of the returned keys");
-                }
-                this.keys = provisional_keys;
-                this._last_updated = Math.floor(Date.now() / 1000);
+        // Prevent concurrent retrievals
+        if (this._lock) {
+            // Wait for ongoing retrieval with timeout
+            const timeout = 30000; // 30 seconds
+            const start = Date.now();
+            
+            while (this._lock && (Date.now() - start) < timeout) {
+                await new Promise(resolve => setTimeout(resolve, 100));
             }
-        } catch (e) {
-            console.log(e);
-            Secret.logger(`failed to retrieve the keys: ${e}`);
+            
+            if (this._lock) {
+                throw new Error('Key retrieval timeout - concurrent operation took too long');
+            }
+            
+            return this._filterKeys(keyAlias);
+        }
+
+        this._logger('Starting key retrieval');
+        this._lock = true;
+
+        try {
+            let keys;
+            
+            if (this.retrieveMode === 'native') {
+                if (!this._smClient) {
+                    throw new Error('SecretsManager client not initialized. Call initSMClient() first.');
+                }
+                keys = await this._getSMSecret();
+            } else if (this.retrieveMode === 'custom') {
+                keys = await this.retrieveFunction(...this.retrieveFunctionArgs);
+            } else {
+                throw new Error(`Invalid retrieve mode: ${this.retrieveMode}`);
+            }
+
+            // Validate retrieved keys
+            this._validateKeys(keys);
+            
+            this._keys = keys;
+            this._lastUpdated = Math.floor(Date.now() / 1000);
+            
+            this._logger('Keys retrieved and cached successfully');
+            return this._filterKeys(keyAlias);
+            
+        } catch (error) {
+            this._logger(`Key retrieval failed: ${error.message}`);
+            throw error;
         } finally {
             this._lock = false;
         }
-
-        if (this.keys) {
-            if (key_alias == 'all') {
-                return this.keys;
-            }
-            return this.keys[key_alias];
-        }
-
-        throw new Error("Key retrival failed and no previously set key is available");
     }
 
-    static validateKeys(obj){
-        let top_level_keys = Object.keys(obj);
+    /**
+     * Improved key filtering with validation
+     */
+    _filterKeys(keyAlias) {
+        if (!this._keys) {
+            throw new Error('No keys available');
+        }
 
-        switch (top_level_keys.length) {
-            case 1:
-                let low_level_keys = Object.keys(obj['primary']);
-                return Secret._validate_primary(top_level_keys, low_level_keys, obj['primary'].uuid, obj['primary'].value);
-
-            case 2:
-                return Secret._validate_secondary(top_level_keys, Object.entries(obj));
-
+        switch (keyAlias) {
+            case 'all':
+                return { ...this._keys }; // Return copy to prevent mutation
+            case 'primary':
+                return this._keys.primary ? { ...this._keys.primary } : null;
+            case 'secondary':
+                return this._keys.secondary ? { ...this._keys.secondary } : null;
             default:
-                return false;
+                throw new Error(`Invalid key alias: ${keyAlias}`);
         }
     }
 
-    static _validate_primary(top_level_keys, low_level_keys, uuid, value) {
-        if (!top_level_keys.includes('primary')) return false;
-        if (low_level_keys.length != 2) return false
-        if (!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
-        return !(typeof (uuid) != 'string' || typeof (value) != 'string');
-    }
-
-    static _validate_secondary(top_level_keys, entries) {
-        if (!(top_level_keys.includes('primary') && top_level_keys.includes('secondary'))) return false;
-        for (const key of entries) {
-            let low_level_keys = Object.keys(key[1]);
-            if (low_level_keys.length != 2) return false
-            if (!(low_level_keys.includes('uuid') && low_level_keys.includes('value'))) return false;
-            if (typeof (key[1].uuid) != 'string' || typeof (key[1].value) != 'string') return false;
+    /**
+     * Enhanced key validation
+     */
+    _validateKeys(keys) {
+        if (!keys || typeof keys !== 'object') {
+            throw new Error('Keys must be an object');
         }
-        return true;
-    }
 
-    static _getSecretKV(smResponse){
-        //returns key value object from either string or binary format of the secret
-		let secret = null;
-        if ('SecretString' in smResponse) {
-            secret = smResponse.SecretString;
-        } else {
-            let buff = Buffer.from(smResponse.SecretBinary, 'base64');
-            secret = buff.toString();
+        if (!keys.primary || typeof keys.primary !== 'object') {
+            throw new Error('Primary key is required and must be an object');
         }
-        return JSON.parse(secret);
+
+        this._validateKeyStructure(keys.primary, 'primary');
+        
+        if (keys.secondary) {
+            this._validateKeyStructure(keys.secondary, 'secondary');
+        }
     }
 
+    _validateKeyStructure(key, keyName) {
+        if (!key.uuid || typeof key.uuid !== 'string') {
+            throw new Error(`${keyName} key must have a valid UUID string`);
+        }
+        
+        if (!key.value || typeof key.value !== 'string') {
+            throw new Error(`${keyName} key must have a valid value string`);
+        }
+    }
+
+    /**
+     * Static validation method (improved from original)
+     */
+    static validateKeys(obj) {
+        try {
+            const instance = new Secret('temp', 300);
+            instance._validateKeys(obj);
+            return true;
+        } catch {
+            return false;
+        }
+    }
 }
 
-class Session{
+/**
+ * Optimized Session class with better random generation and error handling
+ */
+class Session {
     static _debug = false;
-    static logger = log;
     static _ddbClient = null;
     static revocationTable = '';
 
-    static setDEBUG(val=true){ // NOSONAR - javascript:S4144 - functions are in separate classes. Issue is not significant enough to refactor.
-        if(typeof(val)=='boolean'){
-            this._debug = val;
+    constructor(id = null, autogenerate = false, suspicionScore = 0) {
+        utils.validateNumber(suspicionScore, 'suspicionScore');
+        
+        if (suspicionScore < 0 || suspicionScore > 100) {
+            throw new Error('Suspicion score must be between 0 and 100');
         }
-    }
 
-    static initialize(tableName, params={}){
-        this.revocationTable = tableName;
-        this.initDBClient(params);
-    }
+        this.suspicionScore = suspicionScore;
+        this._logger = utils.createLogger(this);
 
-    constructor(id=null, autogenerate=false, suspicion_score = 0){
-        let sessionLength;
-        if(id && autogenerate){
-            if((sessionLength=parseInt(id)) > 6) {
-                this.id = Session._autoGenerate(sessionLength);
-            } else{
-                throw new Error("Invalid id input while autogenerate set to true. It must be a number greater than 6");
+        // Improved ID generation logic
+        if (id && autogenerate) {
+            const sessionLength = parseInt(id, 10);
+            if (isNaN(sessionLength) || sessionLength < CONSTANTS.MIN_SESSION_LENGTH) {
+                throw new Error(`Invalid session length. Must be >= ${CONSTANTS.MIN_SESSION_LENGTH}`);
             }
-        } else if(id) {
+            this.id = this._generateSecureId(sessionLength);
+        } else if (id) {
+            utils.validateString(id, 'session ID');
             this.id = id;
         } else {
-            this.id = Session._autoGenerate(12);
+            this.id = this._generateSecureId(CONSTANTS.DEFAULT_SESSION_LENGTH);
         }
-        this.suspicion_score = suspicion_score;
     }
 
-    async revoke(expiry_period=86400, reason='COMPROMISED'){
-        if(!Session._ddbClient) throw new Error("DynamoDB client hasn't been initialized");
-        if(!Session.revocationTable) throw new Error("Revocation Table name must be set");
-        let currentTimestamp = Math.floor(Date.now()/1000);
-        let expiryTime = currentTimestamp + expiry_period;
-		
-        let item= {
-            'session_id': { 'S': this.id},
-            'type': { 'S': 'MANUAL' },
-			'score': {'N': this.suspicion_score.toString()},
-            'reason': { 'S': reason },
-            'last_updated' : { 'N': currentTimestamp.toString() },
-            'ttl': { 'N': expiryTime.toString()}
-        }
-
-        let params = {
-            Item: item,
-            TableName: Session.revocationTable
-        };
-		
-		try{
-			await Session._ddbClient.putItem(params);
-            return true;
-		} catch(e){
-            console.log("ERROR: "+e)
-			Session.logger(`Manual session revoke operation failed when updating DynamoDB table: ${e}`);
-            return false;
-		}
-
-    } 
-
-    static initDBClient(params={}){
-        try{
-            this._ddbClient = new DynamoDB(getCredentialsAndRegion(params));
-        } catch(e) {
-            Session.logger(`Couldn't create DynamoDB client: ${e}`);
-            return false;
-        }
-        return true;
-    }
-
-
-    static _autoGenerate(output_length){
-        const chars = "AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz1234567890";
-        return Array.from({length: output_length}, ()=>chars.charAt(crypto.randomInt(0,chars.length))).join('');
-    }
-
-}
-
-class Token{
-    
-    static _debug = false;
-    static logger = log;
-    
-    constructor(secret, defaultTokenPolicy=null){
-        this.secret = secret;
-        this.defaultTokenPolicy = defaultTokenPolicy;
-    }
-  
-    static setDEBUG(val=true){ // NOSONAR - javascript:S4144 - functions are in separate classes. Issue is not significant enough to refactor.
-        if(typeof(val)=='boolean'){
+    static setDEBUG(val = true) {
+        if (typeof val === 'boolean') {
             this._debug = val;
         }
     }
 
-    _sign(input, key, method){
-        return b64url(crypto.createHmac(method, key).update(input).digest());
-    }
-
-    _populate_ip(viewer_attributes, jwt_payload) {
-        let fullIP;
-        if(viewer_attributes['ip'].includes('.') && net.isIPv4(viewer_attributes['ip'])){
-            jwt_payload['ip_ver']=4;
-            fullIP = viewer_attributes['ip'];
-        } else if(net.isIPv6(viewer_attributes['ip'])){
-            jwt_payload['ip_ver']=6;
-            fullIP = expandIPv6(viewer_attributes['ip']);
-        } else {
-            throw new Error("Invalid viewer's IP format");
-        }
-
-        return { fullIP, jwt_payload };
-    }
-
-    _populate_boolean_items(token_policy, viewer_attributes, jwt_payload) {
-        let intsig_input = '';
-        if (token_policy['ip']) {
-            const populated_ip = this._populate_ip(viewer_attributes, jwt_payload);
-            jwt_payload = populated_ip.jwt_payload;
-            
-            jwt_payload['ip']=true;
-            intsig_input += populated_ip.fullIP + ':';
-        }
-
-        if (token_policy['co']){
-            jwt_payload['co']=true;
-            intsig_input += viewer_attributes['co'] + ':';
-            if(token_policy['co_fallback']) jwt_payload['co_fallback']=true;
-        }
-
-        if (token_policy['cty']){
-            jwt_payload['cty']=true;
-            intsig_input += viewer_attributes['cty'] + ':';
-        }
-
-        if (token_policy['reg']){
-            jwt_payload['reg']=true;
-            intsig_input += viewer_attributes['reg'] + ':';
-            if(token_policy['reg_fallback']) jwt_payload['reg_fallback']=true;
-        } 
-
-        if (token_policy['ssn']){
-            jwt_payload['ssn']=true;
-            if (viewer_attributes['sessionId']) {
-                this.payloadSsn = viewer_attributes['sessionId'];
-            } else {
-                let session = new Session(token_policy['session_auto_generate'],true);
-                this.payloadSsn = session.id;
-            }
-            intsig_input += this.payloadSsn + ':';
-        }
-
-        return { jwt_payload, intsig_input };
-    }
-
-    _populate_exp(token_policy, jwt_payload) {
-        if(token_policy['exp'].startsWith('+')){
-            if(token_policy['exp'].endsWith('h')){
-                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*3600;
-            } else if(token_policy['exp'].endsWith('m')){
-                jwt_payload['exp'] = parseInt(Date.now()/1000) + parseInt(token_policy['exp'].slice(1,-1))*60;
-            } else {
-                throw new Error("Invalid exp format");
-            }
-        } else {
-            let parsedExp = parseInt(token_policy['exp']);
-            if(parsedExp <= 0){
-                throw new Error("Invalid exp format");
-            }
-            jwt_payload['exp'] = parsedExp;
-        }
-
-        return jwt_payload;
-    }
-
-    _populate_jwt_payload(token_policy, viewer_attributes, jwt_payload, playback_url_qs, secret_alias) {
-        const boolean_items = this._populate_boolean_items(token_policy, viewer_attributes, jwt_payload);
-        jwt_payload = boolean_items.jwt_payload;
-        let intsig_input = boolean_items.intsig_input;
-         
-        if (token_policy['headers'] && token_policy['headers'].length){
-            token_policy['headers'].forEach((header)=>{
-                jwt_payload['headers'].push(header);
-                if(viewer_attributes['headers'][header]) intsig_input += viewer_attributes['headers'][header] + ':';
-            });
-        }
-
-        if (token_policy['querystrings'] && token_policy['querystrings'].length){
-            token_policy['querystrings'].forEach((qs_param)=>{
-                jwt_payload['qs'].push(qs_param);
-                let qs_value = playback_url_qs[qs_param] || viewer_attributes['qs'][qs_param];
-                if(qs_value) intsig_input += qs_value + ':';
-            });
-        }
-
-        if(intsig_input){
-			intsig_input = intsig_input.slice(0,-1);
-			Token.logger("Input for internal signature: ", intsig_input); 
-			jwt_payload['intsig'] = this._sign(intsig_input, secret_alias.value, 'sha256')
-        } else {
-			delete jwt_payload['intsig'];
-		}
-
-        jwt_payload['paths'] = token_policy['paths'];
-        if (token_policy['exc']) jwt_payload['exc'] = token_policy['exc'];
-
-        if (token_policy['nbf']) jwt_payload['nbf'] = parseInt(token_policy['nbf']);
-
-        jwt_payload = this._populate_exp(token_policy, jwt_payload);
+    static initialize(tableName, params = {}) {
+        utils.validateRequired(tableName, 'tableName');
+        utils.validateString(tableName, 'tableName');
         
-
-        return jwt_payload;
+        this.revocationTable = tableName;
+        return this.initDBClient(params);
     }
-    
-    async generate(viewer_attributes, playback_url=null, token_policy = self.defaultTokenPolicy, secret_alias = 'primary'){
-        let keys = await this.secret.retrieveKeys();
-        if(!keys[secret_alias]) throw new Error("Provided secret alias can't be found in the retrived secret");
-        let playback_url_qs = {};
-        if(playback_url){
-            playback_url_qs = qs.parse(playback_url);
+
+    static initDBClient(params = {}) {
+        try {
+            const config = utils.getCredentialsAndRegion(params);
+            this._ddbClient = new DynamoDB(config);
+            return true;
+        } catch (error) {
+            console.error(`Failed to create DynamoDB client: ${error.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Cryptographically secure ID generation
+     */
+    _generateSecureId(length) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const randomBytes = crypto.randomBytes(length);
+        
+        return Array.from(randomBytes, byte => chars[byte % chars.length]).join('');
+    }
+
+    /**
+     * Improved session revocation with better error handling
+     */
+    async revoke(expiryPeriod = 86400, reason = 'COMPROMISED') {
+        if (!Session._ddbClient) {
+            throw new Error("DynamoDB client hasn't been initialized. Call Session.initialize() first.");
+        }
+        
+        if (!Session.revocationTable) {
+            throw new Error('Revocation table name must be set');
         }
 
-        let jwt_payload = {
+        utils.validateNumber(expiryPeriod, 'expiryPeriod');
+        utils.validateString(reason, 'reason');
+
+        if (expiryPeriod <= 0) {
+            throw new Error('Expiry period must be greater than 0');
+        }
+
+        const currentTimestamp = Math.floor(Date.now() / 1000);
+        const expiryTime = currentTimestamp + expiryPeriod;
+
+        const item = {
+            session_id: { S: this.id },
+            type: { S: 'MANUAL' },
+            score: { N: this.suspicionScore.toString() },
+            reason: { S: reason },
+            last_updated: { N: currentTimestamp.toString() },
+            ttl: { N: expiryTime.toString() }
+        };
+
+        try {
+            await utils.retryOperation(() => 
+                Session._ddbClient.putItem({
+                    TableName: Session.revocationTable,
+                    Item: item
+                })
+            );
+            
+            this._logger(`Session ${this.id} revoked successfully`);
+            return true;
+        } catch (error) {
+            this._logger(`Failed to revoke session ${this.id}: ${error.message}`);
+            throw new Error(`Session revocation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Static method for generating secure IDs
+     */
+    static _autoGenerate(outputLength) {
+        const instance = new Session();
+        return instance._generateSecureId(outputLength);
+    }
+}
+
+/**
+ * Optimized Token class with improved validation and performance
+ */
+class Token {
+    static _debug = false;
+
+    constructor(secret, defaultTokenPolicy = null) {
+        if (!(secret instanceof Secret)) {
+            throw new Error('secret must be an instance of Secret class');
+        }
+
+        this.secret = secret;
+        this.defaultTokenPolicy = defaultTokenPolicy;
+        this._logger = utils.createLogger(this);
+        
+        // Initialize properties
+        this.encodedJwt = null;
+        this.outputPlaybackUrl = null;
+        this.payloadSsn = null;
+    }
+
+    static setDEBUG(val = true) {
+        if (typeof val === 'boolean') {
+            this._debug = val;
+        }
+    }
+
+    /**
+     * Optimized token generation with better validation and error handling
+     */
+    async generate(viewerAttributes, playbackUrl = null, tokenPolicy = null, secretAlias = 'primary') {
+        // Input validation
+        if (!viewerAttributes || typeof viewerAttributes !== 'object') {
+            throw new Error('viewerAttributes must be an object');
+        }
+
+        const policy = tokenPolicy || this.defaultTokenPolicy;
+        if (!policy) {
+            throw new Error('No token policy provided and no default policy set');
+        }
+
+        // Validate secret alias
+        if (!['primary', 'secondary'].includes(secretAlias)) {
+            throw new Error('secretAlias must be either "primary" or "secondary"');
+        }
+
+        try {
+            // Retrieve keys
+            const keys = await this.secret.retrieveKeys('all');
+            const secretKey = keys[secretAlias];
+            
+            if (!secretKey) {
+                throw new Error(`Secret key '${secretAlias}' not found`);
+            }
+
+            // Parse playback URL if provided
+            let playbackUrlQs = {};
+            if (playbackUrl) {
+                try {
+                    const url = new URL(playbackUrl);
+                    playbackUrlQs = Object.fromEntries(url.searchParams);
+                } catch (error) {
+                    throw new Error(`Invalid playback URL: ${error.message}`);
+                }
+            }
+
+            // Build JWT payload
+            const jwtPayload = this._buildJwtPayload(policy, viewerAttributes, playbackUrlQs, secretKey);
+
+            // Generate JWT with improved error handling
+            this.encodedJwt = jwt.sign(jwtPayload, secretKey.value, {
+                algorithm: CONSTANTS.JWT_ALGORITHM,
+                keyid: secretKey.uuid
+            });
+
+            // Handle URL modification or return token
+            if (playbackUrl) {
+                this.outputPlaybackUrl = this._insertTokenIntoUrl(playbackUrl, this.encodedJwt, this.payloadSsn);
+                return this.outputPlaybackUrl;
+            }
+
+            return this.payloadSsn ? `${this.payloadSsn}.${this.encodedJwt}` : this.encodedJwt;
+
+        } catch (error) {
+            this._logger(`Token generation failed: ${error.message}`);
+            throw new Error(`Token generation failed: ${error.message}`);
+        }
+    }
+
+    /**
+     * Improved JWT payload building with better validation
+     */
+    _buildJwtPayload(tokenPolicy, viewerAttributes, playbackUrlQs, secretKey) {
+        const payload = {
             ip: false,
             co: false,
             cty: false,
@@ -465,24 +664,200 @@ class Token{
             intsig: '',
             paths: [],
             exc: []
+        };
+
+        let intsigInput = '';
+
+        // IP validation with improved error handling
+        if (tokenPolicy.ip) {
+            const ipResult = this._processIp(viewerAttributes.ip);
+            Object.assign(payload, ipResult.payload);
+            intsigInput += `${ipResult.fullIp}:`;
         }
 
-        jwt_payload = this._populate_jwt_payload(token_policy, viewer_attributes, jwt_payload, playback_url_qs, keys[secret_alias]);
+        // Geolocation processing
+        intsigInput += this._processGeolocation(tokenPolicy, viewerAttributes, payload);
 
-        this.encoded_jwt = jwt.sign( jwt_payload, keys[secret_alias].value, {algorithm: 'HS256', keyid: keys[secret_alias].uuid});
-
-        if(playback_url){
-            let playback_url_array = playback_url.split('/');
-            playback_url_array.splice(3,0,`${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`);
-            this.output_playback_url = playback_url_array.join('/');
-            return this.output_playback_url;
+        // Session processing
+        if (tokenPolicy.ssn) {
+            payload.ssn = true;
+            this.payloadSsn = viewerAttributes.sessionId || 
+                Session._autoGenerate(tokenPolicy.session_auto_generate || CONSTANTS.DEFAULT_SESSION_LENGTH);
+            intsigInput += `${this.payloadSsn}:`;
         }
 
-        return `${this.payloadSsn?this.payloadSsn+'.':''}${this.encoded_jwt}`;
+        // Headers and query strings
+        intsigInput += this._processHeadersAndQs(tokenPolicy, viewerAttributes, playbackUrlQs, payload);
+
+        // Internal signature
+        if (intsigInput) {
+            const cleanInput = intsigInput.slice(0, -1); // Remove trailing colon
+            this._logger(`Input for internal signature: ${cleanInput}`);
+            payload.intsig = this._createSignature(cleanInput, secretKey.value);
+        } else {
+            delete payload.intsig;
+        }
+
+        // Paths and exclusions
+        payload.paths = tokenPolicy.paths || [];
+        if (tokenPolicy.exc) payload.exc = tokenPolicy.exc;
+
+        // Expiration and not-before
+        payload.exp = this._processExpiration(tokenPolicy.exp);
+        if (tokenPolicy.nbf) payload.nbf = parseInt(tokenPolicy.nbf, 10);
+
+        return payload;
     }
 
+    /**
+     * Improved IP processing with better validation
+     */
+    _processIp(ip) {
+        if (!ip || typeof ip !== 'string') {
+            throw new Error('IP address is required and must be a string');
+        }
+
+        let ipVersion, fullIp;
+
+        if (isIPv4(ip)) {
+            ipVersion = 4;
+            fullIp = ip;
+        } else if (isIPv6(ip)) {
+            ipVersion = 6;
+            fullIp = utils.expandIPv6(ip);
+        } else {
+            throw new Error(`Invalid IP address format: ${ip}`);
+        }
+
+        return {
+            payload: { ip: true, ip_ver: ipVersion },
+            fullIp
+        };
+    }
+
+    /**
+     * Process geolocation attributes
+     */
+    _processGeolocation(tokenPolicy, viewerAttributes, payload) {
+        let input = '';
+
+        if (tokenPolicy.co) {
+            payload.co = true;
+            if (viewerAttributes.co) input += `${viewerAttributes.co}:`;
+            if (tokenPolicy.co_fallback) payload.co_fallback = true;
+        }
+
+        if (tokenPolicy.cty) {
+            payload.cty = true;
+            if (viewerAttributes.cty) input += `${viewerAttributes.cty}:`;
+        }
+
+        if (tokenPolicy.reg) {
+            payload.reg = true;
+            if (viewerAttributes.reg) input += `${viewerAttributes.reg}:`;
+            if (tokenPolicy.reg_fallback) payload.reg_fallback = true;
+        }
+
+        return input;
+    }
+
+    /**
+     * Process headers and query strings
+     */
+    _processHeadersAndQs(tokenPolicy, viewerAttributes, playbackUrlQs, payload) {
+        let input = '';
+
+        // Headers
+        if (tokenPolicy.headers && Array.isArray(tokenPolicy.headers)) {
+            payload.headers = [...tokenPolicy.headers];
+            tokenPolicy.headers.forEach(header => {
+                const value = viewerAttributes.headers?.[header];
+                if (value) input += `${value}:`;
+            });
+        }
+
+        // Query strings
+        if (tokenPolicy.querystrings && Array.isArray(tokenPolicy.querystrings)) {
+            payload.qs = [...tokenPolicy.querystrings];
+            tokenPolicy.querystrings.forEach(qs => {
+                const value = playbackUrlQs[qs] || viewerAttributes.qs?.[qs];
+                if (value) input += `${value}:`;
+            });
+        }
+
+        return input;
+    }
+
+    /**
+     * Improved expiration processing
+     */
+    _processExpiration(exp) {
+        if (!exp) {
+            throw new Error('Expiration (exp) is required');
+        }
+
+        if (typeof exp !== 'string') {
+            throw new Error('Expiration must be a string');
+        }
+
+        const now = Math.floor(Date.now() / 1000);
+
+        if (exp.startsWith('+')) {
+            const match = exp.match(/^\+(\d+)([hm])$/);
+            if (!match) {
+                throw new Error('Invalid relative expiration format. Use +Nh or +Nm');
+            }
+
+            const [, value, unit] = match;
+            const multiplier = unit === 'h' ? 3600 : 60;
+            return now + (parseInt(value, 10) * multiplier);
+        }
+
+        const timestamp = parseInt(exp, 10);
+        if (isNaN(timestamp) || timestamp <= 0) {
+            throw new Error('Invalid absolute expiration timestamp');
+        }
+
+        return timestamp;
+    }
+
+    /**
+     * Improved signature creation
+     */
+    _createSignature(input, key) {
+        return crypto
+            .createHmac(CONSTANTS.HASH_ALGORITHM, key)
+            .update(input)
+            .digest('base64')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=/g, '');
+    }
+
+    /**
+     * Improved URL token insertion
+     */
+    _insertTokenIntoUrl(playbackUrl, token, sessionId) {
+        try {
+            const url = new URL(playbackUrl);
+            const pathParts = url.pathname.split('/');
+            
+            const tokenPart = sessionId ? `${sessionId}.${token}` : token;
+            pathParts.splice(1, 0, tokenPart); // Insert after first slash
+            
+            url.pathname = pathParts.join('/');
+            return url.toString();
+        } catch (error) {
+            throw new Error(`Failed to insert token into URL: ${error.message}`);
+        }
+    }
 }
 
-exports.Token = Token;
-exports.Secret = Secret;
-exports.Session = Session;
+// Export classes
+module.exports = {
+    Secret,
+    Token,
+    Session,
+    // Export utilities for testing
+    utils: process.env.NODE_ENV === 'test' ? utils : undefined
+};

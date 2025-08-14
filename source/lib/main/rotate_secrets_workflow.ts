@@ -45,7 +45,7 @@ export class RotateSecretsWorkflow extends Construct {
       "GenerateSecretUpdateCff",
       {
         functionName: Aws.STACK_NAME + "_GenerateSecretUpdateCff",
-        runtime: lambda.Runtime.NODEJS_18_X,
+        runtime: lambda.Runtime.NODEJS_22_X,
         code: lambda.Code.fromAsset("lambda/generate_secret_update_cff"),
         timeout: Duration.seconds(300),
         handler: "index.handler",
@@ -97,7 +97,7 @@ export class RotateSecretsWorkflow extends Construct {
     // - the old secret1 is stored in secret2
     const swapSecrets = new lambda.Function(this, "SwapSecrets", {
       functionName: Aws.STACK_NAME + "_SwapSecrets",
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset("lambda/swap_secrets"),
       handler: "index.handler",
       environment: {

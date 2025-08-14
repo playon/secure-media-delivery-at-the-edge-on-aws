@@ -41,7 +41,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
 
     const submitAthenaQuery = new lambda.Function(this, "SubmitQuery", {
       functionName: Aws.STACK_NAME + "_SubmitQuery",
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset("lambda/prepare_query"),
       handler: "index.handler",
       environment: {
@@ -69,7 +69,7 @@ export class AutoRevokeSessionsWorkflow extends Construct {
 
     const saveSessionsToDdb = new lambda.Function(this, "SaveAutoSession", {
       functionName: Aws.STACK_NAME + "_SaveAutoSession",
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset("lambda/save_auto_session"),
       handler: "index.handler",
       environment: {

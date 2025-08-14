@@ -1,0 +1,19 @@
+# frozen_string_literal: true
+
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+require 'bundler/gem_tasks'
+require 'rspec/core/rake_task'
+require 'rubocop/rake_task'
+
+RSpec::Core::RakeTask.new(:spec)
+RuboCop::RakeTask.new
+
+desc 'Run tests'
+task test: :spec
+
+desc 'Run all checks (tests, linting)'
+task check: [:spec, :rubocop]
+
+task default: :check

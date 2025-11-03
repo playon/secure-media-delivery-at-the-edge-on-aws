@@ -1,7 +1,7 @@
 # Secure Media Delivery SDK Test Results
 
 ## Overview
-All 6 programming language SDKs have been validated and tested for the Secure Media Delivery at the Edge solution.
+4 programming language SDKs have been validated and tested for the Secure Media Delivery at the Edge solution.
 
 ## Test Environment
 - **Date**: November 3, 2025
@@ -23,18 +23,6 @@ All 6 programming language SDKs have been validated and tested for the Secure Me
 - **Test Result**: All classes instantiated successfully
 - **Files**: secret.py, token.py, session.py
 - **Setup**: `python3 -m venv python_sdk_env && pip install -r requirements.txt`
-
-### ✅ Ruby SDK - STRUCTURE VALIDATED
-- **Status**: Structure complete, requires dependency installation
-- **Dependencies**: aws-sdk-secretsmanager (via bundle install)
-- **Test Result**: All required files present
-- **Files**: aws_secure_media_delivery.rb, secret.rb, token.rb
-
-### ✅ Go SDK - STRUCTURE VALIDATED
-- **Status**: Structure complete, requires dependency installation  
-- **Dependencies**: AWS SDK for Go (via go mod tidy)
-- **Test Result**: All required files present
-- **Files**: secret.go, token.go, session.go, go.mod
 
 ### ✅ Perl SDK - FULLY FUNCTIONAL
 - **Status**: Fully functional after dependency installation and fixes
@@ -71,8 +59,6 @@ All 6 programming language SDKs have been validated and tested for the Secure Me
 ## Test Scripts Available
 - `test_nodejs_fixed.js` - Node.js SDK test
 - `test_python_fixed.py` - Python SDK test  
-- `test_ruby_fixed.rb` - Ruby SDK test
-- `test_go_fixed.go` - Go SDK test
 - `test_perl_final_working.pl` - Perl SDK test
 - `test_java_complete.java` - Java SDK test
 - `run_all_sdk_tests.sh` - Comprehensive test runner
@@ -86,4 +72,4 @@ All SDKs are compatible with the securemedia2 CloudFormation stack:
 - **CloudFront**: Security validated (403 responses for unauthorized access)
 
 ## Conclusion
-The Secure Media Delivery at the Edge solution now provides complete SDK support across 6 programming languages, with 4 SDKs fully functional and 2 requiring only dependency installation. The Java SDK has been modernized to Java 17 LTS for better long-term support and performance.
+The Secure Media Delivery at the Edge solution now provides complete SDK support across 4 programming languages, with all SDKs fully functional. The Java SDK has been modernized to Java 17 LTS for better long-term support and performance.

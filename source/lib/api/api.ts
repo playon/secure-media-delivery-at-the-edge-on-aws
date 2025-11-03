@@ -36,7 +36,7 @@ export class Api extends Construct {
       this,
       "GenerateTokenLayer",
       {
-        compatibleRuntimes: [lambda.Runtime.NODEJS_18_X],
+        compatibleRuntimes: [lambda.Runtime.NODEJS_22_X],
         code: lambda.Code.fromAsset(
           "lambda/layers/aws_secure_media_delivery_nodejs"
         ),
@@ -65,7 +65,7 @@ export class Api extends Construct {
     //Lambda that will generate the token using the provided SDK
     const generateToken = new lambda.Function(this, "GenerateToken", {
       functionName: Aws.STACK_NAME + "_GenerateToken",
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset("lambda/generate_token/nodejs"),
       handler: "index.handler",
       environment: {
@@ -93,7 +93,7 @@ export class Api extends Construct {
     //Lambda to update parameters for the token
     const updateToken = new lambda.Function(this, "UpdateToken", {
       functionName: Aws.STACK_NAME + "_UpdateToken",
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset("lambda/update_token"),
       handler: "index.handler",
       environment: {
@@ -126,7 +126,7 @@ export class Api extends Construct {
     //Lambda used to add manually a session to be revoked into a DynamoDB Table
     const saveManualSession = new lambda.Function(this, "SaveManualSession", {
       functionName: Aws.STACK_NAME + "_SaveManualSession",
-      runtime: lambda.Runtime.NODEJS_18_X,
+      runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset("lambda/save_manual_session/nodejs"),
       handler: "index.handler",
       environment: {

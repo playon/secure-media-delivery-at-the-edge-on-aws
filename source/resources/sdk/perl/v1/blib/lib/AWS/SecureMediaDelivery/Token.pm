@@ -13,9 +13,8 @@ use Crypt::JWT qw(encode_jwt);
 use Net::IP;
 use URI;
 use Time::HiRes qw(time);
-use Digest::HMAC qw(hmac);
-use Digest::SHA qw(sha256);
-use MIME::Base64 qw(encode_base64 decode_base64);
+use Digest::HMAC_SHA256 qw(hmac_sha256_base64);
+use MIME::Base64 qw(encode_base64url);
 use Carp qw(croak);
 use AWS::SecureMediaDelivery::Session;
 
@@ -213,7 +212,7 @@ sub _sign {
     my ($self, $input, $key, $method) = @_;
     
     if ($method eq 'sha256') {
-        my $signature = encode_base64(hmac($input, $key, \&sha256), '');
+        my $signature = hmac_sha256_base64($input, $key);
         # Convert to base64url encoding
         $signature =~ tr/+\//-_/;
         $signature =~ s/=+$//;

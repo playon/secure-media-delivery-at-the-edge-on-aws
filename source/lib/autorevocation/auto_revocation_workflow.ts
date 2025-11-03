@@ -182,10 +182,10 @@ export class AutoRevokeSessionsWorkflow extends Construct {
     // Step function to orchestrate Athena query to detect corrupted sessions and update DynamoDB Table with the results
     const workflow = new sfn.StateMachine(this, "AthenaQuery", {
       stateMachineName: Aws.STACK_NAME + "_DetectSessions",
-      definition: prepareQueryJob
+      definitionBody: sfn.DefinitionBody.fromChainable(prepareQueryJob
         .next(startQueryExecutionJob)
         .next(getQueryResultsJob)
-        .next(hasResults),
+        .next(hasResults)),
       timeout: Duration.minutes(60),
       logs: {
         destination: logGroup,

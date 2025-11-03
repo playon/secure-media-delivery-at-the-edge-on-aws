@@ -191,10 +191,10 @@ export class RotateSecretsWorkflow extends Construct {
     // 5 - Move secret 1 -> secret 2, new secret -> secret 1
     const workflow = new sfn.StateMachine(this, "Rotate", {
       stateMachineName: Aws.STACK_NAME + "_RotateSecret",
-      definition:
+      definitionBody: sfn.DefinitionBody.fromChainable(
         updateCloudFrontFunctionJob
         .next(getCFFStatus)
-        .next(updatePropagated),
+        .next(updatePropagated)),
       timeout: Duration.minutes(60),
       logs: {
         destination: logGroup,

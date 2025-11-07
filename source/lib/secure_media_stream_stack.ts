@@ -183,7 +183,7 @@ export class SecureMediaStreamingStack extends Stack {
 
     if (parameters.customInputParameters.api) {
       //if the API module was selected in the wizard, deploy the required resources
-      new Api(this, "Api", { // NOSONAR
+      const api = new Api(this, "Api", { // NOSONAR
         configuration: parameters.customInputParameters,
         secrets: secrets,
         dashboard: dashboard,
@@ -191,6 +191,7 @@ export class SecureMediaStreamingStack extends Stack {
         sig4LambdaVersionParamName: this.LAMBDA_EDGE_VERSION_SSM_PARAM,
         sig4LambdaRoleArn: crCreateLEWafRule.roleToPass.roleArn        
       });
+      api.node.addDependency(crCreateLEWafRule);
     }
 
     // Service Catalog Application Registry

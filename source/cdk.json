@@ -3,6 +3,7 @@
   "context": {
     "solution_id": "SO0195",
     "solution_name": "Secure Media Delivery at the Edge on AWS",
-    "solution_version": "v1.2.6"
+    "solution_version": "v1.2.7",
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false
   }
 }

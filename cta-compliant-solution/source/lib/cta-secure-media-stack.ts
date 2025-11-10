@@ -5,6 +5,7 @@ import {
   RemovalPolicy,
   Duration,
   CfnOutput,
+  CfnParameter,
   aws_cloudfront as cloudfront,
   aws_lambda as lambda,
   aws_apigateway as apigateway,
@@ -16,16 +17,39 @@ import {
 import { Construct } from "constructs";
 
 export interface CTASecureMediaStackProps extends StackProps {
-  readonly config: any;
+  readonly config?: any;
 }
 
 export class CTASecureMediaStack extends Stack {
   public readonly kvStore: cloudfront.KeyValueStore;
   
-  constructor(scope: Construct, id: string, props: CTASecureMediaStackProps) {
+  constructor(scope: Construct, id: string, props: CTASecureMediaStackProps = {}) {
     super(scope, id, props);
 
-    const config = props.config;
+    // CloudFormation Parameters for template deployment
+    const enableDemo = new CfnParameter(this, "EnableDemo", {
+      type: "String",
+      default: "true",
+      allowedValues: ["true", "false"],
+      description: "Deploy demo website",
+    });
+
+    const bedrockModel = new CfnParameter(this, "BedrockModel", {
+      type: "String",
+      default: "amazon.nova-pro-v1:0",
+      allowedValues: ["amazon.nova-pro-v1:0", "amazon.nova-lite-v1:0"],
+      description: "Bedrock model for AI analysis",
+    });
+
+    // Use config if provided (CDK deployment) or parameters (CloudFormation)
+    const config = props.config || {
+      main: {
+        enableDemo: enableDemo.valueAsString === "true",
+      },
+      bedrock: {
+        model: bedrockModel.valueAsString,
+      }
+    };
 
     // CTA signing key (Secrets Manager)
     const signingSecret = new secretsmanager.Secret(this, "CTAKey", {
@@ -149,6 +173,11 @@ export class CTASecureMediaStack extends Stack {
     new CfnOutput(this, "SecretArn", {
       value: signingSecret.secretArn,
       description: "CTA signing secret ARN"
+    });
+
+    new CfnOutput(this, "CTAStandard", {
+      value: "CTA-5007-B",
+      description: "Implemented standard version"
     });
   }
 }

@@ -31,18 +31,23 @@ The wizard will prompt you for:
 
 ## Token Generation
 
-```javascript
-const client = new CTAClient('https://your-api-endpoint');
+Local token generation using signing keys from AWS Secrets Manager:
 
-const result = await client.generateToken({
+```javascript
+const client = new CTAClient({
+  region: 'us-east-1',
+  secretName: 'cta-signing-keys'
+});
+
+const signedUrl = await client.generateSignedUrl({
+  url: 'https://cdn.example.com/video/stream.m3u8',
   paths: ['/video/'],
   ttl: '2h',
-  countries: ['us', 'ca']
-}, {
-  country: 'us'
-}, 'https://cdn.example.com/video/stream.m3u8');
+  countries: ['us', 'ca'],
+  clientCountry: 'us'
+});
 
-console.log(result.signedUrl);
+console.log(signedUrl);
 ```
 
 ## Token Renewal for Streaming
@@ -83,8 +88,10 @@ Documentation: `docs/dash-js-cta-implementation.md`
 ```
 Demo Website → CloudFront → CTA Validator (cf.cwt + KV lookup)
                         ↓
-API Gateway → Lambda → Secrets Manager
-                    ↓
+SDK Client → Secrets Manager (fetch signing keys)
+          ↓
+Local Token Generation
+                        ↓
 EventBridge → Step Functions → Athena → Bedrock Nova → KeyValueStore
 ```
 

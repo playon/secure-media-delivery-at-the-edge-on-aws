@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CTA-5007-B HLS Player Example</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <video id="video" controls width="800" height="450"></video>
+    
+    <script>
+        class CTATokenManager {
+            constructor(apiEndpoint, sessionId) {
+                this.apiEndpoint = apiEndpoint;
+                this.sessionId = sessionId;
+                this.currentToken = null;
+            }
+
+            async refreshToken() {
+                const response = await fetch(`${this.apiEndpoint}/token/refresh`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionId: this.sessionId })
+                });
+                const data = await response.json();
+                this.currentToken = data.token;
+                return this.currentToken;
+            }
+        }
+
+        const video = document.getElementById('video');
+        const tokenManager = new CTATokenManager('/api', 'session-123');
+        
+        // Initial manifest URL with path token
+        const initialManifestUrl = '/TOKEN_PLACEHOLDER/playlist.m3u8';
+        
+        if (Hls.isSupported()) {
+            const hls = new Hls({
+                xhrSetup: function(xhr, url) {
+                    // Add CTA header token for all requests after initial manifest
+                    if (tokenManager.currentToken && !url.includes('TOKEN_PLACEHOLDER')) {
+                        xhr.setRequestHeader('CTA-Common-Access-Token', tokenManager.currentToken);
+                    }
+                }
+            });
+
+            // Token refresh on manifest load
+            hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+                await tokenManager.refreshToken();
+                console.log('Token refreshed for streaming');
+            });
+
+            // Handle token expiration
+            hls.on(Hls.Events.ERROR, async (event, data) => {
+                if (data.response?.code === 403) {
+                    await tokenManager.refreshToken();
+                    hls.startLoad();
+                }
+            });
+
+            hls.loadSource(initialManifestUrl);
+            hls.attachMedia(video);
+        }
+    </script>
+</body>
+</html>

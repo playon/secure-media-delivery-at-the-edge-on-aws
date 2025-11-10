@@ -1,0 +1,78 @@
+# CTA-5007-B Native Secure Media Delivery
+
+Pure implementation of CTA-5007-B Common Access Token specification for secure media delivery with AI-powered threat detection.
+
+## Features
+
+- **Native CWT**: Uses CloudFront's `cf.cwt` module for CBOR Web Token handling
+- **CTA-5007-B Compliant**: Implements standardized claims (catu, catnip, catgeoiso3166)
+- **AI-Powered Security**: Amazon Bedrock Nova for intelligent threat detection
+- **Multiple Token Placement**: Path, query parameter, or header-based tokens
+- **Interactive Deployment**: Built-in wizard for easy configuration
+
+## Quick Start
+
+```bash
+cd source
+npm install
+npm run wizard    # Interactive configuration
+npx cdk deploy    # Deploy to AWS
+```
+
+## Deployment Wizard
+
+The wizard will prompt you for:
+- **Stack name** and AWS region
+- **Demo website** deployment (optional)
+- **Auto-revocation** with Bedrock Nova (optional)
+- **Revocation frequency** (5m, 10m, 30m, 1h)
+- **Bedrock model** (Nova Pro vs Nova Lite)
+
+## Token Generation
+
+```javascript
+const client = new CTAClient('https://your-api-endpoint');
+
+const result = await client.generateToken({
+  paths: ['/video/'],
+  ttl: '2h',
+  countries: ['us', 'ca']
+}, {
+  country: 'us'
+}, 'https://cdn.example.com/video/stream.m3u8');
+
+console.log(result.signedUrl);
+```
+
+## Architecture
+
+```
+Demo Website → CloudFront → CTA Validator (cf.cwt + KV lookup)
+                        ↓
+API Gateway → Lambda → Secrets Manager
+                    ↓
+EventBridge → Step Functions → Athena → Bedrock Nova → KeyValueStore
+```
+
+## CTA-5007-B Claims
+
+| Claim | Code | Purpose |
+|-------|------|---------|
+| `catu` | 312 | URI restrictions |
+| `catnip` | 311 | Network IP restrictions |
+| `catgeoiso3166` | 316 | Country restrictions |
+| `exp` | 4 | Token expiration |
+| `cti` | 7 | Token ID (replay protection) |
+
+## AI-Powered Security
+
+Uses Amazon Bedrock Nova to analyze CloudFront logs for:
+- Abnormal request patterns
+- Geographic anomalies  
+- Bot-like behavior
+- Token sharing indicators
+- Path enumeration attempts
+
+Automatically revokes suspicious tokens via CloudFront KeyValueStore for instant edge blocking.
+
+This solution is built from scratch for CTA-5007-B compliance without any legacy AWS-specific token format support.

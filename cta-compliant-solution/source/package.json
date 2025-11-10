@@ -1,0 +1,32 @@
+{
+  "name": "cta-compliant-secure-media-delivery",
+  "version": "v1.0.0",
+  "description": "CTA-5007-B compliant Secure Media Delivery at the Edge using AWS CDK",
+  "license": "Apache-2.0",
+  "author": {
+    "name": "Amazon Web Services",
+    "url": "https://aws.amazon.com/solutions"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "postinstall": "npm run build",
+    "build": "npx tsc",
+    "test": "jest --coverage",
+    "deploy": "npx cdk deploy --all",
+    "wizard": "node dist/bin/wizard/index.js",
+    "bootstrap": "npx cdk bootstrap"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.170.0",
+    "constructs": "^10.3.0",
+    "prompts": "^2.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/prompts": "^2.0.14",
+    "aws-cdk": "2.170.0",
+    "typescript": "^5.0.4"
+  }
+}

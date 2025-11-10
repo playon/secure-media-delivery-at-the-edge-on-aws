@@ -7,7 +7,8 @@ Pure implementation of CTA-5007-B Common Access Token specification for secure m
 - **Native CWT**: Uses CloudFront's `cf.cwt` module for CBOR Web Token handling
 - **CTA-5007-B Compliant**: Implements standardized claims (catu, catnip, catgeoiso3166)
 - **AI-Powered Security**: Amazon Bedrock Nova for intelligent threat detection
-- **Multiple Token Placement**: Path, query parameter, or header-based tokens
+- **Hybrid Token Renewal**: Path tokens transition to headers for streaming compatibility
+- **Player Examples**: HLS.js and DASH.js integration examples included
 - **Interactive Deployment**: Built-in wizard for easy configuration
 
 ## Quick Start
@@ -43,6 +44,39 @@ const result = await client.generateToken({
 
 console.log(result.signedUrl);
 ```
+
+## Token Renewal for Streaming
+
+Solves the streaming player token renewal problem with hybrid approach:
+
+1. **Initial Request**: `/{TOKEN}/content.m3u8` (path-based)
+2. **Token Renewal**: CDN sends new token via `CTA-Common-Access-Token` response header
+3. **Subsequent Requests**: Player uses header-based tokens for segments
+
+### HLS.js Example
+```javascript
+const hls = new Hls({
+  xhrSetup: function(xhr, url) {
+    if (tokenManager.currentToken && !url.includes('TOKEN_PLACEHOLDER')) {
+      xhr.setRequestHeader('CTA-Common-Access-Token', tokenManager.currentToken);
+    }
+  }
+});
+
+hls.on(Hls.Events.MANIFEST_PARSED, async () => {
+  await tokenManager.refreshToken();
+});
+```
+
+See `examples/hls-player-example.html` for complete implementation.
+
+## Player Compatibility
+
+- **HLS.js**: Custom implementation with hybrid token support
+- **DASH.js**: Native CTA-WAVE support since v5.0.0 (similar workflow)
+- **Native Players**: iOS/Android support via custom URL schemes
+
+Documentation: `docs/dash-js-cta-implementation.md`
 
 ## Architecture
 

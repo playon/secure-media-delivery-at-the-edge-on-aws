@@ -1,6 +1,6 @@
 /**
- * CTA-5007-B Native CloudFront Function
- * Pure implementation of Common Access Token specification
+ * CTA-5007-B CloudFront Function with Hybrid Token Renewal
+ * Supports path→header token transition for streaming players
  */
 
 var cf = require('cloudfront');
@@ -8,31 +8,18 @@ var cf = require('cloudfront');
 var CTA = {
     EXP: 4,           // Expiration
     NBF: 5,           // Not Before  
+    IAT: 6,           // Issued At
     CTI: 7,           // Token ID
     CATNIP: 311,      // Network IP
     CATU: 312,        // URI restrictions
     CATGEOISO3166: 316 // Country codes
 };
 
-function extractToken(request) {
-    // CTA-5007-B standard header
-    if (request.headers["cta-common-access-token"]) {
-        return request.headers["cta-common-access-token"].value;
-    }
-    
-    // Query parameter
-    if (request.querystring && request.querystring.CAT) {
-        return request.querystring.CAT.value;
-    }
-    
-    // Path parameter /{TOKEN}/content
+function extractPathToken(request) {
     var segments = request.uri.split('/');
     if (segments[1] && segments[1].length > 50) {
-        segments.splice(1, 1);
-        request.uri = segments.join('/') || '/';
         return segments[1];
     }
-    
     return null;
 }
 
@@ -63,21 +50,61 @@ function validateClaims(payload, request, viewer) {
     }
 }
 
+function generateRenewedToken(originalCWT, signingKey, currentTime) {
+    // Create renewed token with extended expiry
+    var renewedCWT = {
+        protected: originalCWT.protected,
+        unprotected: originalCWT.unprotected,
+        payload: {
+            ...originalCWT.payload,
+            [CTA.EXP]: currentTime + 3600, // Extend by 1 hour
+            [CTA.IAT]: currentTime,        // Update issued at
+            [CTA.NBF]: currentTime         // Update not before
+        }
+    };
+    
+    // Generate new token using CloudFront's CWT module
+    var renewedTokenBuffer = cf.cwt.generateToken(renewedCWT, { 
+        cwtTag: true,
+        coseTag: "MAC0", 
+        key: signingKey 
+    });
+    
+    return renewedTokenBuffer.toString('base64url');
+}
+
 async function handler(event) {
     try {
         var request = event.request;
-        var token = extractToken(request);
+        var kvs = cf.kvs();
+        var signingKey = await kvs.get("key:default");
+        var token = null;
+        var cwt = null;
+        var isPathToken = false;
         
-        if (!token) {
-            return { statusCode: 401, body: "missing_token" };
+        // Try header token first (subsequent requests after renewal)
+        if (request.headers["cta-common-access-token"]) {
+            token = request.headers["cta-common-access-token"].value;
+            cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
+            // URL is already clean for header tokens
+        }
+        // Fallback to path token (initial request)
+        else {
+            token = extractPathToken(request);
+            if (!token) {
+                return { statusCode: 401, body: "missing_token" };
+            }
+            
+            cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
+            isPathToken = true;
+            
+            // Strip token from path before sending to origin
+            var segments = request.uri.split('/');
+            segments.splice(1, 1); // Remove token segment
+            request.uri = segments.join('/') || '/';
         }
         
-        var tokenBuffer = Buffer.from(token, 'base64url');
-        var kvs = cf.kvs();
-        
-        // Check revocation first (KV store for fast lookup)
-        var cwt = cf.cwt.validateToken(tokenBuffer, { key: await kvs.get("key:default") });
-        
+        // Check revocation (same for both token types)
         if (cwt.payload[CTA.CTI]) {
             var revoked = await kvs.get("revoked:" + cwt.payload[CTA.CTI]);
             if (revoked) {
@@ -85,7 +112,37 @@ async function handler(event) {
             }
         }
         
+        // Validate claims (same for both token types)
         validateClaims(cwt.payload, request, event.viewer);
+        
+        // Check if renewal needed (within 5 minutes of expiry)
+        var now = Math.floor(Date.now() / 1000);
+        var timeUntilExpiry = cwt.payload[CTA.EXP] - now;
+        
+        if (timeUntilExpiry < 300) { // Less than 5 minutes left
+            try {
+                var renewedToken = generateRenewedToken(cwt, signingKey, now);
+                
+                // Return response with renewed token in header
+                // This signals hls.js to switch to header-based requests
+                return {
+                    statusCode: 200,
+                    headers: {
+                        'CTA-Common-Access-Token': { value: renewedToken },
+                        'Cache-Control': { value: 'no-cache' } // Prevent caching of renewed tokens
+                    }
+                };
+            } catch (renewalError) {
+                // If renewal fails, continue with original token if still valid
+                if (timeUntilExpiry > 0) {
+                    return request;
+                } else {
+                    throw renewalError;
+                }
+            }
+        }
+        
+        // Token valid and no renewal needed
         return request;
         
     } catch (e) {

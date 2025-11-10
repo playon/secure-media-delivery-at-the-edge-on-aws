@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CTA-5007-B HLS.js Player Demo</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .player-container { margin: 20px 0; }
+        .controls { margin: 20px 0; padding: 20px; background: #f5f5f5; }
+        .token-status { margin: 10px 0; padding: 10px; background: #e8f4fd; }
+        .renewal-log { background: #fff3cd; padding: 10px; margin: 10px 0; max-height: 200px; overflow-y: auto; }
+        button { padding: 10px 20px; margin: 5px; }
+        input { padding: 8px; margin: 5px; width: 300px; }
+        .error { color: red; }
+        .success { color: green; }
+        .warning { color: orange; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>CTA-5007-B HLS.js Player Demo</h1>
+        <p><strong>Hybrid Token Renewal:</strong> Path token → Header token transition</p>
+        
+        <div class="controls">
+            <label>HLS Stream URL:</label><br>
+            <input type="text" id="streamUrl" value="https://your-distribution.cloudfront.net/video/sample.m3u8" placeholder="Enter HLS stream URL">
+            <button onclick="loadStream()">Load Stream</button>
+            <button onclick="generateNewToken()">Generate New Token</button>
+        </div>
+        
+        <div class="token-status" id="tokenStatus">
+            <h4>Token Status</h4>
+            <p><strong>Current Token:</strong> <span id="currentTokenDisplay">None</span></p>
+            <p><strong>Token Type:</strong> <span id="tokenType">None</span></p>
+            <p><strong>Expires:</strong> <span id="tokenExpiry">N/A</span></p>
+        </div>
+        
+        <div class="player-container">
+            <video id="video" controls width="100%" height="400"></video>
+        </div>
+        
+        <div class="renewal-log" id="renewalLog">
+            <h4>Token Renewal Log</h4>
+            <div id="logEntries">Ready to load stream...</div>
+        </div>
+        
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        let hls = null;
+        let currentToken = null;
+        let tokenType = 'none'; // 'path' or 'header'
+        let renewalCount = 0;
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntries = document.getElementById('logEntries');
+            const className = type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'success';
+            logEntries.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logEntries.scrollTop = logEntries.scrollHeight;
+        }
+        
+        function updateTokenStatus(token, type, expiry = null) {
+            currentToken = token;
+            tokenType = type;
+            
+            document.getElementById('currentTokenDisplay').textContent = 
+                token ? token.substring(0, 20) + '...' : 'None';
+            document.getElementById('tokenType').textContent = type;
+            document.getElementById('tokenExpiry').textContent = 
+                expiry ? new Date(expiry * 1000).toLocaleString() : 'N/A';
+        }
+        
+        function generateNewToken() {
+            // Simulate token generation with 5-minute expiry for testing
+            const now = Math.floor(Date.now() / 1000);
+            const newToken = 'demo-token-' + Math.random().toString(36).substr(2, 20);
+            const expiry = now + 300; // 5 minutes for testing renewal
+            
+            updateTokenStatus(newToken, 'path', expiry);
+            log(`Generated new path token (expires in 5 minutes for testing)`, 'success');
+        }
+        
+        function loadStream() {
+            const streamUrl = document.getElementById('streamUrl').value;
+            
+            if (!currentToken) {
+                log('Generate a token first!', 'error');
+                return;
+            }
+            
+            // Create signed URL with path token
+            const signedUrl = `https://your-distribution.cloudfront.net/${currentToken}/video/sample.m3u8`;
+            
+            if (Hls.isSupported()) {
+                const video = document.getElementById('video');
+                
+                if (hls) {
+                    hls.destroy();
+                }
+                
+                hls = new Hls({
+                    debug: true,
+                    xhrSetup: function(xhr, url) {
+                        log(`Request: ${url}`, 'info');
+                        
+                        // For subsequent requests, use header token if we have one
+                        if (tokenType === 'header' && currentToken) {
+                            xhr.setRequestHeader('CTA-Common-Access-Token', currentToken);
+                            log(`Added header token to request`, 'info');
+                        }
+                        
+                        // Listen for token renewal in response headers
+                        xhr.addEventListener('load', function() {
+                            const renewedToken = xhr.getResponseHeader('CTA-Common-Access-Token');
+                            if (renewedToken) {
+                                renewalCount++;
+                                updateTokenStatus(renewedToken, 'header');
+                                log(`🔄 Token renewed! (#${renewalCount}) - Switching to header-based requests`, 'success');
+                            }
+                        });
+                        
+                        // Handle renewal errors
+                        xhr.addEventListener('error', function() {
+                            log(`Request failed - possible token expiry`, 'error');
+                        });
+                    }
+                });
+                
+                hls.loadSource(signedUrl);
+                hls.attachMedia(video);
+                
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    log('✅ Manifest loaded successfully with path token', 'success');
+                    video.play();
+                });
+                
+                hls.on(Hls.Events.ERROR, function(event, data) {
+                    if (data.fatal) {
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                log(`❌ Network error: ${data.details} - Check token validity`, 'error');
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                log(`❌ Media error: ${data.details}`, 'error');
+                                break;
+                            default:
+                                log(`❌ Fatal error: ${data.details}`, 'error');
+                                break;
+                        }
+                    } else {
+                        log(`⚠️ Non-fatal error: ${data.details}`, 'warning');
+                    }
+                });
+                
+                hls.on(Hls.Events.FRAG_LOADING, function(event, data) {
+                    log(`Loading segment: ${data.frag.url}`, 'info');
+                });
+                
+                log(`🎬 Starting HLS playback with CTA token`, 'success');
+                
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Native HLS support (Safari)
+                const video = document.getElementById('video');
+                video.src = signedUrl;
+                log('🍎 Using native HLS support (Safari)', 'success');
+            } else {
+                log('❌ HLS not supported in this browser', 'error');
+            }
+        }
+        
+        function parseTTL(ttl) {
+            const match = ttl.match(/^(\d+)([smhd])$/);
+            if (!match) return 7200;
+            
+            const value = parseInt(match[1]);
+            const unit = match[2];
+            
+            switch (unit) {
+                case 's': return value;
+                case 'm': return value * 60;
+                case 'h': return value * 3600;
+                case 'd': return value * 86400;
+                default: return 7200;
+            }
+        }
+        
+        // Simulate token expiry warning
+        setInterval(() => {
+            if (currentToken && tokenType === 'path') {
+                log('⏰ Token nearing expiry - CloudFront Function will auto-renew on next request', 'warning');
+            }
+        }, 30000); // Every 30 seconds for demo
+        
+        window.onload = function() {
+            log('🔐 CTA-5007-B HLS.js Demo Ready');
+            log('📋 Steps: 1) Generate Token 2) Load Stream 3) Watch renewal in action');
+            generateNewToken(); // Auto-generate demo token
+        };
+    </script>
+</body>
+</html>

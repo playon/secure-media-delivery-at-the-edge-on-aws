@@ -106,13 +106,20 @@ async function handler(event) {
         var token = null;
         var payload = null;
         
-        // Try header token first (subsequent requests after renewal)
+        // Try header token first
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
             var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
             payload = cwt.payload;
         }
-        // Fallback to path token (initial request)
+        // Try query parameter token (?CAT=...)
+        else if (request.querystring["CAT"]) {
+            token = request.querystring["CAT"].value;
+            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
+            payload = cwt.payload;
+            delete request.querystring["CAT"];
+        }
+        // Fallback to path token
         else {
             token = extractPathToken(request);
             if (!token) {

@@ -246,11 +246,23 @@ export class CTASecureMediaStack extends Stack {
           "/website/*": {
             origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
           },
+          "/akamai/*": {
+            origin: new HttpOrigin("dash.akamaized.net"),
+            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            cachePolicy: new cloudfront.CachePolicy(this, "DASHCachePolicy", {
+              queryStringBehavior: cloudfront.CacheQueryStringBehavior.allowList("CAT"),
+            }),
+            originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_CUSTOM_ORIGIN,
+            functionAssociations: [{
+              function: validator,
+              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+            }],
+          },
         },
       });
 
       // Deploy config.js with runtime values (API endpoint, stream URL)
-      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",streamUrl:"https://${distribution.distributionDomainName}/x36xhzz/x36xhzz.m3u8",pathRestriction:"/x36xhzz/"};`;
+      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",hlsUrl:"https://${distribution.distributionDomainName}/x36xhzz/x36xhzz.m3u8",hlsPath:"/x36xhzz/",dashUrl:"https://${distribution.distributionDomainName}/akamai/bbb_30fps/bbb_30fps.mpd",dashPath:"/akamai/"};`;
       new s3deploy.BucketDeployment(this, "DeployDemoConfig", {
         sources: [s3deploy.Source.data("config.js", configBody)],
         destinationBucket: demoBucket,

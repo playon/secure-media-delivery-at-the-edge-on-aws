@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CTA-5007-B Secure Media Demo</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.dashjs.org/latest/dash.all.min.js"></script>
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Amazon Ember Display', 'Helvetica Neue', Arial, sans-serif; color: #161b26; background: #f3f3f7; }
@@ -123,8 +124,15 @@
             <div class="card">
                 <h3>Generate Secure Token</h3>
                 <div class="field">
-                    <label>HLS Stream URL</label>
-                    <input type="text" id="streamUrl" placeholder="https://your-distribution.cloudfront.net/x36xhzz/x36xhzz.m3u8">
+                    <label>Player</label>
+                    <select id="playerType" onchange="switchPlayer()">
+                        <option value="hls" selected>HLS.js (path token)</option>
+                        <option value="dash">DASH.js (query token)</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Stream URL</label>
+                    <input type="text" id="streamUrl" placeholder="Populated from config">
                 </div>
                 <div class="field">
                     <label>Path Restriction</label>
@@ -305,7 +313,7 @@ async function renewToken() {
             paths: pathRestriction ? [pathRestriction] : undefined,
             ttl,
             ips: document.getElementById('ipRestriction').value.trim() || undefined,
-            placement: 'path',
+            placement: document.getElementById('playerType').value === 'dash' ? 'query' : 'path',
             sessionId: currentSessionId
         };
 
@@ -345,33 +353,40 @@ async function generateAndPlay() {
         const client = new CTAClient(API_ENDPOINT);
         const sessionId = 'demo-' + Date.now();
 
+        const playerType = document.getElementById('playerType').value;
+        const placement = playerType === 'dash' ? 'query' : 'path';
+
         const policy = {
             paths: pathRestriction ? [pathRestriction] : undefined,
             ttl,
             countries: countries ? countries.split(',').map(c => c.trim()).filter(Boolean) : undefined,
             ips: document.getElementById('ipRestriction').value.trim() || undefined,
-            placement: 'path',
+            placement,
             sessionId
         };
 
         const sdk = document.getElementById('sdk').value;
         const sdkName = {node: 'Node.js', python: 'Python', ruby: 'Ruby'}[sdk];
 
-        log(`Generating CTA-5007-B token via ${sdkName} SDK...`);
-        const result = await client.generateToken(policy, { country: 'us', ip: '192.168.1.100' }, streamUrl, sdk);
+        log(`Generating CTA-5007-B token via ${sdkName} SDK (${placement} placement)...`);
+        const result = await client.generateToken(policy, {}, streamUrl, sdk);
 
         currentToken = result.token;
         currentSessionId = sessionId;
         tokenExpiresAt = result.expiresAt;
-        tokenType = 'path';
+        tokenType = placement;
 
-        updateTokenUI(sessionId, result.expiresAt, 'path');
+        updateTokenUI(sessionId, result.expiresAt, placement);
         toast('Token generated');
         log('✅ Token generated, starting playback...', 'info');
         log(`   token: ${result.token.substring(0, 20)}…`, 'info');
         log(`   expires: ${new Date(result.expiresAt * 1000).toLocaleTimeString()}`, 'info');
 
-        loadHls(result.signedUrl);
+        if (playerType === 'dash') {
+            loadDash(result.signedUrl);
+        } else {
+            loadHls(result.signedUrl);
+        }
         scheduleRenewal();
     } catch (err) {
         toast(err.message, false);
@@ -383,6 +398,7 @@ function loadHls(signedUrl) {
     const video = document.getElementById('video');
 
     if (hls) hls.destroy();
+    if (dashPlayer) { dashPlayer.destroy(); dashPlayer = null; }
 
     if (!Hls.isSupported()) {
         if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -436,6 +452,47 @@ function loadHls(signedUrl) {
     log('🎬 HLS player started');
 }
 
+let dashPlayer = null;
+
+function loadDash(signedUrl) {
+    const video = document.getElementById('video');
+    if (hls) { hls.destroy(); hls = null; }
+    if (dashPlayer) { dashPlayer.destroy(); dashPlayer = null; }
+
+    let reqCount = 0;
+    dashPlayer = dashjs.MediaPlayer().create();
+
+    // Intercept requests to append CAT token as query param for segments
+    dashPlayer.extend('RequestModifier', function () {
+        return {
+            modifyRequestURL: function (url) {
+                reqCount++;
+                const seg = url.split('/').pop().split('?')[0];
+                if (currentToken && url.includes(window.CTA_CONFIG?.dashUrl?.split('/')[2] || 'cloudfront.net')) {
+                    const sep = url.includes('?') ? '&' : '?';
+                    log(`#${reqCount} GET ${seg} [query token]`, 'info');
+                    return url + sep + 'CAT=' + currentToken;
+                }
+                log(`#${reqCount} GET ${seg}`, 'info');
+                return url;
+            },
+            modifyRequestHeader: function (request) { return request; }
+        };
+    }, true);
+
+    dashPlayer.on(dashjs.MediaPlayer.events.ERROR, function (e) {
+        if (e.error && e.error.code === 401) {
+            log('🚫 Access denied: ' + (e.error.message || 'unauthorized'), 'error');
+            dashPlayer.destroy();
+            dashPlayer = null;
+            video.pause();
+        }
+    });
+
+    dashPlayer.initialize(video, signedUrl, true);
+    log('🎬 DASH player started');
+}
+
 async function revokeToken() {
     if (!currentSessionId) return;
     try {
@@ -454,8 +511,20 @@ log('🔐 CTA-5007-B Demo Ready');
 // Populate fields from deployment config
 if (window.CTA_CONFIG) {
     const c = window.CTA_CONFIG;
-    if (c.streamUrl) document.getElementById('streamUrl').value = c.streamUrl;
-    if (c.pathRestriction) document.getElementById('pathRestriction').value = c.pathRestriction;
+    document.getElementById('streamUrl').value = c.hlsUrl || '';
+    document.getElementById('pathRestriction').value = c.hlsPath || '';
+}
+
+function switchPlayer() {
+    const c = window.CTA_CONFIG || {};
+    const type = document.getElementById('playerType').value;
+    if (type === 'dash') {
+        document.getElementById('streamUrl').value = c.dashUrl || '';
+        document.getElementById('pathRestriction').value = c.dashPath || '';
+    } else {
+        document.getElementById('streamUrl').value = c.hlsUrl || '';
+        document.getElementById('pathRestriction').value = c.hlsPath || '';
+    }
 }
 
 // Detect public IP for display — not auto-filled because IPv6 privacy

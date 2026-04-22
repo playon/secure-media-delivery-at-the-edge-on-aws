@@ -105,7 +105,7 @@
 <div class="hero">
     <span class="hero-tag">Architecture</span>
     <h1>CTA-5007-B Secure Media Delivery</h1>
-    <p class="sub">Hybrid path→header token renewal for HLS streaming with CloudFront Functions</p>
+    <p class="sub">Path-based CWT token protection for HLS and DASH streaming with CloudFront Functions</p>
 </div>
 
 <!-- Video Player Section -->
@@ -136,7 +136,7 @@
                 </div>
                 <div class="field">
                     <label>Path Restriction</label>
-                    <input type="text" id="pathRestriction" value="/x36xhzz/">
+                    <input type="text" id="pathRestriction" placeholder="Populated from config">
                 </div>
                 <div class="field">
                     <label>Token SDK</label>
@@ -197,8 +197,8 @@
                 <linearGradient id="cfGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#75cfff" stop-opacity="0.15"/><stop offset="100%" stop-color="#f299ff" stop-opacity="0.15"/></linearGradient>
             </defs>
             <rect x="0" y="30" width="120" height="56" rx="6" fill="#f3f3f7" stroke="#d1d5db"/>
-            <text x="60" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">HLS.js Player</text>
-            <text x="60" y="70" text-anchor="middle" font-size="9" fill="#6b7280">Browser</text>
+            <text x="60" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">Player</text>
+            <text x="60" y="70" text-anchor="middle" font-size="9" fill="#6b7280">HLS.js / DASH.js</text>
             <rect x="220" y="30" width="140" height="56" rx="6" fill="url(#cfGrad)" stroke="#75cfff"/>
             <text x="290" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">CloudFront</text>
             <text x="290" y="70" text-anchor="middle" font-size="9" fill="#6b7280">CTA Validator Fn</text>
@@ -218,7 +218,7 @@
         <h3 style="font-size:18px; margin-bottom:16px">Phase 2 — Token Renewal (before expiry)</h3>
         <svg viewBox="0 0 800 130" style="width:100%;max-width:800px;font-family:inherit">
             <rect x="0" y="30" width="120" height="56" rx="6" fill="#f3f3f7" stroke="#d1d5db"/>
-            <text x="60" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">HLS.js Player</text>
+            <text x="60" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">Player</text>
             <text x="60" y="70" text-anchor="middle" font-size="9" fill="#6b7280">Renewal Timer</text>
             <rect x="220" y="30" width="140" height="56" rx="6" fill="#fff3cd" stroke="#fbbf24"/>
             <text x="290" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">API Gateway</text>
@@ -239,7 +239,7 @@
         <h3 style="font-size:18px; margin-bottom:16px">Phase 3 — Continued Playback (renewed token)</h3>
         <svg viewBox="0 0 800 130" style="width:100%;max-width:800px;font-family:inherit">
             <rect x="0" y="30" width="120" height="56" rx="6" fill="#f3f3f7" stroke="#d1d5db"/>
-            <text x="60" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">HLS.js Player</text>
+            <text x="60" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">Player</text>
             <text x="60" y="70" text-anchor="middle" font-size="9" fill="#6b7280">Token Swapped</text>
             <rect x="220" y="30" width="140" height="56" rx="6" fill="url(#cfGrad)" stroke="#75cfff"/>
             <text x="290" y="55" text-anchor="middle" font-size="11" font-weight="600" fill="#161b26">CloudFront</text>
@@ -264,6 +264,7 @@
 <script>
 const API_ENDPOINT = window.CTA_CONFIG?.apiEndpoint || '';
 let hls = null;
+let dashPlayer = null;
 let currentToken = null;
 let currentSessionId = null;
 let tokenType = 'none';
@@ -325,16 +326,16 @@ async function renewToken() {
         const result = await client.generateToken(policy, {}, streamUrl, sdk);
         currentToken = result.token;
         tokenExpiresAt = result.expiresAt;
-        tokenType = 'header';
+        tokenType = 'renewed';
 
         const newToken = currentToken.substring(0, 20) + '…';
-        updateTokenUI(currentSessionId, result.expiresAt, 'header');
+        updateTokenUI(currentSessionId, result.expiresAt, 'renewed');
 
         log('🔄 TOKEN RENEWED', 'warn');
         log(`   old: ${oldToken}`, 'warn');
         log(`   new: ${newToken}`, 'warn');
         log(`   expires: ${new Date(result.expiresAt * 1000).toLocaleTimeString()}`, 'warn');
-        log(`   delivery: token swapped in path`, 'warn');
+        log(`   delivery: path token swapped`, 'warn');
         toast('Token renewed');
 
         scheduleRenewal();
@@ -354,29 +355,28 @@ async function generateAndPlay() {
         const sessionId = 'demo-' + Date.now();
 
         const playerType = document.getElementById('playerType').value;
-        const placement = 'path';
 
         const policy = {
             paths: pathRestriction ? [pathRestriction] : undefined,
             ttl,
             countries: countries ? countries.split(',').map(c => c.trim()).filter(Boolean) : undefined,
             ips: document.getElementById('ipRestriction').value.trim() || undefined,
-            placement,
+            placement: 'path',
             sessionId
         };
 
         const sdk = document.getElementById('sdk').value;
         const sdkName = {node: 'Node.js', python: 'Python', ruby: 'Ruby'}[sdk];
 
-        log(`Generating CTA-5007-B token via ${sdkName} SDK (${placement} placement)...`);
+        log(`Generating CTA-5007-B token via ${sdkName} SDK...`);
         const result = await client.generateToken(policy, {}, streamUrl, sdk);
 
         currentToken = result.token;
         currentSessionId = sessionId;
         tokenExpiresAt = result.expiresAt;
-        tokenType = placement;
+        tokenType = 'path';
 
-        updateTokenUI(sessionId, result.expiresAt, placement);
+        updateTokenUI(sessionId, result.expiresAt, 'path');
         toast('Token generated');
         log('✅ Token generated, starting playback...', 'info');
         log(`   token: ${result.token.substring(0, 20)}…`, 'info');
@@ -417,7 +417,7 @@ function loadHls(signedUrl) {
             reqCount++;
             const seg = url.split('/').pop().split('?')[0];
 
-            if (tokenType === 'header' && currentToken) {
+            if (tokenType === 'renewed' && currentToken) {
                 // Replace old path token with renewed token
                 const u = new URL(url);
                 const parts = u.pathname.split('/');
@@ -452,8 +452,6 @@ function loadHls(signedUrl) {
     log('🎬 HLS player started');
 }
 
-let dashPlayer = null;
-
 function loadDash(signedUrl) {
     const video = document.getElementById('video');
     if (hls) { hls.destroy(); hls = null; }
@@ -468,7 +466,7 @@ function loadDash(signedUrl) {
             modifyRequestURL: function (url) {
                 reqCount++;
                 const seg = url.split('/').pop().split('?')[0];
-                if (currentToken && tokenType === 'header') {
+                if (currentToken && tokenType === 'renewed') {
                     const u = new URL(url);
                     const parts = u.pathname.split('/');
                     if (parts[1] && parts[1].length > 50) {

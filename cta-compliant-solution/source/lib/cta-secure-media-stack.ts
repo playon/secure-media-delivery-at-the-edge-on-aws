@@ -221,14 +221,52 @@ export class CTASecureMediaStack extends Stack {
       });
 
       // Origin routing Lambda@Edge — routes /dash/* to Akamai, everything else to Mux
+      // ---------------------------------------------------------------------------
+      // Origin Router — Lambda@Edge (origin-request)
+      //
+      // This function runs after the CloudFront Function (viewer-request) has
+      // validated and stripped the CTA path token. At this point the URI is a
+      // clean content path like /x36xhzz/... (HLS) or /dash/akamai/... (DASH).
+      //
+      // Problem: CloudFront can only have one origin per cache behavior, but we
+      // serve both HLS (test-streams.mux.dev) and DASH (dash.akamaized.net)
+      // content through the default behavior (required for path-based tokens).
+      //
+      // Solution: This Lambda@Edge inspects the URI after token stripping and
+      // dynamically rewrites the origin for DASH requests:
+      //
+      //   /x36xhzz/...           → default origin (test-streams.mux.dev)
+      //   /dash/akamai/bbb_30fps → strip /dash, route to dash.akamaized.net
+      //
+      // The /dash prefix is a routing marker only — it's stripped before the
+      // request reaches the Akamai origin, so the origin sees /akamai/bbb_30fps.
+      // ---------------------------------------------------------------------------
       const originRouter = new lambda.Function(this, "OriginRouter", {
         runtime: lambda.Runtime.NODEJS_22_X,
         handler: "index.handler",
         code: lambda.Code.fromInline(`
+          /**
+           * Lambda@Edge Origin Router (origin-request event)
+           *
+           * Runs after the CTA validator CloudFront Function has:
+           *   1. Validated the COSE MAC0 token
+           *   2. Stripped the token from the URI path
+           *
+           * Routes requests to the correct upstream origin based on path:
+           *   - /dash/*  → dash.akamaized.net (DASH content)
+           *   - all else → default origin (HLS content on test-streams.mux.dev)
+           *
+           * For DASH requests, the /dash prefix is stripped so the origin
+           * receives the correct path (e.g. /akamai/bbb_30fps/bbb_30fps.mpd).
+           */
           exports.handler = async (event) => {
             const request = event.Records[0].cf.request;
+
             if (request.uri.startsWith('/dash/')) {
+              // Strip the /dash routing prefix: /dash/akamai/... → /akamai/...
               request.uri = request.uri.substring(5);
+
+              // Override the origin to Akamai's DASH CDN
               request.origin = {
                 custom: {
                   domainName: 'dash.akamaized.net',
@@ -241,8 +279,13 @@ export class CTASecureMediaStack extends Stack {
                   customHeaders: {}
                 }
               };
+
+              // Set the Host header to match the new origin
+              // (required for the origin to serve the correct content)
               request.headers['host'] = [{ key: 'host', value: 'dash.akamaized.net' }];
             }
+
+            // HLS requests pass through unchanged to the default origin
             return request;
           };
         `),

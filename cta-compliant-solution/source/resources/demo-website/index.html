@@ -74,7 +74,7 @@
         <div id="messages"></div>
     </div>
 
-    <script src="cta-client.js"></script>
+    <script src="cta-sdk.js"></script>
     <script>
         const API_ENDPOINT = '/api';
         let currentTokenId = null;
@@ -93,50 +93,31 @@
                 const ttl = document.getElementById('ttl').value;
                 const countries = document.getElementById('countries').value;
                 
-                // Use local SDK for token generation
-                const client = new CTAClient('CTASecureMedia', 'us-east-1');
+                const client = new CTAClient(API_ENDPOINT);
                 
-                showMessage('Generating CTA-5007-B token with renewal support...');
+                showMessage('Generating CTA-5007-B token...');
                 
                 const policy = {
                     paths: pathRestriction ? [pathRestriction] : undefined,
                     ttl: ttl,
-                    countries: countries ? countries.split(',').map(c => c.trim()) : undefined,
-                    placement: 'path', // Start with path token
+                    countries: countries ? countries.split(',').map(c => c.trim()).filter(Boolean) : undefined,
+                    placement: 'path',
                     sessionId: 'demo-' + Date.now()
                 };
                 
-                const viewer = {
-                    country: 'us',
-                    ip: '192.168.1.100'
-                };
+                const viewer = { country: 'us', ip: '192.168.1.100' };
                 
-                // Generate token locally (simulated)
-                const result = {
-                    token: 'demo-token-' + Math.random().toString(36).substr(2, 20),
-                    expiresAt: Math.floor(Date.now() / 1000) + parseTTL(ttl)
-                };
+                const result = await client.generateToken(policy, viewer, mediaUrl);
                 
-                // Create signed URL with path token
-                const signedUrl = client.generateSignedUrl(mediaUrl, policy, viewer);
-                
-                // Update UI
                 document.getElementById('tokenId').textContent = policy.sessionId;
                 document.getElementById('expiresAt').textContent = new Date(result.expiresAt * 1000).toLocaleString();
-                document.getElementById('signedUrl').value = signedUrl;
+                document.getElementById('signedUrl').value = result.signedUrl || result.token;
                 document.getElementById('tokenInfo').style.display = 'block';
                 document.getElementById('renewalInfo').style.display = 'block';
                 document.getElementById('revokeBtn').disabled = false;
                 
                 currentTokenId = policy.sessionId;
                 currentToken = result.token;
-                
-                // Simulate video loading
-                if (mediaUrl.includes('.m3u8') || mediaUrl.includes('.mp4')) {
-                    const video = document.getElementById('videoPlayer');
-                    video.src = signedUrl;
-                    video.style.display = 'block';
-                }
                 
                 showMessage('✅ CTA token generated! CloudFront Function will handle path→header renewal automatically.');
                 
@@ -150,35 +131,15 @@
             
             try {
                 showMessage('Revoking token...');
-                
-                // In real implementation, this would call the revocation API
+                const client = new CTAClient(API_ENDPOINT);
+                await client.revokeToken(currentTokenId, 'manual');
                 showMessage('✅ Token revoked! Future requests will be blocked.');
-                
                 document.getElementById('revokeBtn').disabled = true;
-                document.getElementById('videoPlayer').style.display = 'none';
-                
             } catch (error) {
                 showMessage(`Revocation error: ${error.message}`, true);
             }
         }
         
-        function parseTTL(ttl) {
-            const match = ttl.match(/^(\d+)([smhd])$/);
-            if (!match) return 7200;
-            
-            const value = parseInt(match[1]);
-            const unit = match[2];
-            
-            switch (unit) {
-                case 's': return value;
-                case 'm': return value * 60;
-                case 'h': return value * 3600;
-                case 'd': return value * 86400;
-                default: return 7200;
-            }
-        }
-        
-        // Auto-populate with demo values
         window.onload = function() {
             showMessage('🔐 CTA-5007-B Demo with Hybrid Token Renewal Ready');
         };

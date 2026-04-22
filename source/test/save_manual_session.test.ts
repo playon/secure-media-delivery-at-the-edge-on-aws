@@ -1,6 +1,9 @@
 // Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: Apache-2.0
 
+process.env.TABLE_NAME = 'TestTable';
+process.env.TTL = '7';
+
 import { afterEach } from "node:test";
 import awsSdkMock from "./__mocks__/aws-sdk-mock";
 const revokeSessionHandler = require('../lambda/save_manual_session/nodejs/index.js');

@@ -5,6 +5,8 @@
     run unit tests script with sudo */
 
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import AwsSdkMock from './__mocks__/aws-sdk-mock';
 const cr = require('../lambda/custom_resource_us_east_1/index.js');
 
@@ -19,7 +21,7 @@ describe('Custom resource', () => {
     beforeEach(() => {
         let data = "Mocked content of my file";
 
-        fs.writeFileSync("/tmp/le.js", data);
+        fs.writeFileSync(path.join(os.tmpdir(), 'le.js'), data);
         
         mocks = AwsSdkMock.mockAllAWSClients();
         

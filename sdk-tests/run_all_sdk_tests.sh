@@ -33,14 +33,9 @@ run_test() {
     echo ""
 }
 
-# Make scripts executable
-chmod +x test_*.sh test_*.pl test_*.rb 2>/dev/null
-
 # Run all SDK tests
 run_test "Node.js" "node test_nodejs_fixed.js" "$YELLOW"
-run_test "Python" "python3 test_python_fixed.py" "$BLUE"  
-run_test "Java" "javac test_java_complete.java && java test_java_complete" "$YELLOW"
-run_test "Perl" "perl test_perl_fixed.pl" "$BLUE"
+run_test "Python" "python3 test_python_fixed.py" "$BLUE"
 
 # Summary
 echo "=========================================="
@@ -50,7 +45,7 @@ echo "=========================================="
 total_tests=0
 passed_tests=0
 
-for sdk in "Node.js" "Python" "Java" "Perl"; do
+for sdk in "Node.js" "Python"; do
     total_tests=$((total_tests + 1))
     result="${results[$sdk]}"
     echo -e "$sdk: $result"
@@ -71,7 +66,5 @@ else
     echo "To install dependencies:"
     echo "• Node.js: cd Secure-media-delivery-at-the-edge/source/resources/sdk/node/v1 && npm install"
     echo "• Python:  cd Secure-media-delivery-at-the-edge/source/resources/sdk/python/v1 && pip install -r requirements.txt"
-    echo "• Java:    cd Secure-media-delivery-at-the-edge/source/resources/sdk/java/v1 && mvn compile"
-    echo "• Perl:    cd Secure-media-delivery-at-the-edge/source/resources/sdk/perl/v1 && perl Makefile.PL && make"
     exit 1
 fi

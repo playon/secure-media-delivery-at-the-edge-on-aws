@@ -196,16 +196,19 @@ export class CTASecureMediaStack extends Stack {
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {
           origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
-          functionAssociations: [{
-            function: validator,
-            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-          }],
         },
         defaultRootObject: "index.html",
         additionalBehaviors: {
           "/api/*": {
             origin: new RestApiOrigin(api),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          },
+          "/video/*": {
+            origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
+            functionAssociations: [{
+              function: validator,
+              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+            }],
           },
         },
       });

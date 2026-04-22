@@ -56,7 +56,7 @@ const questions = [
     initial: true
   },
   {
-    type: (prev) => prev ? 'select' : null,
+    type: ((prev: any, values: any) => values.enableAutoRevocation ? 'select' : null) as any,
     name: 'revocationFrequency',
     message: 'Auto-revocation frequency:',
     choices: [
@@ -68,7 +68,7 @@ const questions = [
     initial: 1
   },
   {
-    type: (prev, values) => values.enableAutoRevocation ? 'select' : null,
+    type: ((prev: any, values: any) => values.enableAutoRevocation ? 'select' : null) as any,
     name: 'bedrockModel',
     message: 'Bedrock model for analysis:',
     choices: [
@@ -78,7 +78,7 @@ const questions = [
     initial: 0
   },
   {
-    type: (prev, values) => values.enableAutoRevocation ? 'select' : null,
+    type: ((prev: any, values: any) => values.enableAutoRevocation ? 'select' : null) as any,
     name: 'bedrockRegion',
     message: 'Bedrock region:',
     choices: [
@@ -92,7 +92,7 @@ const questions = [
 async function main() {
   console.log('🔐 CTA-5007-B Secure Media Delivery Setup\n');
   
-  const answers = await prompts(questions, { onCancel });
+  const answers = await prompts(questions as any, { onCancel });
   
   const config: CTAConfiguration = {
     main: {

@@ -76,7 +76,13 @@ export class AutoRevocationStack extends Stack {
     // Permissions
     queryBucket.grantReadWrite(prepareQuery);
     sessionsTable.grantReadWriteData(updateRevocations);
-    props.kvStore.grant(updateRevocations, "cloudfront:UpdateKeyValueStore");
+
+    // Grant KVS update permission via IAM policy (KeyValueStore.grant not available in CDK 2.170.0)
+    updateRevocations.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["cloudfront-keyvaluestore:UpdateKeys", "cloudfront-keyvaluestore:DescribeKeyValueStore"],
+      resources: [props.kvStore.keyValueStoreArn],
+    }));
     
     // Bedrock permissions
     bedrockAnalyzer.addToRolePolicy(new iam.PolicyStatement({

@@ -6,14 +6,22 @@ import {
   Duration,
   CfnOutput,
   CfnParameter,
+  CustomResource,
   aws_cloudfront as cloudfront,
   aws_lambda as lambda,
   aws_apigateway as apigateway,
   aws_secretsmanager as secretsmanager,
   aws_s3 as s3,
   aws_s3_deployment as s3deploy,
+  aws_iam as iam,
+  aws_stepfunctions as sfn,
+  aws_stepfunctions_tasks as tasks,
+  aws_events as events,
+  aws_events_targets as targets,
+  custom_resources,
 } from "aws-cdk-lib";
 
+import { RestApiOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { Construct } from "constructs";
 
 export interface CTASecureMediaStackProps extends StackProps {
@@ -26,7 +34,6 @@ export class CTASecureMediaStack extends Stack {
   constructor(scope: Construct, id: string, props: CTASecureMediaStackProps = {}) {
     super(scope, id, props);
 
-    // CloudFormation Parameters for template deployment
     const enableDemo = new CfnParameter(this, "EnableDemo", {
       type: "String",
       default: "true",
@@ -41,7 +48,6 @@ export class CTASecureMediaStack extends Stack {
       description: "Bedrock model for AI analysis",
     });
 
-    // Use config if provided (CDK deployment) or parameters (CloudFormation)
     const config = props.config || {
       main: {
         enableDemo: enableDemo.valueAsString === "true",
@@ -51,7 +57,7 @@ export class CTASecureMediaStack extends Stack {
       }
     };
 
-    // CTA signing key (Secrets Manager)
+    // CTA signing key
     const signingSecret = new secretsmanager.Secret(this, "CTAKey", {
       generateSecretString: {
         secretStringTemplate: '{"algorithm":"HMAC-SHA256"}',
@@ -70,6 +76,7 @@ export class CTASecureMediaStack extends Stack {
     const validator = new cloudfront.Function(this, "CTAValidator", {
       code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/cta_token_validator.js" }),
       functionName: `${Aws.STACK_NAME}-CTA-Validator`,
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
       keyValueStore: this.kvStore,
     });
 
@@ -85,14 +92,77 @@ export class CTASecureMediaStack extends Stack {
     // Token revocation handler
     const revoker = new lambda.Function(this, "CTARevoker", {
       runtime: lambda.Runtime.NODEJS_22_X,
-      handler: "cta_revocation.handler", 
+      handler: "cta_revocation.handler",
       code: lambda.Code.fromAsset("lambda"),
       timeout: Duration.seconds(10),
       environment: { KVS_ID: this.kvStore.keyValueStoreId },
     });
 
     signingSecret.grantRead(generator);
-    this.kvStore.grant(revoker, "cloudfront:UpdateKeyValueStore");
+
+    // Grant KVS update permission via IAM policy
+    revoker.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: ["cloudfront-keyvaluestore:UpdateKeys", "cloudfront-keyvaluestore:DescribeKeyValueStore"],
+      resources: [this.kvStore.keyValueStoreArn],
+    }));
+
+    // --- Key sync Lambda (custom resource + rotation) ---
+    const syncKeysToKvs = new lambda.Function(this, "SyncKeysToKvs", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset("lambda/sync_keys"),
+      timeout: Duration.seconds(30),
+      environment: {
+        SECRET_NAME: signingSecret.secretName,
+        KVS_ARN: this.kvStore.keyValueStoreArn,
+      },
+    });
+
+    signingSecret.grantRead(syncKeysToKvs);
+    signingSecret.grantWrite(syncKeysToKvs);
+    syncKeysToKvs.addToRolePolicy(new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "cloudfront-keyvaluestore:PutKey",
+        "cloudfront-keyvaluestore:DescribeKeyValueStore",
+      ],
+      resources: [this.kvStore.keyValueStoreArn],
+    }));
+
+    // Custom resource: sync key to KVS on deploy
+    const keySyncProvider = new custom_resources.Provider(this, "KeySyncProvider", {
+      onEventHandler: syncKeysToKvs,
+    });
+
+    new CustomResource(this, "KeySyncResource", {
+      serviceToken: keySyncProvider.serviceToken,
+      properties: {
+        // Force update on each deploy to ensure key is synced
+        Timestamp: Date.now().toString(),
+      },
+    });
+
+    // --- Key rotation workflow ---
+    const rotateKeyTask = new tasks.LambdaInvoke(this, "RotateSigningKey", {
+      lambdaFunction: syncKeysToKvs,
+      payload: sfn.TaskInput.fromObject({ rotate: true }),
+      resultPath: sfn.JsonPath.DISCARD,
+    });
+
+    const rotationWorkflow = new sfn.StateMachine(this, "KeyRotationWorkflow", {
+      stateMachineName: `${Aws.STACK_NAME}_RotateKeys`,
+      definitionBody: sfn.DefinitionBody.fromChainable(rotateKeyTask),
+      timeout: Duration.minutes(5),
+    });
+
+    // Rotate keys monthly by default
+    const rotationSchedule = config.main.rotationFrequency || "30d";
+    const rotationRate = this.parseRotationRate(rotationSchedule);
+    new events.Rule(this, "KeyRotationSchedule", {
+      schedule: events.Schedule.rate(rotationRate),
+      targets: [new targets.SfnStateMachine(rotationWorkflow)],
+    });
 
     // API Gateway
     const api = new apigateway.RestApi(this, "CTAAPI", {
@@ -114,9 +184,8 @@ export class CTASecureMediaStack extends Stack {
     
     if (config.main.enableDemo) {
       const demoBucket = new s3.Bucket(this, "DemoWebsite", {
-        websiteIndexDocument: "index.html",
-        publicReadAccess: true,
         removalPolicy: RemovalPolicy.DESTROY,
+        autoDeleteObjects: true,
       });
 
       new s3deploy.BucketDeployment(this, "DeployDemoSite", {
@@ -126,24 +195,24 @@ export class CTASecureMediaStack extends Stack {
 
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {
-          origin: new cloudfront.S3Origin(demoBucket),
+          origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
           functionAssociations: [{
             function: validator,
             eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
           }],
         },
+        defaultRootObject: "index.html",
         additionalBehaviors: {
           "/api/*": {
-            origin: new cloudfront.RestApiOrigin(api),
+            origin: new RestApiOrigin(api),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           },
         },
       });
     } else {
-      // API-only distribution
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {
-          origin: new cloudfront.RestApiOrigin(api),
+          origin: new RestApiOrigin(api),
           functionAssociations: [{
             function: validator,
             eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
@@ -159,7 +228,7 @@ export class CTASecureMediaStack extends Stack {
     });
     
     if (config.main.enableDemo) {
-      new CfnOutput(this, "DemoWebsite", { 
+      new CfnOutput(this, "DemoWebsiteUrl", { 
         value: `https://${distribution.distributionDomainName}`,
         description: "CTA Demo Website URL"
       });
@@ -179,5 +248,22 @@ export class CTASecureMediaStack extends Stack {
       value: "CTA-5007-B",
       description: "Implemented standard version"
     });
+
+    new CfnOutput(this, "RotationWorkflow", {
+      value: rotationWorkflow.stateMachineName,
+      description: "Key rotation Step Functions workflow"
+    });
+  }
+
+  private parseRotationRate(rate: string): Duration {
+    const match = rate.match(/^(\d+)([mhd])$/);
+    if (!match) return Duration.days(30);
+    const value = parseInt(match[1]);
+    switch (match[2]) {
+      case 'm': return Duration.minutes(value);
+      case 'h': return Duration.hours(value);
+      case 'd': return Duration.days(value);
+      default: return Duration.days(30);
+    }
   }
 }

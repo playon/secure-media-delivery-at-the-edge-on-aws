@@ -1,0 +1,47 @@
+#!/usr/bin/env node
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const aws_cdk_lib_1 = require("aws-cdk-lib");
+const cta_secure_media_stack_1 = require("../lib/cta-secure-media-stack");
+const auto_revocation_stack_1 = require("../lib/auto-revocation-stack");
+const fs = require("fs");
+const path = require("path");
+const app = new aws_cdk_lib_1.App();
+// Load configuration
+const configPath = path.resolve(__dirname, '..', '..', 'cta.config.json');
+let config = {
+    main: {
+        stackName: 'CTASecureMedia',
+        region: 'us-east-1',
+        enableAutoRevocation: false,
+        enableDemo: true
+    }
+};
+if (fs.existsSync(configPath)) {
+    config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+}
+const solutionId = "SO0195-CTA";
+const solutionName = "CTA-5007-B Compliant Secure Media Delivery";
+const solutionVersion = "v1.0.0";
+// Main stack
+const mainStack = new cta_secure_media_stack_1.CTASecureMediaStack(app, config.main.stackName, {
+    description: `${solutionName} - ${solutionVersion}`,
+    env: {
+        account: process.env.CDK_DEFAULT_ACCOUNT,
+        region: config.main.region,
+    },
+    config: config,
+});
+// Auto-revocation stack (conditional)
+if (config.main.enableAutoRevocation) {
+    new auto_revocation_stack_1.AutoRevocationStack(app, `${config.main.stackName}AutoRevocation`, {
+        description: `${solutionName} - Auto Revocation - ${solutionVersion}`,
+        env: {
+            account: process.env.CDK_DEFAULT_ACCOUNT,
+            region: config.main.region,
+        },
+        kvStore: mainStack.kvStore,
+        config: config,
+    });
+}
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJmaWxlIjoiY3RhLWFwcC5qcyIsInNvdXJjZVJvb3QiOiIiLCJzb3VyY2VzIjpbImN0YS1hcHAudHMiXSwibmFtZXMiOltdLCJtYXBwaW5ncyI6Ijs7O0FBRUEsNkNBQWtDO0FBQ2xDLDBFQUFvRTtBQUNwRSx3RUFBbUU7QUFDbkUseUJBQXlCO0FBQ3pCLDZCQUE2QjtBQUU3QixNQUFNLEdBQUcsR0FBRyxJQUFJLGlCQUFHLEVBQUUsQ0FBQztBQUV0QixxQkFBcUI7QUFDckIsTUFBTSxVQUFVLEdBQUcsSUFBSSxDQUFDLE9BQU8sQ0FBQyxTQUFTLEVBQUUsSUFBSSxFQUFFLElBQUksRUFBRSxpQkFBaUIsQ0FBQyxDQUFDO0FBQzFFLElBQUksTUFBTSxHQUFRO0lBQ2hCLElBQUksRUFBRTtRQUNKLFNBQVMsRUFBRSxnQkFBZ0I7UUFDM0IsTUFBTSxFQUFFLFdBQVc7UUFDbkIsb0JBQW9CLEVBQUUsS0FBSztRQUMzQixVQUFVLEVBQUUsSUFBSTtLQUNqQjtDQUNGLENBQUM7QUFFRixJQUFJLEVBQUUsQ0FBQyxVQUFVLENBQUMsVUFBVSxDQUFDLEVBQUUsQ0FBQztJQUM5QixNQUFNLEdBQUcsSUFBSSxDQUFDLEtBQUssQ0FBQyxFQUFFLENBQUMsWUFBWSxDQUFDLFVBQVUsRUFBRSxNQUFNLENBQUMsQ0FBQyxDQUFDO0FBQzNELENBQUM7QUFFRCxNQUFNLFVBQVUsR0FBRyxZQUFZLENBQUM7QUFDaEMsTUFBTSxZQUFZLEdBQUcsNENBQTRDLENBQUM7QUFDbEUsTUFBTSxlQUFlLEdBQUcsUUFBUSxDQUFDO0FBRWpDLGFBQWE7QUFDYixNQUFNLFNBQVMsR0FBRyxJQUFJLDRDQUFtQixDQUFDLEdBQUcsRUFBRSxNQUFNLENBQUMsSUFBSSxDQUFDLFNBQVMsRUFBRTtJQUNwRSxXQUFXLEVBQUUsR0FBRyxZQUFZLE1BQU0sZUFBZSxFQUFFO0lBQ25ELEdBQUcsRUFBRTtRQUNILE9BQU8sRUFBRSxPQUFPLENBQUMsR0FBRyxDQUFDLG1CQUFtQjtRQUN4QyxNQUFNLEVBQUUsTUFBTSxDQUFDLElBQUksQ0FBQyxNQUFNO0tBQzNCO0lBQ0QsTUFBTSxFQUFFLE1BQU07Q0FDZixDQUFDLENBQUM7QUFFSCxzQ0FBc0M7QUFDdEMsSUFBSSxNQUFNLENBQUMsSUFBSSxDQUFDLG9CQUFvQixFQUFFLENBQUM7SUFDckMsSUFBSSwyQ0FBbUIsQ0FBQyxHQUFHLEVBQUUsR0FBRyxNQUFNLENBQUMsSUFBSSxDQUFDLFNBQVMsZ0JBQWdCLEVBQUU7UUFDckUsV0FBVyxFQUFFLEdBQUcsWUFBWSx3QkFBd0IsZUFBZSxFQUFFO1FBQ3JFLEdBQUcsRUFBRTtZQUNILE9BQU8sRUFBRSxPQUFPLENBQUMsR0FBRyxDQUFDLG1CQUFtQjtZQUN4QyxNQUFNLEVBQUUsTUFBTSxDQUFDLElBQUksQ0FBQyxNQUFNO1NBQzNCO1FBQ0QsT0FBTyxFQUFFLFNBQVMsQ0FBQyxPQUFPO1FBQzFCLE1BQU0sRUFBRSxNQUFNO0tBQ2YsQ0FBQyxDQUFDO0FBQ0wsQ0FBQyIsInNvdXJjZXNDb250ZW50IjpbIiMhL3Vzci9iaW4vZW52IG5vZGVcblxuaW1wb3J0IHsgQXBwIH0gZnJvbSBcImF3cy1jZGstbGliXCI7XG5pbXBvcnQgeyBDVEFTZWN1cmVNZWRpYVN0YWNrIH0gZnJvbSBcIi4uL2xpYi9jdGEtc2VjdXJlLW1lZGlhLXN0YWNrXCI7XG5pbXBvcnQgeyBBdXRvUmV2b2NhdGlvblN0YWNrIH0gZnJvbSBcIi4uL2xpYi9hdXRvLXJldm9jYXRpb24tc3RhY2tcIjtcbmltcG9ydCAqIGFzIGZzIGZyb20gJ2ZzJztcbmltcG9ydCAqIGFzIHBhdGggZnJvbSAncGF0aCc7XG5cbmNvbnN0IGFwcCA9IG5ldyBBcHAoKTtcblxuLy8gTG9hZCBjb25maWd1cmF0aW9uXG5jb25zdCBjb25maWdQYXRoID0gcGF0aC5yZXNvbHZlKF9fZGlybmFtZSwgJy4uJywgJy4uJywgJ2N0YS5jb25maWcuanNvbicpO1xubGV0IGNvbmZpZzogYW55ID0ge1xuICBtYWluOiB7XG4gICAgc3RhY2tOYW1lOiAnQ1RBU2VjdXJlTWVkaWEnLFxuICAgIHJlZ2lvbjogJ3VzLWVhc3QtMScsXG4gICAgZW5hYmxlQXV0b1Jldm9jYXRpb246IGZhbHNlLFxuICAgIGVuYWJsZURlbW86IHRydWVcbiAgfVxufTtcblxuaWYgKGZzLmV4aXN0c1N5bmMoY29uZmlnUGF0aCkpIHtcbiAgY29uZmlnID0gSlNPTi5wYXJzZShmcy5yZWFkRmlsZVN5bmMoY29uZmlnUGF0aCwgJ3V0ZjgnKSk7XG59XG5cbmNvbnN0IHNvbHV0aW9uSWQgPSBcIlNPMDE5NS1DVEFcIjtcbmNvbnN0IHNvbHV0aW9uTmFtZSA9IFwiQ1RBLTUwMDctQiBDb21wbGlhbnQgU2VjdXJlIE1lZGlhIERlbGl2ZXJ5XCI7XG5jb25zdCBzb2x1dGlvblZlcnNpb24gPSBcInYxLjAuMFwiO1xuXG4vLyBNYWluIHN0YWNrXG5jb25zdCBtYWluU3RhY2sgPSBuZXcgQ1RBU2VjdXJlTWVkaWFTdGFjayhhcHAsIGNvbmZpZy5tYWluLnN0YWNrTmFtZSwge1xuICBkZXNjcmlwdGlvbjogYCR7c29sdXRpb25OYW1lfSAtICR7c29sdXRpb25WZXJzaW9ufWAsXG4gIGVudjoge1xuICAgIGFjY291bnQ6IHByb2Nlc3MuZW52LkNES19ERUZBVUxUX0FDQ09VTlQsXG4gICAgcmVnaW9uOiBjb25maWcubWFpbi5yZWdpb24sXG4gIH0sXG4gIGNvbmZpZzogY29uZmlnLFxufSk7XG5cbi8vIEF1dG8tcmV2b2NhdGlvbiBzdGFjayAoY29uZGl0aW9uYWwpXG5pZiAoY29uZmlnLm1haW4uZW5hYmxlQXV0b1Jldm9jYXRpb24pIHtcbiAgbmV3IEF1dG9SZXZvY2F0aW9uU3RhY2soYXBwLCBgJHtjb25maWcubWFpbi5zdGFja05hbWV9QXV0b1Jldm9jYXRpb25gLCB7XG4gICAgZGVzY3JpcHRpb246IGAke3NvbHV0aW9uTmFtZX0gLSBBdXRvIFJldm9jYXRpb24gLSAke3NvbHV0aW9uVmVyc2lvbn1gLFxuICAgIGVudjoge1xuICAgICAgYWNjb3VudDogcHJvY2Vzcy5lbnYuQ0RLX0RFRkFVTFRfQUNDT1VOVCxcbiAgICAgIHJlZ2lvbjogY29uZmlnLm1haW4ucmVnaW9uLFxuICAgIH0sXG4gICAga3ZTdG9yZTogbWFpblN0YWNrLmt2U3RvcmUsXG4gICAgY29uZmlnOiBjb25maWcsXG4gIH0pO1xufVxuIl19

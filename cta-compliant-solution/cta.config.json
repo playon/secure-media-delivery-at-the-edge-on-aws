@@ -1,0 +1,9 @@
+{
+  "main": {
+    "stackName": "CTASecureMedia",
+    "region": "us-east-1",
+    "enableAutoRevocation": false,
+    "revocationFrequency": "10m",
+    "enableDemo": true
+  }
+}

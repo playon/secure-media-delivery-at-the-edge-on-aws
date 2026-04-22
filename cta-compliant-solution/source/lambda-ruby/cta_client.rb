@@ -99,4 +99,65 @@ module CTA
     v = m[1].to_i
     { 's' => v, 'm' => v * 60, 'h' => v * 3600, 'd' => v * 86400 }[m[2]] || 7200
   end
+
+  class Client
+    attr_reader :signing_key
+
+    def initialize(stack_name, region: 'us-east-1')
+      @stack_name = stack_name
+      @region = region
+      @signing_key = nil
+      @sm = nil
+    end
+
+    def init_secrets_manager(**opts)
+      require 'aws-sdk-secretsmanager'
+      @sm = Aws::SecretsManager::Client.new(region: @region, **opts)
+    end
+
+    def get_signing_keys
+      raise 'Call init_secrets_manager first' unless @sm
+      resp = @sm.get_secret_value(secret_id: "#{@stack_name}_CTAKey")
+      @signing_key = JSON.parse(resp.secret_string)['signingKey']
+    end
+
+    def generate_cwt_token(policy, viewer = {})
+      raise 'Call get_signing_keys first' unless @signing_key
+      now = Time.now.to_i
+      exp = now + CTA.parse_ttl(policy[:ttl] || policy['ttl'] || '2h')
+
+      claims = { CWT::ISS => 'cta-secure-media', CWT::EXP => exp, CWT::NBF => now, CWT::IAT => now }
+      sid = policy[:sessionId] || policy['sessionId']
+      claims[CWT::CTI] = sid if sid
+      paths = policy[:paths] || policy['paths']
+      claims[CAT::CATU] = { CATU::PATH => { MATCH::PREFIX => paths.first } } if paths&.first
+      ips = policy[:ips] || policy['ips']
+      claims[CAT::CATNIP] = Array(ips) if ips
+      countries = policy[:countries] || policy['countries']
+      claims[316] = Array(countries) if countries&.any?
+
+      token_buf = CTA.generate_token(claims, @signing_key)
+      token = Base64.urlsafe_encode64(token_buf, padding: false)
+      { token: token, expires_at: exp }
+    end
+
+    def generate_signed_url(media_url, policy, viewer = {})
+      result = generate_cwt_token(policy, viewer)
+      token = result[:token]
+      placement = policy[:placement] || policy['placement'] || 'path'
+
+      case placement
+      when 'query'
+        sep = media_url.include?('?') ? '&' : '?'
+        result.merge(signed_url: "#{media_url}#{sep}CAT=#{token}")
+      when 'header'
+        result.merge(url: media_url, headers: { 'CTA-Common-Access-Token' => token })
+      else
+        uri = URI.parse(media_url)
+        signed = "#{uri.scheme}://#{uri.host}/#{token}#{uri.path}"
+        signed += "?#{uri.query}" if uri.query
+        result.merge(signed_url: signed)
+      end
+    end
+  end
 end

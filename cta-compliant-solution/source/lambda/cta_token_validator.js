@@ -81,36 +81,6 @@ function validateClaims(payload, request, viewerIp) {
     }
 }
 
-function generateRenewedToken(originalCWT, signingKey, currentTime) {
-    var renewedCWT = {
-        protected: originalCWT.protectedHeaders,
-        unprotected: originalCWT.unprotectedHeaders,
-        payload: {}
-    };
-
-    // Copy all existing claims
-    var keys = Object.keys(originalCWT.payload);
-    for (var i = 0; i < keys.length; i++) {
-        renewedCWT.payload[keys[i]] = originalCWT.payload[keys[i]];
-    }
-
-    // Update time-based claims
-    renewedCWT.payload[CTA.EXP] = currentTime + 3600;
-    renewedCWT.payload[CTA.IAT] = currentTime;
-    renewedCWT.payload[CTA.NBF] = currentTime;
-
-    // NOTE: AWS docs signature says generateToken(context, payload) but all
-    // doc examples pass (CWTObject, context). We follow the examples.
-    var genContext = {
-        cwtTag: true,
-        coseTag: "MAC0",
-        key: signingKey
-    };
-
-    var renewedTokenBuffer = cf.cwt.generateToken(renewedCWT, genContext);
-    return renewedTokenBuffer.toString('base64url');
-}
-
 async function handler(event) {
     try {
         var request = event.request;

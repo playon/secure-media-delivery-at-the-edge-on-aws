@@ -108,6 +108,8 @@ def handler(event:, context:)
     body = JSON.parse(event['body'])
     policy = body['policy']
     media_url = body['mediaUrl']
+    raise 'Missing required fields: policy, mediaUrl' unless policy && media_url
+    raise 'mediaUrl must be a valid HTTP(S) URL' unless media_url.start_with?('http://', 'https://')
     key = get_signing_key
     now = Time.now.to_i
     exp = now + CTA.parse_ttl(policy['ttl'] || '2h')

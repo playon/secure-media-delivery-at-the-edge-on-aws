@@ -89,7 +89,9 @@ async function getSigningKey() {
 exports.handler = async (event) => {
     const headers = { 'Access-Control-Allow-Origin': '*' };
     try {
-        const { policy, viewer, mediaUrl } = JSON.parse(event.body);
+        const { policy, mediaUrl } = JSON.parse(event.body);
+        if (!policy || !mediaUrl) throw new Error('Missing required fields: policy, mediaUrl');
+        if (!/^https?:\/\//.test(mediaUrl)) throw new Error('mediaUrl must be a valid HTTP(S) URL');
         const signingKey = await getSigningKey();
         const now = Math.floor(Date.now() / 1000);
         const exp = now + parseTTL(policy.ttl || '2h');

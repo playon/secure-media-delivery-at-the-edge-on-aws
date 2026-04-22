@@ -248,6 +248,15 @@ export class CTASecureMediaStack extends Stack {
           },
         },
       });
+
+      // Deploy config.js with runtime values (API endpoint, stream URL)
+      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",streamUrl:"https://${distribution.distributionDomainName}/x36xhzz/x36xhzz.m3u8",pathRestriction:"/x36xhzz/"};`;
+      new s3deploy.BucketDeployment(this, "DeployDemoConfig", {
+        sources: [s3deploy.Source.data("config.js", configBody)],
+        destinationBucket: demoBucket,
+        destinationKeyPrefix: "website",
+        prune: false,
+      });
     } else {
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {

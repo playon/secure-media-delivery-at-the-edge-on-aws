@@ -16,7 +16,7 @@ async function getEtag(kvsArn) {
 exports.handler = async (event) => {
     const headers = { "Access-Control-Allow-Origin": "*" };
     try {
-        const { tokenId, reason = "manual", ttl = 86400 } = JSON.parse(event.body);
+        const { tokenId, reason = "manual" } = JSON.parse(event.body);
 
         if (!tokenId) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing tokenId" }) };

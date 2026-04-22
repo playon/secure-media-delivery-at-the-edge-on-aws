@@ -163,7 +163,7 @@ class CTAClient:
         if policy.get('paths'):
             claims[CAT.CATU] = {CATU.PATH: {MATCH.PREFIX: policy['paths'][0]}}
         if policy.get('countries'):
-            claims[CAT.CATNIP] = policy['countries']
+            claims[316] = policy["countries"]
 
         token_buf = generate_token(claims, self.signing_key)
         token = base64.urlsafe_b64encode(token_buf).rstrip(b'=').decode('ascii')

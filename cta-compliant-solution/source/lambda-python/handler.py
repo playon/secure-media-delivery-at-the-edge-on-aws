@@ -129,8 +129,12 @@ def handler(event, context):
     headers = {'Access-Control-Allow-Origin': '*'}
     try:
         body = json.loads(event['body'])
-        policy = body['policy']
-        media_url = body['mediaUrl']
+        policy = body.get('policy')
+        media_url = body.get('mediaUrl')
+        if not policy or not media_url:
+            raise ValueError('Missing required fields: policy, mediaUrl')
+        if not media_url.startswith(('http://', 'https://')):
+            raise ValueError('mediaUrl must be a valid HTTP(S) URL')
         key = get_signing_key()
         now = int(time.time())
         exp = now + parse_ttl(policy.get('ttl', '2h'))

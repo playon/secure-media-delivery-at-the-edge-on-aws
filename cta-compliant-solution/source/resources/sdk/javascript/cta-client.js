@@ -84,7 +84,7 @@ class CTAClient {
         if (policy.paths?.[0]) {
             claims.set(CAT.CATU, new Map([[CATU.PATH, new Map([[MATCH.PREFIX, policy.paths[0]]])]]));
         }
-        if (policy.countries?.length) claims.set(CAT.CATNIP, policy.countries);
+        if (policy.countries?.length) claims.set(316, policy.countries);
 
         const tokenBuf = generateToken(claims, this.signingKey);
         const token = tokenBuf.toString('base64url');

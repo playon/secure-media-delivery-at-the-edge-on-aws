@@ -124,7 +124,7 @@
                 <h3>Generate Secure Token</h3>
                 <div class="field">
                     <label>HLS Stream URL</label>
-                    <input type="text" id="streamUrl" value="https://d31khdh7fwkj7l.cloudfront.net/x36xhzz/x36xhzz.m3u8">
+                    <input type="text" id="streamUrl" placeholder="https://your-distribution.cloudfront.net/x36xhzz/x36xhzz.m3u8">
                 </div>
                 <div class="field">
                     <label>Path Restriction</label>
@@ -141,7 +141,7 @@
                 <div class="field">
                     <label>TTL</label>
                     <select id="ttl">
-                        <option value="1m" selected>1 min (test renewal)</option>
+                        <option value="1m">1 min (test renewal)</option>
                         <option value="1h">1 hour</option>
                         <option value="2h" selected>2 hours</option>
                         <option value="24h">24 hours</option>
@@ -251,9 +251,10 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="config.js"></script>
 <script src="cta-client.js"></script>
 <script>
-const API_ENDPOINT = 'https://pokddvvpy2.execute-api.us-east-1.amazonaws.com/prod';
+const API_ENDPOINT = window.CTA_CONFIG?.apiEndpoint || '';
 let hls = null;
 let currentToken = null;
 let currentSessionId = null;
@@ -449,6 +450,13 @@ async function revokeToken() {
 }
 
 log('🔐 CTA-5007-B Demo Ready');
+
+// Populate fields from deployment config
+if (window.CTA_CONFIG) {
+    const c = window.CTA_CONFIG;
+    if (c.streamUrl) document.getElementById('streamUrl').value = c.streamUrl;
+    if (c.pathRestriction) document.getElementById('pathRestriction').value = c.pathRestriction;
+}
 
 // Detect public IP for display — not auto-filled because IPv6 privacy
 // extensions may cause the browser to use a different address for CloudFront

@@ -13,7 +13,10 @@ class CTAClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ policy, viewer, mediaUrl })
         });
-        if (!resp.ok) throw new Error('Token generation failed: ' + resp.statusText);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Token generation failed: ' + resp.statusText);
+        }
         return resp.json();
     }
 
@@ -23,7 +26,10 @@ class CTAClient {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tokenId: sessionId, reason })
         });
-        if (!resp.ok) throw new Error('Revocation failed: ' + resp.statusText);
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Revocation failed: ' + resp.statusText);
+        }
         return resp.json();
     }
 }

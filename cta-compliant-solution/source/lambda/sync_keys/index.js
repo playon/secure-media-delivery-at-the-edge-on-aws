@@ -59,7 +59,7 @@ exports.handler = async (event) => {
         const previousKey = currentSecret.signingKey;
 
         // 2. Generate new signing key
-        const newKey = crypto.randomBytes(64).toString("base64");
+        const newKey = crypto.randomBytes(32).toString("hex");
 
         // 3. Update Secrets Manager with new key
         await putSecret(secretName, { algorithm: "HMAC-SHA256", signingKey: newKey });

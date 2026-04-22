@@ -3,51 +3,40 @@
  * Manages token revocation via CloudFront KeyValueStore
  */
 
-const { CloudFrontClient, UpdateKeyValueStoreCommand } = require("@aws-sdk/client-cloudfront");
+const { CloudFrontKeyValueStoreClient, PutKeyCommand, DescribeKeyValueStoreCommand } = require("@aws-sdk/client-cloudfront-keyvaluestore");
+require("@aws-sdk/signature-v4a");
 
-const cloudfront = new CloudFrontClient({});
+const kvsClient = new CloudFrontKeyValueStoreClient({});
+
+async function getEtag(kvsArn) {
+    const resp = await kvsClient.send(new DescribeKeyValueStoreCommand({ KvsARN: kvsArn }));
+    return resp.ETag;
+}
 
 exports.handler = async (event) => {
+    const headers = { "Access-Control-Allow-Origin": "*" };
     try {
         const { tokenId, reason = "manual", ttl = 86400 } = JSON.parse(event.body);
-        
+
         if (!tokenId) {
-            return {
-                statusCode: 400,
-                body: JSON.stringify({ error: "Missing tokenId" })
-            };
+            return { statusCode: 400, headers, body: JSON.stringify({ error: "Missing tokenId" }) };
         }
-        
-        // Add to KV store revocation list
-        const kvsId = process.env.KVS_ID;
-        const key = `revoked:${tokenId}`;
-        const value = JSON.stringify({
-            reason,
-            revokedAt: Math.floor(Date.now() / 1000),
-            ttl: Math.floor(Date.now() / 1000) + ttl
-        });
-        
-        await cloudfront.send(new UpdateKeyValueStoreCommand({
-            Id: kvsId,
-            IfMatch: "*",
-            Key: key,
-            Value: value
+
+        const kvsArn = process.env.KVS_ARN;
+        const etag = await getEtag(kvsArn);
+
+        await kvsClient.send(new PutKeyCommand({
+            KvsARN: kvsArn,
+            Key: `revoked:${tokenId}`,
+            Value: JSON.stringify({ reason, revokedAt: Math.floor(Date.now() / 1000) }),
+            IfMatch: etag
         }));
-        
+
         return {
-            statusCode: 200,
-            body: JSON.stringify({
-                success: true,
-                tokenId,
-                reason,
-                message: "Token revoked successfully"
-            })
+            statusCode: 200, headers,
+            body: JSON.stringify({ success: true, tokenId, reason, message: "Token revoked" })
         };
-        
     } catch (error) {
-        return {
-            statusCode: 500,
-            body: JSON.stringify({ error: error.message })
-        };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: error.message }) };
     }
 };

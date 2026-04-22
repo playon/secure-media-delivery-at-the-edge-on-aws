@@ -21,7 +21,7 @@ import {
   custom_resources,
 } from "aws-cdk-lib";
 
-import { RestApiOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
+import { HttpOrigin, RestApiOrigin, S3BucketOrigin } from "aws-cdk-lib/aws-cloudfront-origins";
 import { Construct } from "constructs";
 
 export interface CTASecureMediaStackProps extends StackProps {
@@ -80,11 +80,29 @@ export class CTASecureMediaStack extends Stack {
       keyValueStore: this.kvStore,
     });
 
-    // Token generator
+    // Token generator (Node SDK)
     const generator = new lambda.Function(this, "CTAGenerator", {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: "cta_token_generator.handler",
       code: lambda.Code.fromAsset("lambda"),
+      timeout: Duration.seconds(10),
+      environment: { SECRET_NAME: signingSecret.secretName },
+    });
+
+    // Token generator (Python SDK)
+    const generatorPython = new lambda.Function(this, "CTAGeneratorPython", {
+      runtime: lambda.Runtime.PYTHON_3_13,
+      handler: "handler.handler",
+      code: lambda.Code.fromAsset("lambda-python"),
+      timeout: Duration.seconds(10),
+      environment: { SECRET_NAME: signingSecret.secretName },
+    });
+
+    // Token generator (Ruby SDK)
+    const generatorRuby = new lambda.Function(this, "CTAGeneratorRuby", {
+      runtime: lambda.Runtime.RUBY_3_3,
+      handler: "handler.handler",
+      code: lambda.Code.fromAsset("lambda-ruby"),
       timeout: Duration.seconds(10),
       environment: { SECRET_NAME: signingSecret.secretName },
     });
@@ -95,15 +113,17 @@ export class CTASecureMediaStack extends Stack {
       handler: "cta_revocation.handler",
       code: lambda.Code.fromAsset("lambda"),
       timeout: Duration.seconds(10),
-      environment: { KVS_ID: this.kvStore.keyValueStoreId },
+      environment: { KVS_ARN: this.kvStore.keyValueStoreArn },
     });
 
     signingSecret.grantRead(generator);
+    signingSecret.grantRead(generatorPython);
+    signingSecret.grantRead(generatorRuby);
 
     // Grant KVS update permission via IAM policy
     revoker.addToRolePolicy(new iam.PolicyStatement({
       effect: iam.Effect.ALLOW,
-      actions: ["cloudfront-keyvaluestore:UpdateKeys", "cloudfront-keyvaluestore:DescribeKeyValueStore"],
+      actions: ["cloudfront-keyvaluestore:PutKey", "cloudfront-keyvaluestore:DescribeKeyValueStore"],
       resources: [this.kvStore.keyValueStoreArn],
     }));
 
@@ -175,6 +195,12 @@ export class CTASecureMediaStack extends Stack {
 
     const tokenResource = api.root.addResource("token");
     tokenResource.addMethod("POST", new apigateway.LambdaIntegration(generator));
+
+    const tokenPythonResource = api.root.addResource("token-python");
+    tokenPythonResource.addMethod("POST", new apigateway.LambdaIntegration(generatorPython));
+
+    const tokenRubyResource = api.root.addResource("token-ruby");
+    tokenRubyResource.addMethod("POST", new apigateway.LambdaIntegration(generatorRuby));
     
     const revokeResource = api.root.addResource("revoke");
     revokeResource.addMethod("POST", new apigateway.LambdaIntegration(revoker));
@@ -191,24 +217,34 @@ export class CTASecureMediaStack extends Stack {
       new s3deploy.BucketDeployment(this, "DeployDemoSite", {
         sources: [s3deploy.Source.asset("resources/demo-website")],
         destinationBucket: demoBucket,
+        destinationKeyPrefix: "website",
       });
 
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {
-          origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
+          origin: new HttpOrigin("test-streams.mux.dev"),
+          viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+          cachePolicy: new cloudfront.CachePolicy(this, "CTACachePolicy", {
+            headerBehavior: cloudfront.CacheHeaderBehavior.allowList(
+              "CloudFront-Viewer-Country"
+            ),
+          }),
+          originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_CUSTOM_ORIGIN,
+          functionAssociations: [{
+            function: validator,
+            eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          }],
         },
-        defaultRootObject: "index.html",
         additionalBehaviors: {
           "/api/*": {
             origin: new RestApiOrigin(api),
             viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+            allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
+            cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
+            originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           },
-          "/video/*": {
+          "/website/*": {
             origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
-            functionAssociations: [{
-              function: validator,
-              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-            }],
           },
         },
       });
@@ -232,7 +268,7 @@ export class CTASecureMediaStack extends Stack {
     
     if (config.main.enableDemo) {
       new CfnOutput(this, "DemoWebsiteUrl", { 
-        value: `https://${distribution.distributionDomainName}`,
+        value: `https://${distribution.distributionDomainName}/website/index.html`,
         description: "CTA Demo Website URL"
       });
     }

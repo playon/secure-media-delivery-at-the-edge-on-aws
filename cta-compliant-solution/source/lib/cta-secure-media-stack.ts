@@ -220,6 +220,34 @@ export class CTASecureMediaStack extends Stack {
         destinationKeyPrefix: "website",
       });
 
+      // Origin routing Lambda@Edge — routes /dash/* to Akamai, everything else to Mux
+      const originRouter = new lambda.Function(this, "OriginRouter", {
+        runtime: lambda.Runtime.NODEJS_22_X,
+        handler: "index.handler",
+        code: lambda.Code.fromInline(`
+          exports.handler = async (event) => {
+            const request = event.Records[0].cf.request;
+            if (request.uri.startsWith('/dash/')) {
+              request.uri = request.uri.substring(5);
+              request.origin = {
+                custom: {
+                  domainName: 'dash.akamaized.net',
+                  port: 443,
+                  protocol: 'https',
+                  path: '',
+                  sslProtocols: ['TLSv1.2'],
+                  readTimeout: 30,
+                  keepaliveTimeout: 5,
+                  customHeaders: {}
+                }
+              };
+              request.headers['host'] = [{ key: 'host', value: 'dash.akamaized.net' }];
+            }
+            return request;
+          };
+        `),
+      });
+
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {
           origin: new HttpOrigin("test-streams.mux.dev"),
@@ -229,10 +257,14 @@ export class CTASecureMediaStack extends Stack {
               "CloudFront-Viewer-Country"
             ),
           }),
-          originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_CUSTOM_ORIGIN,
+          originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
           functionAssociations: [{
             function: validator,
             eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+          }],
+          edgeLambdas: [{
+            functionVersion: originRouter.currentVersion,
+            eventType: cloudfront.LambdaEdgeEventType.ORIGIN_REQUEST,
           }],
         },
         additionalBehaviors: {
@@ -246,23 +278,11 @@ export class CTASecureMediaStack extends Stack {
           "/website/*": {
             origin: S3BucketOrigin.withOriginAccessControl(demoBucket),
           },
-          "/akamai/*": {
-            origin: new HttpOrigin("dash.akamaized.net"),
-            viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-            cachePolicy: new cloudfront.CachePolicy(this, "DASHCachePolicy", {
-              queryStringBehavior: cloudfront.CacheQueryStringBehavior.allowList("CAT"),
-            }),
-            originRequestPolicy: cloudfront.OriginRequestPolicy.CORS_CUSTOM_ORIGIN,
-            functionAssociations: [{
-              function: validator,
-              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
-            }],
-          },
         },
       });
 
       // Deploy config.js with runtime values (API endpoint, stream URL)
-      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",hlsUrl:"https://${distribution.distributionDomainName}/x36xhzz/x36xhzz.m3u8",hlsPath:"/x36xhzz/",dashUrl:"https://${distribution.distributionDomainName}/akamai/bbb_30fps/bbb_30fps.mpd",dashPath:"/akamai/"};`;
+      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",hlsUrl:"https://${distribution.distributionDomainName}/x36xhzz/x36xhzz.m3u8",hlsPath:"/x36xhzz/",dashUrl:"https://${distribution.distributionDomainName}/dash/akamai/bbb_30fps/bbb_30fps.mpd",dashPath:"/dash/"};`;
       new s3deploy.BucketDeployment(this, "DeployDemoConfig", {
         sources: [s3deploy.Source.data("config.js", configBody)],
         destinationBucket: demoBucket,

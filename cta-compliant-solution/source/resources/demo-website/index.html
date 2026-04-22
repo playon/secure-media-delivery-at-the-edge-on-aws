@@ -126,8 +126,8 @@
                 <div class="field">
                     <label>Player</label>
                     <select id="playerType" onchange="switchPlayer()">
-                        <option value="hls" selected>HLS.js (path token)</option>
-                        <option value="dash">DASH.js (query token)</option>
+                        <option value="hls" selected>HLS.js</option>
+                        <option value="dash">DASH.js</option>
                     </select>
                 </div>
                 <div class="field">
@@ -313,7 +313,7 @@ async function renewToken() {
             paths: pathRestriction ? [pathRestriction] : undefined,
             ttl,
             ips: document.getElementById('ipRestriction').value.trim() || undefined,
-            placement: document.getElementById('playerType').value === 'dash' ? 'query' : 'path',
+            placement: 'path',
             sessionId: currentSessionId
         };
 
@@ -354,7 +354,7 @@ async function generateAndPlay() {
         const sessionId = 'demo-' + Date.now();
 
         const playerType = document.getElementById('playerType').value;
-        const placement = playerType === 'dash' ? 'query' : 'path';
+        const placement = 'path';
 
         const policy = {
             paths: pathRestriction ? [pathRestriction] : undefined,
@@ -462,18 +462,22 @@ function loadDash(signedUrl) {
     let reqCount = 0;
     dashPlayer = dashjs.MediaPlayer().create();
 
-    // Intercept requests to append CAT token as query param for segments
+    // Intercept requests to swap path token on renewed tokens
     dashPlayer.extend('RequestModifier', function () {
         return {
             modifyRequestURL: function (url) {
                 reqCount++;
                 const seg = url.split('/').pop().split('?')[0];
-                if (currentToken && url.includes(window.CTA_CONFIG?.dashUrl?.split('/')[2] || 'cloudfront.net')) {
-                    const sep = url.includes('?') ? '&' : '?';
-                    log(`#${reqCount} GET ${seg} [query token]`, 'info');
-                    return url + sep + 'CAT=' + currentToken;
+                if (currentToken && tokenType === 'header') {
+                    const u = new URL(url);
+                    const parts = u.pathname.split('/');
+                    if (parts[1] && parts[1].length > 50) {
+                        parts[1] = currentToken;
+                        log(`#${reqCount} GET ${seg} [renewed token]`, 'info');
+                        return `${u.origin}${parts.join('/')}${u.search}`;
+                    }
                 }
-                log(`#${reqCount} GET ${seg}`, 'info');
+                log(`#${reqCount} GET ${seg} [initial token]`, 'info');
                 return url;
             },
             modifyRequestHeader: function (request) { return request; }
@@ -481,11 +485,8 @@ function loadDash(signedUrl) {
     }, true);
 
     dashPlayer.on(dashjs.MediaPlayer.events.ERROR, function (e) {
-        if (e.error && e.error.code === 401) {
-            log('🚫 Access denied: ' + (e.error.message || 'unauthorized'), 'error');
-            dashPlayer.destroy();
-            dashPlayer = null;
-            video.pause();
+        if (e.error) {
+            log(`🚫 DASH error: ${e.error.message || e.error.code}`, 'error');
         }
     });
 

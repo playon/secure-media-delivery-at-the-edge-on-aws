@@ -55,9 +55,9 @@ class CTAClient:
             6: now   # iat
         }
         
-        # URI restrictions (catu claim)
+        # URI restrictions: catu(312) -> path(2) -> prefix_match(1)
         if policy.get('paths'):
-            claims[312] = {3: {1: policy['paths'][0]}}
+            claims[312] = {2: {1: policy['paths'][0]}}
         
         # Country restrictions (catgeoiso3166 claim)
         if policy.get('countries'):

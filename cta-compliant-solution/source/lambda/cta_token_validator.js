@@ -1,9 +1,11 @@
 /**
  * CTA-5007-B CloudFront Function with Hybrid Token Renewal
  * Supports path→header token transition for streaming players
+ *
+ * Requires CloudFront Functions JavaScript runtime 2.0
  */
 
-var cf = require('cloudfront');
+import cf from 'cloudfront';
 
 var CTA = {
     EXP: 4,           // Expiration
@@ -15,6 +17,19 @@ var CTA = {
     CATGEOISO3166: 316 // Country codes
 };
 
+// catu sub-claim keys per AWS docs
+var Catu = {
+    HOST: 1,
+    PATH: 2,
+    EXT: 3
+};
+
+var CatuMatch = {
+    PREFIX: 1,
+    SUFFIX: 2,
+    EXACT: 3
+};
+
 function extractPathToken(request) {
     var segments = request.uri.split('/');
     if (segments[1] && segments[1].length > 50) {
@@ -23,7 +38,7 @@ function extractPathToken(request) {
     return null;
 }
 
-function validateClaims(payload, request, viewer) {
+function validateClaims(payload, request) {
     var now = Math.floor(Date.now() / 1000);
     
     if (payload[CTA.EXP] && now > payload[CTA.EXP]) {
@@ -34,9 +49,9 @@ function validateClaims(payload, request, viewer) {
         throw new Error("not_yet_valid");
     }
     
-    // URI validation (catu)
-    if (payload[CTA.CATU] && payload[CTA.CATU][3] && payload[CTA.CATU][3][1]) {
-        if (!request.uri.startsWith(payload[CTA.CATU][3][1])) {
+    // URI path validation (catu → path → prefix_match)
+    if (payload[CTA.CATU] && payload[CTA.CATU][Catu.PATH] && payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX]) {
+        if (!request.uri.startsWith(payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX])) {
             throw new Error("uri_not_allowed");
         }
     }
@@ -51,25 +66,32 @@ function validateClaims(payload, request, viewer) {
 }
 
 function generateRenewedToken(originalCWT, signingKey, currentTime) {
-    // Create renewed token with extended expiry
     var renewedCWT = {
-        protected: originalCWT.protected,
-        unprotected: originalCWT.unprotected,
-        payload: {
-            ...originalCWT.payload,
-            [CTA.EXP]: currentTime + 3600, // Extend by 1 hour
-            [CTA.IAT]: currentTime,        // Update issued at
-            [CTA.NBF]: currentTime         // Update not before
-        }
+        protected: originalCWT.protectedHeaders,
+        unprotected: originalCWT.unprotectedHeaders,
+        payload: {}
     };
-    
-    // Generate new token using CloudFront's CWT module
-    var renewedTokenBuffer = cf.cwt.generateToken(renewedCWT, { 
+
+    // Copy all existing claims
+    var keys = Object.keys(originalCWT.payload);
+    for (var i = 0; i < keys.length; i++) {
+        renewedCWT.payload[keys[i]] = originalCWT.payload[keys[i]];
+    }
+
+    // Update time-based claims
+    renewedCWT.payload[CTA.EXP] = currentTime + 3600;
+    renewedCWT.payload[CTA.IAT] = currentTime;
+    renewedCWT.payload[CTA.NBF] = currentTime;
+
+    // NOTE: AWS docs signature says generateToken(context, payload) but all
+    // doc examples pass (CWTObject, context). We follow the examples.
+    var genContext = {
         cwtTag: true,
-        coseTag: "MAC0", 
-        key: signingKey 
-    });
-    
+        coseTag: "MAC0",
+        key: signingKey
+    };
+
+    var renewedTokenBuffer = cf.cwt.generateToken(renewedCWT, genContext);
     return renewedTokenBuffer.toString('base64url');
 }
 
@@ -86,7 +108,6 @@ async function handler(event) {
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
             cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            // URL is already clean for header tokens
         }
         // Fallback to path token (initial request)
         else {
@@ -100,49 +121,42 @@ async function handler(event) {
             
             // Strip token from path before sending to origin
             var segments = request.uri.split('/');
-            segments.splice(1, 1); // Remove token segment
+            segments.splice(1, 1);
             request.uri = segments.join('/') || '/';
         }
         
-        // Check revocation (same for both token types)
+        // Check revocation
         if (cwt.payload[CTA.CTI]) {
-            var revoked = await kvs.get("revoked:" + cwt.payload[CTA.CTI]);
-            if (revoked) {
-                return { statusCode: 401, body: "token_revoked" };
+            try {
+                var revoked = await kvs.get("revoked:" + cwt.payload[CTA.CTI]);
+                if (revoked) {
+                    return { statusCode: 401, body: "token_revoked" };
+                }
+            } catch (e) {
+                // Key not found in KVS means not revoked — continue
             }
         }
         
-        // Validate claims (same for both token types)
-        validateClaims(cwt.payload, request, event.viewer);
+        // Validate claims
+        validateClaims(cwt.payload, request);
         
         // Check if renewal needed (within 5 minutes of expiry)
         var now = Math.floor(Date.now() / 1000);
         var timeUntilExpiry = cwt.payload[CTA.EXP] - now;
         
-        if (timeUntilExpiry < 300) { // Less than 5 minutes left
+        if (timeUntilExpiry < 300 && timeUntilExpiry > 0) {
             try {
                 var renewedToken = generateRenewedToken(cwt, signingKey, now);
-                
-                // Return response with renewed token in header
-                // This signals hls.js to switch to header-based requests
-                return {
-                    statusCode: 200,
-                    headers: {
-                        'CTA-Common-Access-Token': { value: renewedToken },
-                        'Cache-Control': { value: 'no-cache' } // Prevent caching of renewed tokens
-                    }
-                };
+                // Add renewed token as a custom header on the request.
+                // A viewer-response function or origin can relay this back
+                // to the client via the CTA-Common-Access-Token response header.
+                request.headers["x-cwt-renewed-token"] = { value: renewedToken };
             } catch (renewalError) {
-                // If renewal fails, continue with original token if still valid
-                if (timeUntilExpiry > 0) {
-                    return request;
-                } else {
-                    throw renewalError;
-                }
+                // Renewal failed but token is still valid — continue
             }
         }
         
-        // Token valid and no renewal needed
+        // Forward request to origin
         return request;
         
     } catch (e) {

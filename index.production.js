@@ -14,7 +14,7 @@
  * Size: ~5.5KB (optimized, within CloudFront Functions 10KB limit)
  * Status: Fully Operational ✅
  */
-var cf = require('cloudfront');
+import cf from 'cloudfront';
 
 function err(code, msg) {
     return { statusCode: code, headers: { "content-type": { value: "application/json" } }, body: msg };

@@ -34,9 +34,9 @@ function createCWTPayload(policy, viewer) {
         payload[CTA.EXP] = now + parseTTL(policy.ttl);
     }
     
-    // URI restrictions
+    // URI restrictions (catu → path → prefix_match per AWS docs)
     if (policy.paths) {
-        payload[CTA.CATU] = { 3: { 1: policy.paths[0] } };
+        payload[CTA.CATU] = { 2: { 1: policy.paths[0] } };
     }
     
     // Country restrictions

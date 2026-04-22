@@ -220,10 +220,9 @@ export class CTASecureMediaStack extends Stack {
         destinationKeyPrefix: "website",
       });
 
-      // Origin routing Lambda@Edge — routes /dash/* to Akamai, everything else to Mux
       distribution = new cloudfront.Distribution(this, "CTADistribution", {
         defaultBehavior: {
-          origin: new HttpOrigin("cdn.bitmovin.com"),
+          origin: new HttpOrigin("cdn.mediaplaypen.com"),
           viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
           cachePolicy: new cloudfront.CachePolicy(this, "CTACachePolicy", {
             headerBehavior: cloudfront.CacheHeaderBehavior.allowList(
@@ -251,7 +250,7 @@ export class CTASecureMediaStack extends Stack {
       });
 
       // Deploy config.js with runtime values (API endpoint, stream URL)
-      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",hlsUrl:"https://${distribution.distributionDomainName}/content/assets/art-of-motion-dash-hls-progressive/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8",hlsPath:"/content/",dashUrl:"https://${distribution.distributionDomainName}/content/assets/art-of-motion-dash-hls-progressive/mpds/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.mpd",dashPath:"/content/"};`;
+      const configBody = `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",hlsUrl:"https://${distribution.distributionDomainName}/securemedia/index.m3u8",hlsPath:"/securemedia/",dashUrl:"https://${distribution.distributionDomainName}/securemedia/index.mpd",dashPath:"/securemedia/"};`;
       new s3deploy.BucketDeployment(this, "DeployDemoConfig", {
         sources: [s3deploy.Source.data("config.js", configBody)],
         destinationBucket: demoBucket,

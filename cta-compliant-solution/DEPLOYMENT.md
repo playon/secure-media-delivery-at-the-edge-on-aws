@@ -1,153 +1,165 @@
-# CTA-5007-B Compliant Solution Deployment Guide
+# Deployment Guide
 
 ## Prerequisites
 
-### 1. CloudFront Functions CWT Preview Access
-This solution requires CloudFront Functions CWT support (currently in preview).
+- Node.js 22+
+- AWS CDK v2.79.1+
+- AWS CLI configured with appropriate credentials
+- CloudFront Functions CWT support (JS runtime 2.0)
 
-**Request Preview Access:**
-- Contact AWS Support or your AWS account team
-- Provide CloudFront distribution IDs for testing
-- Allow 3 business days for preview enablement
+## Deploy
 
-### 2. Required AWS Services
-- CloudFront with Functions support
-- CloudFront KeyValueStore
-- AWS Lambda
-- API Gateway
-- Secrets Manager
-- AWS CDK v2.170.0+
+### 1. Install dependencies
 
-## Deployment Steps
-
-### 1. Install Dependencies
 ```bash
 cd cta-compliant-solution/source
 npm install
 ```
 
-### 2. Configure AWS Credentials
-```bash
-aws configure
-# or use AWS SSO, IAM roles, etc.
-```
+### 2. Bootstrap CDK (first time only)
 
-### 3. Bootstrap CDK (if first time)
 ```bash
 npx cdk bootstrap
 ```
 
-### 4. Deploy the Stack
+### 3. Deploy the stack
+
 ```bash
-npx cdk deploy CTASecureMediaDelivery
+npx cdk deploy CTASecureMedia -c enableDemo=true
 ```
 
-### 5. Configure CloudFront KeyValueStore
-After deployment, you need to populate the KeyValueStore with signing keys:
+To deploy without the demo website:
 
 ```bash
-# Get the signing key from Secrets Manager
-aws secretsmanager get-secret-value --secret-id <SECRET_ARN>
-
-# Add key to CloudFront KeyValueStore (via AWS Console or CLI)
-# Key: "key:default"
-# Value: <signing_key_from_secret>
+npx cdk deploy CTASecureMedia -c enableDemo=false
 ```
 
-## Configuration
+### 4. Note the outputs
 
-### Token Generation API
-The deployed API Gateway endpoint accepts POST requests:
+The deployment prints:
+
+| Output | Description |
+|--------|-------------|
+| `DemoWebsiteUrl` | Demo site URL (if enabled) |
+| `APIEndpoint` | CloudFront-fronted API URL |
+| `CTAAPIEndpoint` | Direct API Gateway URL |
+| `SecretArn` | Secrets Manager signing key ARN |
+| `KeyValueStoreId` | CloudFront KVS ID |
+| `RotationWorkflow` | Step Functions key rotation workflow |
+
+## Key Sync
+
+The deployment automatically syncs the signing key from Secrets Manager to CloudFront KeyValueStore via a custom resource. No manual key configuration is needed.
+
+To manually rotate keys:
 
 ```bash
-curl -X POST https://<api-id>.execute-api.<region>.amazonaws.com/prod/token/generate \
+aws stepfunctions start-execution \
+  --state-machine-arn <RotationWorkflow ARN> \
+  --input '{"rotate": true}'
+```
+
+## Token Generation API
+
+All endpoints accept the same request format:
+
+```bash
+# Node.js SDK
+curl -X POST https://<api-endpoint>/prod/token \
   -H "Content-Type: application/json" \
   -d '{
-    "tokenPolicy": {
+    "policy": {
       "paths": ["/video/"],
-      "exp": "+2h",
-      "co": true,
-      "placement": "path"
+      "ttl": "2h",
+      "placement": "path",
+      "sessionId": "viewer-123",
+      "ips": "203.0.113.50"
     },
-    "viewerAttributes": {
-      "ip": "192.168.1.100",
-      "co": "US"
-    },
-    "playbackUrl": "https://example.cloudfront.net/video/stream.m3u8"
+    "mediaUrl": "https://<distribution>.cloudfront.net/video/stream.m3u8"
   }'
+
+# Python SDK
+curl -X POST https://<api-endpoint>/prod/token-python ...
+
+# Ruby SDK
+curl -X POST https://<api-endpoint>/prod/token-ruby ...
 ```
 
-### CloudFront Distribution
-Update your CloudFront distribution to:
-1. Use the deployed CTA validator function
-2. Configure KeyValueStore association
-3. Set appropriate cache behaviors
+### Policy fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `paths` | string[] | No | URI prefix restrictions (e.g. `["/video/"]`) |
+| `ttl` | string | No | Token lifetime: `"30s"`, `"5m"`, `"2h"`, `"1d"` (default: `"2h"`) |
+| `placement` | string | No | `"path"` (default) or `"query"` |
+| `sessionId` | string | No | Session ID for revocation tracking |
+| `ips` | string | No | Allowed viewer IP address |
+| `countries` | string[] | No | Allowed country codes (ISO 3166-1 lowercase) |
+
+## Token Revocation
+
+```bash
+curl -X POST https://<api-endpoint>/prod/revoke \
+  -H "Content-Type: application/json" \
+  -d '{"tokenId": "viewer-123", "reason": "manual"}'
+```
+
+Propagates to edge locations via KeyValueStore within ~15 seconds.
 
 ## Testing
 
-### 1. Generate Test Token
-```javascript
-const generator = new CTATokenGenerator('https://your-api-endpoint');
+### Verify token generation
 
-const result = await generator.generateToken({
-  paths: ['/test/'],
-  exp: '+1h',
-  placement: 'query'
-}, {
-  ip: '192.168.1.1',
-  co: 'US'
-}, 'https://your-distribution.cloudfront.net/test/video.m3u8');
-
-console.log('Signed URL:', result.signedUrl);
+```bash
+RESULT=$(curl -s -X POST https://<api-endpoint>/prod/token \
+  -H "Content-Type: application/json" \
+  -d '{"policy":{"paths":["/video/"],"ttl":"1h","placement":"path"},"mediaUrl":"https://<dist>.cloudfront.net/video/test.m3u8"}')
+echo $RESULT | jq .
 ```
 
-### 2. Test Token Validation
-Access the signed URL through your CloudFront distribution. Check CloudFront logs for validation results.
+### Verify token validation
 
-## Monitoring
+```bash
+SIGNED_URL=$(echo $RESULT | jq -r .signedUrl)
+curl -s -w "\nHTTP %{http_code}\n" "$SIGNED_URL" | head -5
+```
 
-### CloudWatch Logs
-- Lambda function logs: `/aws/lambda/CTATokenGenerator`
-- CloudFront Function logs: Available in CloudWatch
+### Verify revocation
 
-### Metrics to Monitor
-- Token generation success/failure rates
-- Token validation success/failure rates
-- Geographic restriction violations
-- Token expiration patterns
+```bash
+# Generate token with session ID
+# ... then revoke:
+curl -s -X POST https://<api-endpoint>/prod/revoke \
+  -H "Content-Type: application/json" \
+  -d '{"tokenId":"test-session","reason":"test"}'
+
+# Wait ~15 seconds, then retry the signed URL — should return 401
+```
 
 ## Troubleshooting
 
-### Common Issues
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `missing_token` | No token in path or header | Ensure URL has `/{TOKEN}/...` format |
+| `Token verification failed` | HMAC mismatch | Check signing key is synced to KVS |
+| `expired` | Token past expiration | Generate a new token |
+| `ip_restricted` | Viewer IP doesn't match token | Check IPv4 vs IPv6 — CloudFront may see IPv6 |
+| `token_revoked` | Session ID in revocation list | Generate a new token with a different session ID |
+| `uri_not_allowed` | Request path doesn't match `catu` claim | Check path prefix in policy matches the content path |
 
-1. **"Key configuration error"**
-   - Ensure KeyValueStore is populated with signing key
-   - Verify key format matches expected structure
+## Updating
 
-2. **"CWT validation failed"**
-   - Check token format (must be valid base64url)
-   - Verify signing key consistency
-   - Ensure CloudFront Functions CWT preview is enabled
+After code changes:
 
-3. **"Geographic restriction violated"**
-   - Verify CloudFront viewer-country headers are enabled
-   - Check country code format (lowercase ISO 3166-1)
+```bash
+cd source
+npx tsc                    # Compile TypeScript
+npx cdk deploy CTASecureMedia -c enableDemo=true
+aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
+```
 
-### Debug Mode
-Enable debug logging in CloudFront Function by modifying the `logDebug` function.
+## Cleanup
 
-## Security Considerations
-
-1. **Key Rotation**: Implement regular rotation of signing keys
-2. **Token Expiration**: Use appropriate expiration times for your use case
-3. **Geographic Validation**: Ensure country detection is reliable
-4. **Replay Protection**: Use session IDs for sensitive content
-
-## CTA-5007-B Compliance
-
-This solution implements:
-- ✅ CBOR Web Token (CWT) format per RFC 8392
-- ✅ CTA-5007-B standardized claims (catu, catnip, catgeoiso3166)
-- ✅ COSE MAC0 structure with HMAC-SHA256
-- ✅ Multiple token placement options
-- ✅ Proper claim validation at edge
+```bash
+npx cdk destroy CTASecureMedia
+```

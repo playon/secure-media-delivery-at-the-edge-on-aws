@@ -1,119 +1,210 @@
-# CTA-5007-B Native Secure Media Delivery
+# CTA-5007-B Secure Media Delivery
 
-Pure implementation of CTA-5007-B Common Access Token specification for secure media delivery with AI-powered threat detection.
+COSE MAC0 / CWT token-based content protection for Amazon CloudFront, implementing the CTA-5007-B Common Access Token specification.
 
 ## Features
 
-- **Native CWT**: Uses CloudFront's `cf.cwt` module for CBOR Web Token handling
-- **CTA-5007-B Compliant**: Implements standardized claims (catu, catnip, catgeoiso3166)
-- **AI-Powered Security**: Amazon Bedrock Nova for intelligent threat detection
-- **Hybrid Token Renewal**: Path tokens transition to headers for streaming compatibility
-- **Player Examples**: HLS.js and DASH.js integration examples included
-- **Interactive Deployment**: Built-in wizard for easy configuration
+- **Spec-compliant tokens**: COSE MAC0 structure with HMAC-SHA256, validated by CloudFront Functions `cf.cwt.validateToken()`
+- **Multi-language SDKs**: Node.js, Python, and Ruby — all produce byte-identical tokens
+- **Path-based token delivery**: `/{TOKEN}/video/stream.m3u8` with automatic token stripping at the edge
+- **Client-side token renewal**: Player swaps expired path tokens for fresh ones without interrupting playback
+- **Session revocation**: Instant token blocking via CloudFront KeyValueStore
+- **IP and country restrictions**: Enforced at the edge using `event.viewer.ip` and `CloudFront-Viewer-Country`
+- **Interactive demo**: Aura-styled website with HLS.js player, token generation, renewal, and revocation
 
 ## Quick Start
 
 ```bash
 cd source
 npm install
-npm run wizard    # Interactive configuration
-npx cdk deploy    # Deploy to AWS
+npx cdk bootstrap    # First time only
+npx cdk deploy CTASecureMedia -c enableDemo=true
 ```
 
-## Deployment Wizard
-
-The wizard will prompt you for:
-- **Stack name** and AWS region
-- **Demo website** deployment (optional)
-- **Auto-revocation** with Bedrock Nova (optional)
-- **Revocation frequency** (5m, 10m, 30m, 1h)
-- **Bedrock model** (Nova Pro vs Nova Lite)
-
-## Token Generation
-
-Local token generation using signing keys from AWS Secrets Manager:
-
-```javascript
-const client = new CTAClient({
-  region: 'us-east-1',
-  secretName: 'cta-signing-keys'
-});
-
-const signedUrl = await client.generateSignedUrl({
-  url: 'https://cdn.example.com/video/stream.m3u8',
-  paths: ['/video/'],
-  ttl: '2h',
-  countries: ['us', 'ca'],
-  clientCountry: 'us'
-});
-
-console.log(signedUrl);
-```
-
-## Token Renewal for Streaming
-
-Solves the streaming player token renewal problem with hybrid approach:
-
-1. **Initial Request**: `/{TOKEN}/content.m3u8` (path-based)
-2. **Token Renewal**: CDN sends new token via `CTA-Common-Access-Token` response header
-3. **Subsequent Requests**: Player uses header-based tokens for segments
-
-### HLS.js Example
-```javascript
-const hls = new Hls({
-  xhrSetup: function(xhr, url) {
-    if (tokenManager.currentToken && !url.includes('TOKEN_PLACEHOLDER')) {
-      xhr.setRequestHeader('CTA-Common-Access-Token', tokenManager.currentToken);
-    }
-  }
-});
-
-hls.on(Hls.Events.MANIFEST_PARSED, async () => {
-  await tokenManager.refreshToken();
-});
-```
-
-See `examples/hls-player-example.html` for complete implementation.
-
-## Player Compatibility
-
-- **HLS.js**: Custom implementation with hybrid token support
-- **DASH.js**: Native CTA-WAVE support since v5.0.0 (similar workflow)
-- **Native Players**: iOS/Android support via custom URL schemes
-
-Documentation: `docs/dash-js-cta-implementation.md`
+The demo website URL and API endpoint are printed in the stack outputs.
 
 ## Architecture
 
 ```
-Demo Website → CloudFront → CTA Validator (cf.cwt + KV lookup)
-                        ↓
-SDK Client → Secrets Manager (fetch signing keys)
-          ↓
-Local Token Generation
-                        ↓
-EventBridge → Step Functions → Athena → Bedrock Nova → KeyValueStore
+Browser (HLS.js)
+  │
+  ├─ GET /{TOKEN}/video/stream.m3u8
+  │     ↓
+  │  CloudFront (default behavior)
+  │     → CTA Validator Function (cf.cwt.validateToken)
+  │        → Validates COSE MAC0 signature
+  │        → Checks exp, catu (URI), catnip (IP), country
+  │        → Checks revocation in KeyValueStore
+  │        → Strips token from path → forwards to origin
+  │
+  ├─ POST /token (or /token-python, /token-ruby)
+  │     ↓
+  │  API Gateway → Lambda (Node/Python/Ruby)
+  │     → Reads signing key from Secrets Manager
+  │     → Builds CWT claims, generates COSE MAC0 token via SDK
+  │     → Returns { token, signedUrl, expiresAt }
+  │
+  └─ POST /revoke
+        ↓
+     API Gateway → Lambda
+        → Writes revoked:{sessionId} to KeyValueStore
+        → Edge enforcement within ~15 seconds
 ```
 
-## CTA-5007-B Claims
+## Token Structure
 
-| Claim | Code | Purpose |
-|-------|------|---------|
-| `catu` | 312 | URI restrictions |
-| `catnip` | 311 | Network IP restrictions |
-| `catgeoiso3166` | 316 | Country restrictions |
-| `exp` | 4 | Token expiration |
-| `cti` | 7 | Token ID (replay protection) |
+Tokens follow the COSE MAC0 / CWT structure per RFC 8152 and RFC 8392:
 
-## AI-Powered Security
+```
+Tag(61) CWT {
+  Tag(17) COSE_Mac0 {
+    [ protectedHeaders, unprotectedHeaders, payload, hmacTag ]
+  }
+}
+```
 
-Uses Amazon Bedrock Nova to analyze CloudFront logs for:
-- Abnormal request patterns
-- Geographic anomalies  
-- Bot-like behavior
-- Token sharing indicators
-- Path enumeration attempts
+### CWT Claims
 
-Automatically revokes suspicious tokens via CloudFront KeyValueStore for instant edge blocking.
+| Claim | Key | Description |
+|-------|-----|-------------|
+| `iss` | 1 | Issuer identifier |
+| `exp` | 4 | Expiration (Unix timestamp) |
+| `nbf` | 5 | Not before (Unix timestamp) |
+| `iat` | 6 | Issued at (Unix timestamp) |
+| `cti` | 7 | Token ID (session ID for revocation) |
+| `catu` | 401 | URI restrictions (path prefix matching) |
+| `catnip` | 402 | IP restrictions (array of allowed IPs) |
+| `catgeoiso3166` | 316 | Country restrictions (ISO 3166-1 codes) |
 
-This solution is built from scratch for CTA-5007-B compliance without any legacy AWS-specific token format support.
+## SDKs
+
+All three SDKs expose the same API and produce byte-identical COSE MAC0 tokens.
+
+### Node.js
+
+```javascript
+const { CTAClient } = require('./sdk/javascript/cta-client');
+
+const client = new CTAClient('CTASecureMedia');
+await client.initSecretsManager();
+await client.getSigningKeys();
+
+const result = client.generateSignedUrl(
+  'https://cdn.example.com/video/stream.m3u8',
+  { paths: ['/video/'], ttl: '2h', sessionId: 'viewer-123' }
+);
+console.log(result.signedUrl);
+```
+
+Requires `cbor-x` for CBOR encoding.
+
+### Python
+
+```python
+from cta_client import CTAClient
+
+client = CTAClient('CTASecureMedia')
+client.init_secrets_manager()
+client.get_signing_keys()
+
+result = client.generate_signed_url(
+    'https://cdn.example.com/video/stream.m3u8',
+    {'paths': ['/video/'], 'ttl': '2h', 'sessionId': 'viewer-123'}
+)
+print(result['signedUrl'])
+```
+
+Zero external dependencies — built-in CBOR encoder.
+
+### Ruby
+
+```ruby
+require_relative 'cta_client'
+
+client = CTA::Client.new('CTASecureMedia')
+client.init_secrets_manager
+client.get_signing_keys
+
+result = client.generate_signed_url(
+  'https://cdn.example.com/video/stream.m3u8',
+  { 'paths' => ['/video/'], 'ttl' => '2h', 'sessionId' => 'viewer-123' }
+)
+puts result[:signed_url]
+```
+
+Zero external dependencies — uses `openssl` from stdlib.
+
+## Token Generation API
+
+All three Lambda endpoints accept the same request format:
+
+```bash
+curl -X POST https://<api-endpoint>/prod/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policy": {
+      "paths": ["/video/"],
+      "ttl": "2h",
+      "placement": "path",
+      "sessionId": "viewer-123",
+      "ips": "203.0.113.50",
+      "countries": ["us", "ca"]
+    },
+    "mediaUrl": "https://your-distribution.cloudfront.net/video/stream.m3u8"
+  }'
+```
+
+**Endpoints:**
+- `POST /token` — Node.js SDK
+- `POST /token-python` — Python SDK
+- `POST /token-ruby` — Ruby SDK
+- `POST /revoke` — Token revocation
+
+**Response:**
+```json
+{
+  "token": "2D3YEYRDoQEF...",
+  "signedUrl": "https://cdn/TOKEN/video/stream.m3u8",
+  "expiresAt": 1776881062
+}
+```
+
+## Token Renewal Flow
+
+1. **Initial playback**: Player loads `/{TOKEN₁}/video/stream.m3u8`
+2. **Renewal timer**: At 2/3 of TTL, player calls `POST /token` for a fresh token
+3. **Token swap**: Player replaces the old path token with the new one in segment URLs
+4. **Seamless playback**: No interruption — CloudFront validates the new token identically
+
+## Session Revocation
+
+```bash
+curl -X POST https://<api-endpoint>/prod/revoke \
+  -H "Content-Type: application/json" \
+  -d '{"tokenId": "viewer-123", "reason": "manual"}'
+```
+
+The revocation propagates to CloudFront edge locations via KeyValueStore within ~15 seconds. Subsequent requests with the revoked session ID receive HTTP 401.
+
+## CloudFront Distribution Layout
+
+| Path | Behavior | Origin | Auth |
+|------|----------|--------|------|
+| `/website/*` | Static site | S3 bucket | None |
+| `/api/*` | API Gateway | REST API | None (CORS enabled) |
+| `/*` (default) | Video content | HTTP origin | CTA Validator Function |
+
+## Key Rotation
+
+Signing keys are stored in Secrets Manager and synced to CloudFront KeyValueStore. Rotation is handled by a Step Functions workflow:
+
+1. Generates new 32-byte hex key
+2. Stores in Secrets Manager
+3. Syncs to KVS as `key:default`
+4. Preserves previous key as `key:previous` for graceful transition
+
+## Requirements
+
+- Node.js 22+
+- AWS CDK v2.79.1+
+- AWS account with CloudFront Functions CWT support

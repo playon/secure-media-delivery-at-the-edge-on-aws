@@ -42,7 +42,7 @@ export class AutoRevocationStack extends Stack {
 
     const config = props.config;
     const bedrockRegion = config.bedrock?.region || this.region;
-    const bedrockModel = config.bedrock?.model || "amazon.nova-pro-v1:0";
+    const bedrockModel = config.bedrock?.model || "amazon.nova-lite-v1:0";
 
     // Kinesis stream processor — aggregates sessions, calls Bedrock, revokes
     const analyzer = new lambda.Function(this, "KinesisAnalyzer", {

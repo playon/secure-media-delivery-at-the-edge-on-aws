@@ -144,7 +144,7 @@ function aggregateSessions(records) {
         countries: [...s.countries],
         paths: [...s.paths].slice(0, 10), // Limit for prompt size
         userAgents: [...s.userAgents],
-        errorRate: (s.statusCodes[401] || 0 + s.statusCodes[403] || 0) / s.requestCount,
+        errorRate: ((s.statusCodes[401] || 0) + (s.statusCodes[403] || 0)) / s.requestCount,
     }));
 }
 

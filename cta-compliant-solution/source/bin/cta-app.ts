@@ -23,7 +23,6 @@ if (fs.existsSync(configPath)) {
   config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 }
 
-const solutionId = "SO0195-CTA";
 const solutionName = "CTA-5007-B Compliant Secure Media Delivery";
 const solutionVersion = "v1.0.0";
 

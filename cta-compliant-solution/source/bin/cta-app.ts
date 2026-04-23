@@ -47,6 +47,7 @@ if (config.main.enableAutoRevocation) {
     },
     kvStore: mainStack.kvStore,
     logStream: mainStack.logStream,
+    demoBucket: mainStack.demoBucket,
     config: config,
   });
 }

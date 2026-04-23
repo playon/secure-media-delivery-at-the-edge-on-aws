@@ -172,6 +172,7 @@
                 </div>
                 <button class="btn btn-primary" onclick="generateAndPlay()">Generate Token &amp; Play</button>
                 <button class="btn btn-secondary" id="revokeBtn" onclick="revokeToken()" disabled>Revoke Token</button>
+                <a href="dashboard.html" class="btn btn-secondary" style="text-decoration:none;display:inline-block">Revocation Dashboard</a>
             </div>
 
             <div class="token-box" id="tokenBox" style="display:none">
@@ -543,6 +544,10 @@ function switchPlayer() {
     const type = document.getElementById('playerType').value;
     document.getElementById('streamUrl').value = STREAMS[type].url;
     document.getElementById('pathRestriction').value = STREAMS[type].path;
+    // Stop any active playback
+    if (hls) { hls.destroy(); hls = null; }
+    if (dashPlayer) { dashPlayer.destroy(); dashPlayer = null; }
+    document.getElementById('video').pause();
 }
 
 // Detect public IP for display — not auto-filled because IPv6 privacy

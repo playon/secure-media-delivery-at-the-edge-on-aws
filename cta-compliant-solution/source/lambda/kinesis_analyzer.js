@@ -10,12 +10,52 @@
 
 const { BedrockRuntimeClient, InvokeModelCommand } = require('@aws-sdk/client-bedrock-runtime');
 const { CloudFrontKeyValueStoreClient, PutKeyCommand, DescribeKeyValueStoreCommand } = require('@aws-sdk/client-cloudfront-keyvaluestore');
+const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
 require('@aws-sdk/signature-v4a');
 
 const bedrock = new BedrockRuntimeClient({ region: process.env.BEDROCK_REGION || 'us-east-1' });
 const kvsClient = new CloudFrontKeyValueStoreClient({});
+const ssm = new SSMClient({});
 const KVS_ARN = process.env.KVS_ARN;
-const MODEL_ID = process.env.BEDROCK_MODEL || 'amazon.nova-pro-v1:0';
+const MODEL_ID = process.env.BEDROCK_MODEL || 'amazon.nova-lite-v1:0';
+const PROMPT_PARAM = process.env.PROMPT_PARAM;
+
+let cachedPrompt = null;
+let promptCacheTime = 0;
+const PROMPT_CACHE_TTL = 60000; // 1 minute
+
+const DEFAULT_PROMPT = `You are a video streaming security analyst. Analyze these CTA-5007-B token session metrics from CloudFront real-time logs and identify sessions that should be revoked due to unauthorized sharing or abuse.
+
+Each session represents a unique CTA token being used to access protected video content through CloudFront.
+
+## Indicators of Token Sharing / Abuse
+- Multiple distinct IP addresses using the same token (strongest signal)
+- Requests from multiple countries with the same token
+- Multiple different User-Agent strings (different devices/browsers)
+- Abnormally high request rates (automated scraping)
+- High error rates combined with high request volume (brute force)
+
+## Indicators of Legitimate Use
+- Single IP, single country, single User-Agent = normal viewer
+- Moderate request rates (1-5 requests/sec is normal for adaptive streaming)
+- IP changes within the same country could be mobile network handoff (less suspicious)
+
+## Instructions
+Respond with ONLY a JSON array of session keys that should be revoked. If no sessions should be revoked, respond with an empty array [].
+Be conservative — only revoke sessions with strong evidence of sharing or abuse. A single IP change within the same country is NOT sufficient for revocation.`;
+
+async function getPrompt() {
+    if (!PROMPT_PARAM) return DEFAULT_PROMPT;
+    if (cachedPrompt && Date.now() - promptCacheTime < PROMPT_CACHE_TTL) return cachedPrompt;
+    try {
+        const resp = await ssm.send(new GetParameterCommand({ Name: PROMPT_PARAM }));
+        cachedPrompt = resp.Parameter.Value;
+        promptCacheTime = Date.now();
+        return cachedPrompt;
+    } catch {
+        return DEFAULT_PROMPT;
+    }
+}
 
 // Thresholds for pre-filtering before sending to Bedrock
 const THRESHOLDS = {
@@ -131,31 +171,13 @@ function filterSuspiciousSessions(sessions) {
 async function analyzeWithBedrock(sessions) {
     if (sessions.length === 0) return [];
 
-    const prompt = `You are a video streaming security analyst. Analyze these CTA-5007-B token session metrics from CloudFront real-time logs and identify sessions that should be revoked due to unauthorized sharing or abuse.
-
-Each session represents a unique CTA token being used to access protected video content through CloudFront.
-
-## Indicators of Token Sharing / Abuse
-- Multiple distinct IP addresses using the same token (strongest signal)
-- Requests from multiple countries with the same token
-- Multiple different User-Agent strings (different devices/browsers)
-- Abnormally high request rates (automated scraping)
-- High error rates combined with high request volume (brute force)
-
-## Indicators of Legitimate Use
-- Single IP, single country, single User-Agent = normal viewer
-- Moderate request rates (1-5 requests/sec is normal for adaptive streaming)
-- IP changes within the same country could be mobile network handoff (less suspicious)
+    const basePrompt = await getPrompt();
+    const prompt = `${basePrompt}
 
 ## Session Data
 ${JSON.stringify(sessions, null, 2)}
 
-## Instructions
-Respond with ONLY a JSON array of session keys that should be revoked. If no sessions should be revoked, respond with an empty array [].
-
-Example response: ["abc123def456", "xyz789ghi012"]
-
-Be conservative — only revoke sessions with strong evidence of sharing or abuse. A single IP change within the same country is NOT sufficient for revocation.`;
+Example response: ["abc123def456", "xyz789ghi012"]`;
 
     const command = new InvokeModelCommand({
         modelId: MODEL_ID,

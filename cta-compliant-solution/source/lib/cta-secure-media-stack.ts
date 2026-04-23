@@ -337,7 +337,12 @@ export class CTASecureMediaStack extends Stack {
     // Deploy dashboard HTML (alongside demo site if enabled)
     if (config.main.enableDemo) {
       new s3deploy.BucketDeployment(this, "DeployDashboard", {
-        sources: [s3deploy.Source.asset("resources/dashboard")],
+        sources: [
+          s3deploy.Source.asset("resources/dashboard"),
+          s3deploy.Source.data("config.js",
+            `window.CTA_CONFIG={apiEndpoint:"${api.url.replace(/\/$/,'')}",cdnDomain:"https://${distribution.distributionDomainName}"};`
+          ),
+        ],
         destinationBucket: demoBucket!,
         destinationKeyPrefix: "website",
         prune: false,

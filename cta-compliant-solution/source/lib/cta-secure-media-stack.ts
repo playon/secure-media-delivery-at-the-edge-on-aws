@@ -223,6 +223,7 @@ export class CTASecureMediaStack extends Stack {
         sources: [s3deploy.Source.asset("resources/demo-website")],
         destinationBucket: demoBucket,
         destinationKeyPrefix: "website",
+        prune: false,
       });
 
       distribution = new cloudfront.Distribution(this, "CTADistribution", {

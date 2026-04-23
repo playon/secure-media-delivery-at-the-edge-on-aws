@@ -349,6 +349,23 @@ export class CTASecureMediaStack extends Stack {
       });
     }
 
+    // --- KVS Cleanup: purge expired revocations on a schedule ---
+    const kvsCleanup = new lambda.Function(this, "KvsCleanup", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "kvs_cleanup.handler",
+      code: lambda.Code.fromAsset("lambda"),
+      timeout: Duration.minutes(2),
+      environment: { KVS_ARN: this.kvStore.keyValueStoreArn, TTL_HOURS: "24" },
+    });
+    kvsCleanup.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["cloudfront-keyvaluestore:ListKeys", "cloudfront-keyvaluestore:DeleteKey", "cloudfront-keyvaluestore:DescribeKeyValueStore"],
+      resources: [this.kvStore.keyValueStoreArn],
+    }));
+    new events.Rule(this, "KvsCleanupSchedule", {
+      schedule: events.Schedule.rate(Duration.hours(1)),
+      targets: [new targets.LambdaFunction(kvsCleanup)],
+    });
+
     // Outputs
     new CfnOutput(this, "APIEndpoint", { 
       value: `https://${distribution.distributionDomainName}/api`,

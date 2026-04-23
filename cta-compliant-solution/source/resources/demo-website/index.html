@@ -493,8 +493,20 @@ function loadDash(signedUrl) {
 
     dashPlayer.on(dashjs.MediaPlayer.events.ERROR, function (e) {
         if (e.error) {
-            log(`🚫 DASH error: ${e.error.message || e.error.code}`, 'error');
+            const code = e.error.code;
+            const msg = e.error.message || code;
+            log(`🚫 DASH error: ${msg}`, 'error');
+            if (code === 27 || code === 28 || String(msg).includes('401') || String(msg).includes('403')) {
+                dashPlayer.destroy();
+                dashPlayer = null;
+                video.pause();
+                toast('Access denied — playback stopped', false);
+            }
         }
+    });
+
+    dashPlayer.on(dashjs.MediaPlayer.events.FRAGMENT_LOADING_ABANDONED, function () {
+        log('⚠️ Fragment loading abandoned', 'warn');
     });
 
     dashPlayer.initialize(video, signedUrl, true);

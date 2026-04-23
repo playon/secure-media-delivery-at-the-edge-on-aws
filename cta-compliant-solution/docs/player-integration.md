@@ -3,7 +3,7 @@
 This solution supports multiple video players. See the dedicated guides:
 
 - **[HLS.js Integration](hlsjs-integration.md)** — Path-based tokens with client-side renewal via `xhrSetup`. Working demo included.
-- **[DASH.js Integration](dashjs-integration.md)** — Native CTA-WAVE support in v5.0.0+ with automatic header-based renewal.
+- **[DASH.js Integration](dashjs-integration.md)** — Native CTA-WAVE support in v5.0.0+ with automatic header-based renewal. Working demo included.
 
 ## Quick Comparison
 
@@ -13,7 +13,7 @@ This solution supports multiple video players. See the dedicated guides:
 | Renewal method | Client-side API call + path swap | Automatic via response header |
 | CTA-WAVE native | No (manual integration) | Yes (v5.0.0+) |
 | CORS preflight | Not needed (path-based) | Required (header-based) |
-| Demo included | ✅ | No |
+| Demo included | ✅ | ✅ |
 
 ## Native Players
 

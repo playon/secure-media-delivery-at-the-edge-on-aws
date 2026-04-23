@@ -24,8 +24,16 @@ npx cdk bootstrap
 
 ### 3. Deploy the stack
 
+Deploy the main stack only:
+
 ```bash
 npx cdk deploy CTASecureMedia -c enableDemo=true
+```
+
+Deploy both stacks (main + auto-revocation with Bedrock analysis):
+
+```bash
+npx cdk deploy --all -c enableDemo=true -c enableAutoRevocation=true
 ```
 
 To deploy without the demo website:
@@ -46,6 +54,9 @@ The deployment prints:
 | `SecretArn` | Secrets Manager signing key ARN |
 | `KeyValueStoreId` | CloudFront KVS ID |
 | `RotationWorkflow` | Step Functions key rotation workflow |
+| `PromptAPIEndpoint` | Bedrock prompt management API (auto-revocation stack) |
+
+The dashboard is accessible at `{DemoWebsiteUrl}/../dashboard.html` (same S3 bucket, `/website/` prefix).
 
 ## Key Sync
 
@@ -154,12 +165,12 @@ After code changes:
 ```bash
 cd source
 npx tsc                    # Compile TypeScript
-npx cdk deploy CTASecureMedia -c enableDemo=true
+npx cdk deploy --all -c enableDemo=true -c enableAutoRevocation=true
 aws cloudfront create-invalidation --distribution-id <ID> --paths "/*"
 ```
 
 ## Cleanup
 
 ```bash
-npx cdk destroy CTASecureMedia
+npx cdk destroy --all
 ```

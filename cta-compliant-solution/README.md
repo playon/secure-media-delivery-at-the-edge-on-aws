@@ -10,7 +10,11 @@ COSE MAC0 / CWT token-based content protection for Amazon CloudFront, implementi
 - **Client-side token renewal**: Player swaps expired path tokens for fresh ones without interrupting playback
 - **Session revocation**: Instant token blocking via CloudFront KeyValueStore
 - **IP and country restrictions**: Enforced at the edge using `event.viewer.ip` and `CloudFront-Viewer-Country`
-- **Interactive demo**: Aura-styled website with HLS.js player, token generation, renewal, and revocation
+- **Interactive demo**: Aura-styled website with HLS.js + DASH.js players, token generation, renewal, and revocation
+- **Real-time log analysis**: Kinesis Data Stream → Lambda → Bedrock Nova Lite for AI-powered session anomaly detection
+- **Auto-revocation**: Suspicious sessions flagged by Bedrock are automatically revoked in CloudFront KeyValueStore
+- **Revocation dashboard**: Aura-styled dashboard showing revoked sessions with editable Bedrock analysis prompts
+- **KVS cleanup**: Scheduled Lambda purges expired revocation entries from KeyValueStore
 
 ## Quick Start
 
@@ -26,7 +30,7 @@ The demo website URL and API endpoint are printed in the stack outputs.
 ## Architecture
 
 ```
-Browser (HLS.js)
+Browser (HLS.js / DASH.js)
   │
   ├─ GET /{TOKEN}/video/stream.m3u8
   │     ↓
@@ -44,11 +48,23 @@ Browser (HLS.js)
   │     → Builds CWT claims, generates COSE MAC0 token via SDK
   │     → Returns { token, signedUrl, expiresAt }
   │
-  └─ POST /revoke
-        ↓
-     API Gateway → Lambda
-        → Writes revoked:{sessionId} to KeyValueStore
-        → Edge enforcement within ~15 seconds
+  ├─ POST /revoke
+  │     ↓
+  │  API Gateway → Lambda
+  │     → Writes revoked:{sessionId} to KeyValueStore
+  │     → Edge enforcement within ~15 seconds
+  │
+  └─ Real-Time Log Pipeline
+        CloudFront Real-Time Logs → Kinesis Data Stream
+           → Lambda (kinesis_analyzer)
+              → Aggregates session metrics
+              → Sends to Bedrock Nova Lite/Pro for analysis
+              → Auto-revokes flagged sessions in KVS
+
+Dashboard (/website/dashboard.html)
+  ├─ GET /revoked → Lists revoked sessions from KVS
+  ├─ GET /prompt → Reads Bedrock analysis prompt from SSM
+  └─ PUT /prompt → Updates Bedrock analysis prompt in SSM
 ```
 
 ## Token Structure
@@ -190,9 +206,11 @@ The revocation propagates to CloudFront edge locations via KeyValueStore within 
 
 | Path | Behavior | Origin | Auth |
 |------|----------|--------|------|
-| `/website/*` | Static site | S3 bucket | None |
+| `/website/*` | Static site + dashboard | S3 bucket | None |
 | `/api/*` | API Gateway | REST API | None (CORS enabled) |
 | `/*` (default) | Video content | HTTP origin | CTA Validator Function |
+
+The demo website is at `/website/index.html` and the revocation dashboard is at `/website/dashboard.html`.
 
 ## Key Rotation
 
@@ -202,6 +220,34 @@ Signing keys are stored in Secrets Manager and synced to CloudFront KeyValueStor
 2. Stores in Secrets Manager
 3. Syncs to KVS as `key:default`
 4. Preserves previous key as `key:previous` for graceful transition
+
+## Real-Time Log Analysis (Auto-Revocation Stack)
+
+An optional second CDK stack adds AI-powered session analysis:
+
+1. CloudFront real-time access logs stream to Kinesis Data Streams
+2. A Lambda consumer aggregates session metrics (IPs, countries, user agents, request rates)
+3. Bedrock Nova Lite/Pro analyzes the metrics and flags suspicious sessions
+4. Flagged sessions are automatically revoked in CloudFront KeyValueStore
+
+The analysis prompt is editable via the revocation dashboard or the Prompt API (`GET/PUT /prompt`).
+
+Deploy with:
+
+```bash
+npx cdk deploy --all -c enableAutoRevocation=true -c enableDemo=true
+```
+
+## KVS Cleanup
+
+A scheduled Lambda runs hourly to purge expired revocation entries from KeyValueStore (default TTL: 24 hours).
+
+## Stacks
+
+| Stack | Description |
+|-------|-------------|
+| `CTASecureMedia` | Main stack: CloudFront, KVS, API Gateway, Lambdas, Secrets Manager, Kinesis, Step Functions |
+| `CTAAutoRevocation` | Optional: Bedrock-powered Kinesis consumer, SSM prompt parameter, Prompt API |
 
 ## Requirements
 

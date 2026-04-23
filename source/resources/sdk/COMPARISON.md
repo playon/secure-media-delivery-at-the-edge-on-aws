@@ -1,97 +1,76 @@
-# SDK Comparison Guide
+# CTA-5007-B SDK Comparison
 
-This document compares all available SDKs for the Secure Media Delivery at the Edge solution.
+All three SDKs implement the same COSE MAC0 / CWT token generation and produce byte-identical output.
 
-## SDK Status Overview
+## SDK Overview
 
-| Language | Status | Stability | Recommended Use |
-|----------|--------|-----------|-----------------|
-| **Node.js** | ✅ Stable | 🟢 Production Ready | ✅ Production workloads |
-| **Python** | 🚧 Development | 🟡 Feature Complete | ⚠️ Development/Testing only |
+| Language | Dependencies | File |
+|----------|-------------|------|
+| **Node.js** | `cbor-x` | `source/resources/sdk/javascript/cta-client.js` |
+| **Python** | None (built-in CBOR) | `source/resources/sdk/python/cta_client.py` |
+| **Ruby** | None (`openssl` stdlib) | `source/lambda-ruby/cta_client.rb` |
 
-> **For production workloads, use the Node.js SDK until other versions reach stable release.**
+## API Comparison
 
-## Basic Usage Comparison
+### Node.js
 
-### Token Generation
-
-#### Node.js
 ```javascript
-const awsSMD = require("aws-secure-media-delivery");
+const { generateToken, CWT, CAT, CATU, MATCH, parseTTL } = require('./cta-client');
 
-const secret = new awsSMD.Secret('MyStack', 300);
-const token = new awsSMD.Token(secret);
+const claims = new Map();
+claims.set(CWT.ISS, 'cta-secure-media');
+claims.set(CWT.EXP, Math.floor(Date.now() / 1000) + 7200);
+claims.set(CAT.CATU, new Map([[CATU.PATH, new Map([[MATCH.PREFIX, '/video/']])]]));
 
-const signedUrl = await token.generate(
-    { ip: "192.168.1.1", co: "US" },
-    "https://example.cloudfront.net/video/stream.m3u8",
-    { ip: true, co: true, paths: ["/video/"], exp: "+2h" }
-);
+const tokenBuffer = generateToken(claims, signingKey);
+const token = tokenBuffer.toString('base64url');
 ```
 
-#### Python
+### Python
+
 ```python
-from aws_secure_media_delivery import Secret, Token
+from cta_client import generate_token, CWT, CAT, CATU, MATCH, parse_ttl
 
-secret = Secret('MyStack', 'us-east-1')
-token = Token(secret)
+claims = {
+    CWT.ISS: 'cta-secure-media',
+    CWT.EXP: int(time.time()) + 7200,
+    CAT.CATU: {CATU.PATH: {MATCH.PREFIX: '/video/'}},
+}
 
-signed_url = token.generate(
-    {"ip": "192.168.1.1", "co": "US"},
-    "https://example.cloudfront.net/video/stream.m3u8",
-    {"ip": True, "co": True, "paths": ["/video/"], "exp": "+2h"}
-)
+token_bytes = generate_token(claims, signing_key)
+token = base64.urlsafe_b64encode(token_bytes).rstrip(b'=').decode()
 ```
+
+### Ruby
+
+```ruby
+require_relative 'cta_client'
+
+claims = {
+  CTA::CWT::ISS => 'cta-secure-media',
+  CTA::CWT::EXP => Time.now.to_i + 7200,
+  CTA::CAT::CATU => { CTA::CATU::PATH => { CTA::MATCH::PREFIX => '/video/' } },
+}
+
+token_bytes = CTA.generate_token(claims, signing_key)
+token = Base64.urlsafe_encode64(token_bytes, padding: false)
+```
+
+## Lambda Endpoints
+
+| Endpoint | Runtime | Handler |
+|----------|---------|---------|
+| `POST /token` | Node.js 22 | `cta_token_generator.handler` |
+| `POST /token-python` | Python 3.13 | `handler.handler` |
+| `POST /token-ruby` | Ruby 3.3 | `handler.handler` |
+
+All endpoints accept the same request format and return the same response structure.
 
 ## Key Differences
 
-| Feature | Node.js | Python |
-|---------|---------|--------|
-| **Async Pattern** | Promises | async/await |
-| **Booleans** | true/false | True/False |
-| **Package Manager** | npm | pip |
-| **Memory Usage** | ~50-100MB | ~60-120MB |
-| **Cold Start** | ~100-200ms | ~200-400ms |
-
-## Installation
-
-| Language | Installation Command |
-|----------|---------------------|
-| **Node.js** | `npm install aws-secure-media-delivery` |
-| **Python** | `pip install aws-secure-media-delivery` |
-
-## When to Use Each SDK
-
-### Node.js ✅
-- **Production applications**
-- **AWS Lambda functions**
-- **Fastest cold start times**
-- **Most stable and tested**
-
-### Python 🚧
-- **Data science integrations**
-- **Machine learning pipelines**
-- **Django/Flask applications**
-- **Development/testing only**
-
-## Common Token Policy
-
-All SDKs support the same token policy structure:
-
-```json
-{
-  "ip": true,
-  "co": true,
-  "headers": ["user-agent", "referer"],
-  "paths": ["/video/", "/live/"],
-  "exp": "+2h"
-}
-```
-
-## Getting Started
-
-1. **For Production**: Use the Node.js SDK
-2. **For Development**: Choose your preferred language
-3. **For Testing**: Any SDK provides full functionality
-
-Both SDKs provide identical functionality - the choice depends on your environment, performance requirements, and development preferences.
+| Feature | Node.js | Python | Ruby |
+|---------|---------|--------|------|
+| CBOR encoding | `cbor-x` library | Built-in encoder | Built-in encoder |
+| HMAC | `crypto.createHmac` | `hmac.new` | `OpenSSL::HMAC.digest` |
+| External deps | 1 (`cbor-x`) | 0 | 0 |
+| Lambda runtime | Node.js 22.x | Python 3.13 | Ruby 3.3 |

@@ -283,7 +283,7 @@ export class CTASecureMediaStack extends Stack {
 
     // --- Real-Time Logging via Kinesis ---
     const logStream = new kinesis.Stream(this, "RealtimeLogStream", {
-      shardCount: 1,
+      streamMode: kinesis.StreamMode.ON_DEMAND,
       retentionPeriod: Duration.hours(24),
     });
     this.logStream = logStream;

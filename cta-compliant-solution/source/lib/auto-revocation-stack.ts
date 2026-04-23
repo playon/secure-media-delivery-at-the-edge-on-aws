@@ -1,13 +1,13 @@
 /**
- * CTA Real-Time Auto-Revocation Stack
+ * CTA Auto-Revocation Stack (optional)
  *
- * Pipeline: CloudFront Real-Time Logs → Kinesis Data Stream → Lambda → Bedrock Nova Pro → KVS
+ * Adds AI-powered session analysis to the real-time log pipeline.
+ * Consumes the Kinesis stream created by the main stack, analyzes
+ * session patterns with Bedrock Nova Pro, and revokes suspicious
+ * sessions in CloudFront KeyValueStore.
  *
- * CloudFront sends real-time access logs to a Kinesis Data Stream. A Lambda
- * function consumes the stream, aggregates requests by CTA session token,
- * pre-filters for suspicious patterns, and sends flagged sessions to Bedrock
- * Nova Pro for AI-powered analysis. Sessions identified as shared or abused
- * are revoked in CloudFront KeyValueStore for instant edge blocking.
+ * The main stack handles: Kinesis stream, RealtimeLogConfig, dashboard.
+ * This stack adds: Lambda consumer + Bedrock analysis.
  */
 
 import {
@@ -25,7 +25,7 @@ import { Construct } from "constructs";
 
 export interface AutoRevocationStackProps extends StackProps {
   readonly kvStore: cloudfront.KeyValueStore;
-  readonly distribution: cloudfront.Distribution;
+  readonly logStream: kinesis.Stream;
   readonly config: any;
 }
 
@@ -38,54 +38,7 @@ export class AutoRevocationStack extends Stack {
     const bedrockRegion = config.bedrock?.region || this.region;
     const bedrockModel = config.bedrock?.model || "amazon.nova-pro-v1:0";
 
-    // --- Kinesis Data Stream for CloudFront real-time logs ---
-    const logStream = new kinesis.Stream(this, "RealtimeLogStream", {
-      streamName: `${this.stackName}-cf-realtime-logs`,
-      shardCount: 1,
-      retentionPeriod: Duration.hours(24),
-    });
-
-    // --- CloudFront Real-Time Log Configuration ---
-    // Sends selected log fields to the Kinesis stream.
-    // Fields chosen for session analysis: timestamp, IP, status, URI, method,
-    // host, user-agent, bytes, time-taken, country.
-    const realtimeLogConfig = new cloudfront.CfnRealtimeLogConfig(this, "RealtimeLogConfig", {
-      name: `${this.stackName}-realtime-logs`,
-      samplingRate: 100, // 100% of requests
-      endPoints: [{
-        streamType: "Kinesis",
-        kinesisStreamConfig: {
-          roleArn: new iam.Role(this, "CloudFrontKinesisRole", {
-            assumedBy: new iam.ServicePrincipal("cloudfront.amazonaws.com"),
-            inlinePolicies: {
-              kinesis: new iam.PolicyDocument({
-                statements: [new iam.PolicyStatement({
-                  actions: ["kinesis:PutRecord", "kinesis:PutRecords", "kinesis:DescribeStream"],
-                  resources: [logStream.streamArn],
-                })],
-              }),
-            },
-          }).roleArn,
-          streamArn: logStream.streamArn,
-        },
-      }],
-      fields: [
-        "timestamp",
-        "c-ip",
-        "sc-status",
-        "cs-uri-stem",
-        "cs-method",
-        "cs-host",
-        "cs-user-agent",
-        "sc-bytes",
-        "time-taken",
-        "c-country",
-      ],
-    });
-
-    // --- Kinesis Stream Processor Lambda ---
-    // Consumes real-time log batches, aggregates by session, pre-filters
-    // suspicious patterns, sends to Bedrock Nova Pro, revokes flagged sessions.
+    // Kinesis stream processor — aggregates sessions, calls Bedrock, revokes
     const analyzer = new lambda.Function(this, "KinesisAnalyzer", {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: "kinesis_analyzer.handler",
@@ -99,8 +52,8 @@ export class AutoRevocationStack extends Stack {
       },
     });
 
-    // Kinesis event source — process in batches for efficient aggregation
-    analyzer.addEventSource(new eventsources.KinesisEventSource(logStream, {
+    // Consume the Kinesis stream from the main stack
+    analyzer.addEventSource(new eventsources.KinesisEventSource(props.logStream, {
       startingPosition: lambda.StartingPosition.LATEST,
       batchSize: 500,
       maxBatchingWindow: Duration.seconds(60),

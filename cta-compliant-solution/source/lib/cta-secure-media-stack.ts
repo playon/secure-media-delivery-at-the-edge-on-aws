@@ -18,6 +18,7 @@ import {
   aws_stepfunctions_tasks as tasks,
   aws_events as events,
   aws_events_targets as targets,
+  aws_kinesis as kinesis,
   custom_resources,
 } from "aws-cdk-lib";
 
@@ -31,6 +32,8 @@ export interface CTASecureMediaStackProps extends StackProps {
 export class CTASecureMediaStack extends Stack {
   public readonly kvStore: cloudfront.KeyValueStore;
   public readonly distribution: cloudfront.Distribution;
+  public readonly demoBucket: s3.Bucket;
+  public readonly logStream: kinesis.Stream;
   
   constructor(scope: Construct, id: string, props: CTASecureMediaStackProps = {}) {
     super(scope, id, props);
@@ -208,9 +211,10 @@ export class CTASecureMediaStack extends Stack {
 
     // Demo website (conditional)
     let distribution: cloudfront.Distribution;
+    let demoBucket: s3.Bucket | undefined;
     
     if (config.main.enableDemo) {
-      const demoBucket = new s3.Bucket(this, "DemoWebsite", {
+      demoBucket = new s3.Bucket(this, "DemoWebsite", {
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
       });
@@ -273,6 +277,72 @@ export class CTASecureMediaStack extends Stack {
     }
 
     this.distribution = distribution;
+    if (config.main.enableDemo) {
+      this.demoBucket = demoBucket!;
+    }
+
+    // --- Real-Time Logging via Kinesis ---
+    const logStream = new kinesis.Stream(this, "RealtimeLogStream", {
+      shardCount: 1,
+      retentionPeriod: Duration.hours(24),
+    });
+    this.logStream = logStream;
+
+    const cfKinesisRole = new iam.Role(this, "CloudFrontKinesisRole", {
+      assumedBy: new iam.ServicePrincipal("cloudfront.amazonaws.com"),
+    });
+    logStream.grantWrite(cfKinesisRole);
+
+    const realtimeLogConfig = new cloudfront.CfnRealtimeLogConfig(this, "RealtimeLogConfig", {
+      name: `${Aws.STACK_NAME}-realtime-logs`,
+      samplingRate: 100,
+      endPoints: [{
+        streamType: "Kinesis",
+        kinesisStreamConfig: {
+          roleArn: cfKinesisRole.roleArn,
+          streamArn: logStream.streamArn,
+        },
+      }],
+      fields: [
+        "timestamp", "c-ip", "sc-status", "cs-uri-stem", "cs-method",
+        "cs-host", "cs-user-agent", "sc-bytes", "time-taken", "c-country",
+      ],
+    });
+
+    // Attach real-time logs to the default cache behavior
+    const cfnDist = distribution.node.defaultChild as cloudfront.CfnDistribution;
+    cfnDist.addPropertyOverride(
+      "DistributionConfig.DefaultCacheBehavior.RealtimeLogConfigArn",
+      realtimeLogConfig.attrArn
+    );
+
+    // --- Dashboard: list revoked sessions from KVS ---
+    const listRevoked = new lambda.Function(this, "ListRevoked", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "list_revoked.handler",
+      code: lambda.Code.fromAsset("lambda"),
+      timeout: Duration.seconds(10),
+      environment: { KVS_ARN: this.kvStore.keyValueStoreArn },
+    });
+    listRevoked.addToRolePolicy(new iam.PolicyStatement({
+      actions: ["cloudfront-keyvaluestore:ListKeys", "cloudfront-keyvaluestore:DescribeKeyValueStore"],
+      resources: [this.kvStore.keyValueStoreArn],
+    }));
+
+    // Add /revoked to the existing API
+    api.root.addResource("revoked").addMethod("GET",
+      new apigateway.LambdaIntegration(listRevoked)
+    );
+
+    // Deploy dashboard HTML (alongside demo site if enabled)
+    if (config.main.enableDemo) {
+      new s3deploy.BucketDeployment(this, "DeployDashboard", {
+        sources: [s3deploy.Source.asset("resources/dashboard")],
+        destinationBucket: demoBucket!,
+        destinationKeyPrefix: "website",
+        prune: false,
+      });
+    }
 
     // Outputs
     new CfnOutput(this, "APIEndpoint", { 

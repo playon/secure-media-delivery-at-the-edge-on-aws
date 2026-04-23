@@ -30,6 +30,7 @@ export interface CTASecureMediaStackProps extends StackProps {
 
 export class CTASecureMediaStack extends Stack {
   public readonly kvStore: cloudfront.KeyValueStore;
+  public readonly distribution: cloudfront.Distribution;
   
   constructor(scope: Construct, id: string, props: CTASecureMediaStackProps = {}) {
     super(scope, id, props);
@@ -270,6 +271,8 @@ export class CTASecureMediaStack extends Stack {
         },
       });
     }
+
+    this.distribution = distribution;
 
     // Outputs
     new CfnOutput(this, "APIEndpoint", { 

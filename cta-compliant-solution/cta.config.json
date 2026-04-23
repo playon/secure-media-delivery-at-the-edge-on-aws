@@ -2,8 +2,11 @@
   "main": {
     "stackName": "CTASecureMedia",
     "region": "us-east-1",
-    "enableAutoRevocation": false,
-    "revocationFrequency": "10m",
+    "enableAutoRevocation": true,
     "enableDemo": true
+  },
+  "bedrock": {
+    "model": "amazon.nova-pro-v1:0",
+    "region": "us-east-1"
   }
 }

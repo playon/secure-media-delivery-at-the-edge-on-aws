@@ -46,6 +46,7 @@ if (config.main.enableAutoRevocation) {
       region: config.main.region,
     },
     kvStore: mainStack.kvStore,
+    distribution: mainStack.distribution,
     config: config,
   });
 }

@@ -1,3 +1,4 @@
-SOLUTION_ID='SO0195'
-SOLUTION_NAME='Secure Media Stream Delivery at the Edge on AWS'
-SOLUTION_TRADEMARKEDNAME='secure-media-delivery-at-the-edge-on-aws'
+SOLUTION_ID=SO0195-CTA
+SOLUTION_NAME=cta-secure-media-delivery
+SOLUTION_VERSION=v1.0.0
+SOLUTION_TRADEMARKEDNAME=CTA-5007-B Secure Media Delivery

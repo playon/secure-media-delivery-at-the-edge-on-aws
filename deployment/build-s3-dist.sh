@@ -1,152 +1,158 @@
 #!/bin/bash
 #
-#  Copyright 2021 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# CTA-5007-B Solution CloudFormation Template Builder
 #
-#  Licensed under the Apache License, Version 2.0 (the "License"). You may not use this file except in compliance
-#  with the License. A copy of the License is located at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-#  or in the 'license' file accompanying this file. This file is distributed on an 'AS IS' BASIS, WITHOUT WARRANTIES
-#  OR CONDITIONS OF ANY KIND, express or implied. See the License for the specific language governing permissions
-#  and limitations under the License.
-#
-set -x
-# Important: CDK global version number
-cdk_version=2.81.0
 
-# Check to see if the required parameters have been provided:
+set -e
+
+# Check parameters
 if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]; then
-    echo "Please provide the base source bucket name, trademark approved solution name and version where the lambda code will eventually reside."
-    echo "For example: ./build-s3-dist.sh solutions trademarked-solution-name v1.0.0"
+    echo "Usage: ./build-s3-dist.sh <bucket-name> <solution-name> <version>"
+    echo "Example: ./build-s3-dist.sh my-bucket cta-secure-media-delivery v1.0.0"
     exit 1
 fi
 
-export DIST_VERSION=$3
 export DIST_OUTPUT_BUCKET=$1
-export SOLUTION_ID=SO0195
 export SOLUTION_NAME=$2
-export SOLUTION_TRADEMARKEDNAME=$2
+export DIST_VERSION=$3
+export SOLUTION_ID=SO0195-CTA
 
-# Get reference for all important folders
+# Directories
 template_dir="$PWD"
 staging_dist_dir="$template_dir/staging"
 template_dist_dir="$template_dir/global-s3-assets"
 build_dist_dir="$template_dir/regional-s3-assets"
 source_dir="$template_dir/../source"
-demo_website_dir="$template_dir/../source/resources/demo_website"
-
-
-[ "$DEBUG" == 'true' ] && set -x
-set -e
 
 echo "------------------------------------------------------------------------------"
-echo "[Init] Remove any old dist files from previous runs"
+echo "[Init] Clean previous builds"
 echo "------------------------------------------------------------------------------"
-
-echo "rm -rf $template_dist_dir"
-rm -rf $template_dist_dir
-echo "mkdir -p $template_dist_dir"
-mkdir -p $template_dist_dir
-echo "rm -rf $build_dist_dir"
-rm -rf $build_dist_dir
-echo "mkdir -p $build_dist_dir"
-mkdir -p $build_dist_dir
-echo "rm -rf $staging_dist_dir"
-rm -rf $staging_dist_dir
-echo "mkdir -p $staging_dist_dir"
-mkdir -p $staging_dist_dir
-echo "rm -rf $demo_website_dir/dist"
-rm -rf $demo_website_dir/dist
-
+rm -rf $template_dist_dir $build_dist_dir $staging_dist_dir
+mkdir -p $template_dist_dir $build_dist_dir $staging_dist_dir
 
 echo "------------------------------------------------------------------------------"
-echo "NPM Install in the source folder"
+echo "[Build] CDK Synthesis"
 echo "------------------------------------------------------------------------------"
-
-# Install the npm install in the source folder
-echo "cd $source_dir"
 cd $source_dir
-echo "npm install"
+
+# Install dependencies
 npm install
 
-# Install the demo website package
-echo "Building and bundling demo website"
-cd $demo_website_dir
-npm install
+# Build TypeScript
 npm run build
 
-echo "cd "$source_dir""
-cd "$source_dir"
+# Create default configuration for synthesis
+cat > cta.config.json << EOF
+{
+  "main": {
+    "stackName": "CTASecureMedia",
+    "region": "us-east-1",
+    "enableAutoRevocation": true,
+    "revocationFrequency": "10m",
+    "enableDemo": true
+  },
+  "bedrock": {
+    "model": "amazon.nova-pro-v1:0",
+    "region": "us-east-1"
+  }
+}
+EOF
 
-chmod +x ./install_dependencies.sh && ./install_dependencies.sh
+# Synthesize CloudFormation templates
+npx cdk synth --all --output $staging_dist_dir
 
-#replace assets_bucket_name
-sed -e "s#MY_ASSETS_BUCKET_NAME#$DIST_OUTPUT_BUCKET#g" solution.context.json.template > solution.context.json
+echo "------------------------------------------------------------------------------"
+echo "[Build] Process Templates"
+echo "------------------------------------------------------------------------------"
 
-# Run 'cdk synth' to generate raw solution outputs
-node_modules/aws-cdk/bin/cdk synth --context solution_version=$DIST_VERSION --asset-metadata false --path-metadata false >$staging_dist_dir/secure-media-delivery-at-the-edge-on-aws.yaml
+# Copy templates to global assets
+cp $staging_dist_dir/*.template.json $template_dist_dir/
 
+# Rename main template
+mv $template_dist_dir/CTASecureMedia.template.json $template_dist_dir/cta-secure-media-delivery.template
 
-mv cdk.out/* $staging_dist_dir
+# Process auto-revocation template if exists
+if [ -f "$staging_dist_dir/CTASecureMediaAutoRevocation.template.json" ]; then
+    mv $template_dist_dir/CTASecureMediaAutoRevocation.template.json $template_dist_dir/cta-auto-revocation.template
+fi
 
-#zipping the assets
-i=1
-cd $staging_dist_dir
-echo "Searching for assets..."
-for cdk_key in `ls  | grep '^asset'`; do
-    wordtoremove="asset."
-    item=${cdk_key//$wordtoremove/}
-    asset_new_name="myasset_$i.zip"
+echo "------------------------------------------------------------------------------"
+echo "[Build] Package Lambda Functions"
+echo "------------------------------------------------------------------------------"
 
-    if [[ $item == *zip ]];
-    then
-        mv $cdk_key $asset_new_name
-        current_asset_name=$item
-    else
-        cd $cdk_key
-        echo "zipping $cdk_key to $asset_new_name"
-        zip -qr $asset_new_name .
-        cd ..
-        mv $cdk_key/$asset_new_name $asset_new_name
-        rm -rf $cdk_key
-        current_asset_name=$item.zip
+# Package Lambda functions
+cd $source_dir
+zip -r $build_dist_dir/cta-lambda-functions.zip lambda/ -x "*.ts" "*.map"
+
+# Package demo website
+if [ -d "resources/demo-website" ]; then
+    zip -r $build_dist_dir/cta-demo-website.zip resources/demo-website/
+fi
+
+echo "------------------------------------------------------------------------------"
+echo "[Build] Update Template References"
+echo "------------------------------------------------------------------------------"
+
+# Update S3 bucket references in templates
+for template in $template_dist_dir/*.template; do
+    if [ -f "$template" ]; then
+        # Replace asset references with S3 bucket references
+        sed -i.bak "s/\${AWS::Region}/$DIST_OUTPUT_BUCKET-\${AWS::Region}/g" $template
+        sed -i.bak "s/asset\.[a-f0-9]*/cta-lambda-functions.zip/g" $template
+        rm $template.bak
     fi
-
-    sed -i'' -e "s#$current_asset_name#$SOLUTION_NAME/$DIST_VERSION/$asset_new_name#g" $staging_dist_dir/secure-media-delivery-at-the-edge-on-aws.yaml
-
-    let "i+=1"
-
 done
 
-
-echo "Assets zipped"
-
-############ End tweak template #############
-
-
-# Remove unnecessary output files
-echo "cd $staging_dist_dir"
-
-cd $staging_dist_dir
-ls
-
 echo "------------------------------------------------------------------------------"
-echo "[Packing] Template artifacts"
+echo "[Build] Generate Deployment Guide"
 echo "------------------------------------------------------------------------------"
 
-# Move outputs from staging to template_dist_dir
-echo ls $staging_dist_dir/
-ls $staging_dist_dir/
-echo "Move outputs from staging to template_dist_dir"
+cat > $template_dist_dir/DEPLOYMENT.md << EOF
+# CTA-5007-B CloudFormation Deployment
 
-echo "cp $template_dir/*.template $template_dist_dir/"
-cp $staging_dist_dir/secure-media-delivery-at-the-edge-on-aws.yaml $template_dist_dir/secure-media-delivery-at-the-edge-on-aws.template
+## Prerequisites
+- AWS CLI configured
+- S3 bucket for deployment assets
+- CloudFront Functions CWT preview access
 
-rm secure-media-delivery-at-the-edge-on-aws.yaml
+## Deployment Steps
 
-echo cp $cdk synth --asset-metadata /*.zip $build_dist_dir/
-cp $staging_dist_dir/*.zip $build_dist_dir/
+### 1. Upload Assets
+\`\`\`bash
+aws s3 sync ./regional-s3-assets/ s3://$DIST_OUTPUT_BUCKET-\${AWS_REGION}/$SOLUTION_NAME/$DIST_VERSION/
+aws s3 sync ./global-s3-assets/ s3://$DIST_OUTPUT_BUCKET-\${AWS_REGION}/$SOLUTION_NAME/$DIST_VERSION/
+\`\`\`
 
+### 2. Deploy Main Stack
+\`\`\`bash
+aws cloudformation create-stack \\
+  --stack-name CTASecureMedia \\
+  --template-url https://$DIST_OUTPUT_BUCKET-\${AWS_REGION}.s3.amazonaws.com/$SOLUTION_NAME/$DIST_VERSION/cta-secure-media-delivery.template \\
+  --capabilities CAPABILITY_IAM \\
+  --parameters ParameterKey=EnableDemo,ParameterValue=true
+\`\`\`
 
+### 3. Deploy Auto-Revocation (Optional)
+\`\`\`bash
+aws cloudformation create-stack \\
+  --stack-name CTAAutoRevocation \\
+  --template-url https://$DIST_OUTPUT_BUCKET-\${AWS_REGION}.s3.amazonaws.com/$SOLUTION_NAME/$DIST_VERSION/cta-auto-revocation.template \\
+  --capabilities CAPABILITY_IAM \\
+  --parameters ParameterKey=MainStackName,ParameterValue=CTASecureMedia
+\`\`\`
 
+## Parameters
+- **EnableDemo**: Deploy demo website (true/false)
+- **BedrockModel**: Nova model (amazon.nova-pro-v1:0 or amazon.nova-lite-v1:0)
+- **RevocationFrequency**: Auto-revocation frequency (5m, 10m, 30m, 1h)
+EOF
+
+echo "------------------------------------------------------------------------------"
+echo "[Completed] Build Summary"
+echo "------------------------------------------------------------------------------"
+echo "Templates: $template_dist_dir"
+echo "Assets: $build_dist_dir"
+echo ""
+echo "Upload to S3:"
+echo "aws s3 sync ./regional-s3-assets/ s3://$DIST_OUTPUT_BUCKET-\${AWS_REGION}/$SOLUTION_NAME/$DIST_VERSION/"
+echo "aws s3 sync ./global-s3-assets/ s3://$DIST_OUTPUT_BUCKET-\${AWS_REGION}/$SOLUTION_NAME/$DIST_VERSION/"

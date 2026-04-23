@@ -1,9 +1,9 @@
 {
-  "app": "npx ts-node bin/secure_media_stream.ts",
+  "app": "npx ts-node bin/cta-app.ts",
   "context": {
-    "solution_id": "SO0195",
-    "solution_name": "Secure Media Delivery at the Edge on AWS",
-    "solution_version": "v1.2.7",
+    "solution_id": "SO0195-CTA",
+    "solution_name": "CTA-5007-B Compliant Secure Media Delivery",
+    "solution_version": "v1.0.0",
     "@aws-cdk/customresources:installLatestAwsSdkDefault": false
   }
 }

@@ -1,256 +1,256 @@
-# Secure Media Delivery at the Edge on AWS
+# CTA-5007-B Secure Media Delivery
 
-The Secure Media Delivery at the Edge solution protects your premium video content delivered through Amazon CloudFront from unauthorized access. The solution offers an additional layer of security based on individual access tokens added to the delivery URL. Existing or new CloudFront configurations used for Live Streaming and VOD workloads can benefit from this solution, whereby streaming operations engineers can control access to video assets by issuing individual tokens for each authorized viewer, verified at the Edge by CloudFront Functions.
+COSE MAC0 / CWT token-based content protection for Amazon CloudFront, implementing the CTA-5007-B Common Access Token specification.
 
-> **CTA-5007-B Variant**: A CTA-5007-B compliant implementation using COSE MAC0 / CWT tokens with CloudFront Functions `cf.cwt.validateToken()` is available in the [`cta-compliant-solution/`](cta-compliant-solution/) directory. It includes Node.js, Python, and Ruby SDKs, an interactive demo with HLS.js + DASH.js players, AI-powered auto-revocation via Bedrock, and a revocation dashboard.
+## Features
 
-## On this Page
-- [Secure Media Delivery at the Edge on AWS](#secure-media-delivery-at-the-edge-on-aws)
-  - [On this Page](#on-this-page)
-  - [Architecture Overview](#architecture-overview)
-  - [Deployment](#deployment)
-  - [WorkFlow Overview](#workflow-overview)
-    - [Base module:](#base-module)
-    - [API Module:](#api-module)
-    - [Auto session revocation module](#auto-session-revocation-module)
-  - [Solution components](#solution-components)
-    - [Base Module](#base-module-1)
-    - [Key Rotation workflow](#key-rotation-workflow)
-    - [API Module](#api-module-1)
-    - [Auto session revocation module](#auto-session-revocation-module-1)
-  - [Creating a custom build](#creating-a-custom-build)
-    - [Prerequisites:](#prerequisites)
-    - [Options 1: Deploying through the CDK.](#options-1-deploying-through-the-cdk)
-      - [1. Clone the repo.](#1-clone-the-repo)
-      - [2. Install the dependencies of the project to make it ready to use. To do so, simply run the below command.](#2-install-the-dependencies-of-the-project-to-make-it-ready-to-use-to-do-so-simply-run-the-below-command)
-      - [3. Run the built-in wizard which will prompt you with questions about the modules to deploy](#3-run-the-built-in-wizard-which-will-prompt-you-with-questions-about-the-modules-to-deploy)
-      - [4. Ensure that the AWS CDK has been bootsrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.](#4-ensure-that-the-aws-cdk-has-been-bootsrapped-on-the-target-account-this-is-typically-the-case-if-you-have-never-used-aws-cdk-before-on-the-account)
-      - [5. Deploy the solution using the following command.](#5-deploy-the-solution-using-the-following-command)
-    - [Option 2: Generate a CloudFormation template.](#option-2-generate-a-cloudformation-template)
-      - [1. Clone the repo](#1-clone-the-repo-1)
-      - [2. Running unit tests for customization](#2-running-unit-tests-for-customization)
-      - [3. Create an Amazon S3 Bucket](#3-create-an-amazon-s3-bucket)
-      - [4. Create the deployment packages](#4-create-the-deployment-packages)
-      - [5. Launch the CloudFormation template.](#5-launch-the-cloudformation-template)
-  - [License](#license)
-  - [Information](#information)
-  - [Requirements](#requirements)
+- **Spec-compliant tokens**: COSE MAC0 structure with HMAC-SHA256, validated by CloudFront Functions `cf.cwt.validateToken()`
+- **Multi-language SDKs**: Node.js, Python, and Ruby — all produce byte-identical tokens
+- **Path-based token delivery**: `/{TOKEN}/video/stream.m3u8` with automatic token stripping at the edge
+- **Client-side token renewal**: Player swaps expired path tokens for fresh ones without interrupting playback
+- **Session revocation**: Instant token blocking via CloudFront KeyValueStore
+- **IP and country restrictions**: Enforced at the edge using `event.viewer.ip` and `CloudFront-Viewer-Country`
+- **Interactive demo**: Aura-styled website with HLS.js + DASH.js players, token generation, renewal, and revocation
+- **Real-time log analysis**: Kinesis Data Stream → Lambda → Bedrock Nova Lite for AI-powered session anomaly detection
+- **Auto-revocation**: Suspicious sessions flagged by Bedrock are automatically revoked in CloudFront KeyValueStore
+- **Revocation dashboard**: Aura-styled dashboard showing revoked sessions with editable Bedrock analysis prompts
+- **KVS cleanup**: Scheduled Lambda purges expired revocation entries from KeyValueStore
 
-## Architecture Overview
-
-<div align="center">
-  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0.jpg" />
-  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
-</div>
-
-Deploying Secure Media Delivery solution in your environment will produce following infrastructure. 
-
-
-## Deployment
-
-The solution is deployed using a CloudFormation template. For details on deploying the solution please see the details on the solution home page: [Secure Media Delivery at the Edge](https://aws.amazon.com/solutions/implementations/secure-media-delivery-at-the-edge/)
-
-## WorkFlow Overview 
-
-Customers can deploy the solution to protect their video stream from unauthorized access by adding a cookie-less tokenization embedded in the URL path.
-
-The solution can be deployed though CDK or by using a pre generated CloudFormation template.
-With CDK, you can selectively choose which modules and elements should be deployed for each new stack you create:
-  - Base module (always deployed)
-  - API module (optional)
-  - Demo website (optional)
-  - Auto session revocation (optional)
-
-HTML guide [here](https://docs.aws.amazon.com/solutions/latest/secure-media-delivery-at-the-edge/welcome.html)
-PDF guide [here](https://docs.aws.amazon.com/solutions/latest/secure-media-delivery-at-the-edge/secure-media-delivery-at-the-edge.pdf)
-
-### Base module:
-1.	An Amazon CloudFront Function that validates secure tokens, permitting or denying access to video content
-2.	An AWS Secrets Manager stored secrets holding signing keys for generating and validating viewers’ tokens
-3.	An AWS Step Functions workflow that coordinates key rotation process
-4.	An AWS WAF Rule Group containing the list of playback sessions that should be blocked as they get identified as compromised
-5.	An Amazon API Gateway public API used to process the requests to generate the tokens for video playback and to manually revoke specified playback sessions
-6.	An AWS Lambda Function associated with API Gateway that generate the token for video playback based on the retrieved metadata about the video assets and token parameters
-7.	Solution provided library, providing the necessary methods to generate the tokens, imported in the AWS Lambda Function
-
-### API Module:
-
-8.	An Amazon DynamoDB table storing metadata about video assets and corresponding parameters used to generate the tokens
-9.	An Amazon CloudFront distribution delivering the traffic from API Gateway and deliver demo website when enabled
-10.	Lambda@Edge function which signs outgoing requests towards API Gateway according to SigV4 specification
-11.	Demo website (when enabled) with video player embedded in it
-12.	Amazon S3 bucket storing static assets for demo website
-
-### Auto session revocation module
-
-13.	An Amazon EventBridge rule that runs periodically to invoke session revocation workflow in AWS Step Functions
-14.	Lambda functions invoked in Step Functions workflow that produce SQL query submitted to Amazon Athena, then to obtain the results from Athena and push move them forward in the processing pipeline
-15.	Amazon Athena executing SQL queries against CloudFront access logs to list the suspicious video playback session ids with abnormal traffic characteristics
-16.	 An Amazon DynamoDB table revocation list storing session ids that have been submitted to be revoked with additional information
-17.	Lambda function which compiles a final list of the playback sessions marked to be blocked and updates AWS WAF Rule Group with the appropriate rules matching selected sessions
-
-## Solution components
-
-### Base Module
-
-<div align="center">
-  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_base.jpg" />
-  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
-</div>
-
-Base module includes the solution components which are core and central to the solution, while rest of the modules expands on it.
-
-### Key Rotation workflow
-
-<div align="center">
-  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_key_rotation.jpg" />
-  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
-</div>
-
-This pipeline is initiated first time after the base module stack is deployed and after that periodically according to the key rotation setting specified when launching the solution. The configuration on when the key rotation process should be initiated is saved as EventBridge rule. Any time that workflow is initiated, the subsequent steps are controlled via AWS Step Functions workflow with the steps as depicted above.
-
-### API Module
-
-<div align="center">
-  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_apis.jpg" />
-  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
-</div>
-
-API Module is made available in the solution to represent an example of how to integrate token management process into playback API section of customer architecture. The central element of this module is API Gateway with two Lambda integrations responsible for performing token related operations, namely generate the token and revoke given session it. 
-
-### Auto session revocation module
-
-<div align="center">
-  <img src="source/assets/diagrams/architecture-diagram-v_1-0_0_auto_session.jpg" />
-  <div align="center"><sub>Secure media stream delivery (click to enlarge)</sub></div>
-</div>
-
-Auto session revocation module design leverages AWS Step Functions to coordinate this entire multi step process. Predefined workflow is invoked periodically as specified in the created EventBridge rule – for ongoing video delivery streaming it is reasonable to set that periodicity at the range of few minutes to reduce the time it takes to detect and block the suspicious sessions. 
-
-Note that before using auto revocation module, collection of access logs to S3 must be configured for each CloudFront distribution, the traffic of which should be analyzed through this process. It is also required to set up a database and a table in Athena referencing access logs in the S3 bucket.
-
-## Creating a custom build
-
-Before getting started, verify that your configuration matches the [list of requirements](#-requirements). 
-### Prerequisites:
-* [AWS Command Line Interface](https://aws.amazon.com/cli/)
-* Node.js 22.x or later
-* AWS CDK 2.79.1
-
-The are 2 options for deploying the solution: using the CDK deployment tools or running the build script to generate a CFN template and the packaged lambda code.
-
-### Options 1: Deploying through the CDK.
-This options simply flollows the standard CDK deployment process. You will need to run `cdk bootstrap` before you run cdk deploy the first time to setup the cdk resource in your AWS account. Details on using the CDK can be found [here].
-
-#### 1. Clone the repo.
-
-
-#### 2. Install the dependencies of the project to make it ready to use. To do so, simply run the below command.
-
-On Linux
-
-  ```bash
-  cd source
-  ./install_dependencies.sh
-  ```
-On Windows
-  
-  ```bash
-  cd source
-  ./install_dependencies.ps1
-  ```
-
-
-#### 3. Run the built-in wizard which will prompt you with questions about the modules to deploy
-
-
-  ```bash
-  npm run wizard
-  ```
-
-The wizard will then generate a configuration in the `solution.context.json` file that is at the root of this repository. 
-
-
-#### 4. Ensure that the AWS CDK has been bootsrapped on the target account, this is typically the case if you have never used AWS CDK before on the account.
+## Quick Start
 
 ```bash
-npx cdk bootstrap
+cd source
+npm install
+npx cdk bootstrap    # First time only
+npx cdk deploy CTASecureMedia -c enableDemo=true
 ```
 
-  > You only need to bootstrap the target account once, you can then dismiss this step. If you're planning on using multiple regions, the bootstrap process must be done for each AWS region.
+The demo website URL and API endpoint are printed in the stack outputs.
 
-#### 5. Deploy the solution using the following command.
+## Architecture
+
+```
+Browser (HLS.js / DASH.js)
+  │
+  ├─ GET /{TOKEN}/video/stream.m3u8
+  │     ↓
+  │  CloudFront (default behavior)
+  │     → CTA Validator Function (cf.cwt.validateToken)
+  │        → Validates COSE MAC0 signature
+  │        → Checks exp, catu (URI), catnip (IP), country
+  │        → Checks revocation in KeyValueStore
+  │        → Strips token from path → forwards to origin
+  │
+  ├─ POST /token (or /token-python, /token-ruby)
+  │     ↓
+  │  API Gateway → Lambda (Node/Python/Ruby)
+  │     → Reads signing key from Secrets Manager
+  │     → Builds CWT claims, generates COSE MAC0 token via SDK
+  │     → Returns { token, signedUrl, expiresAt }
+  │
+  ├─ POST /revoke
+  │     ↓
+  │  API Gateway → Lambda
+  │     → Writes revoked:{sessionId} to KeyValueStore
+  │     → Edge enforcement within ~15 seconds
+  │
+  └─ Real-Time Log Pipeline
+        CloudFront Real-Time Logs → Kinesis Data Stream
+           → Lambda (kinesis_analyzer)
+              → Aggregates session metrics
+              → Sends to Bedrock Nova Lite/Pro for analysis
+              → Auto-revokes flagged sessions in KVS
+
+Dashboard (/website/dashboard.html)
+  ├─ GET /revoked → Lists revoked sessions from KVS
+  ├─ GET /prompt → Reads Bedrock analysis prompt from SSM
+  └─ PUT /prompt → Updates Bedrock analysis prompt in SSM
+```
+
+## Token Structure
+
+Tokens follow the COSE MAC0 / CWT structure per RFC 8152 and RFC 8392:
+
+```
+Tag(61) CWT {
+  Tag(17) COSE_Mac0 {
+    [ protectedHeaders, unprotectedHeaders, payload, hmacTag ]
+  }
+}
+```
+
+### CWT Claims
+
+| Claim | Key | Description |
+|-------|-----|-------------|
+| `iss` | 1 | Issuer identifier |
+| `exp` | 4 | Expiration (Unix timestamp) |
+| `nbf` | 5 | Not before (Unix timestamp) |
+| `iat` | 6 | Issued at (Unix timestamp) |
+| `cti` | 7 | Token ID (session ID for revocation) |
+| `catu` | 401 | URI restrictions (path prefix matching) |
+| `catnip` | 402 | IP restrictions (array of allowed IPs) |
+| `catgeoiso3166` | 316 | Country restrictions (ISO 3166-1 codes) |
+
+## SDKs
+
+All three SDKs expose the same API and produce byte-identical COSE MAC0 tokens.
+
+### Node.js
+
+```javascript
+const { CTAClient } = require('./sdk/javascript/cta-client');
+
+const client = new CTAClient('CTASecureMedia');
+await client.initSecretsManager();
+await client.getSigningKeys();
+
+const result = client.generateSignedUrl(
+  'https://cdn.example.com/video/stream.m3u8',
+  { paths: ['/video/'], ttl: '2h', sessionId: 'viewer-123' }
+);
+console.log(result.signedUrl);
+```
+
+Requires `cbor-x` for CBOR encoding.
+
+### Python
+
+```python
+from cta_client import CTAClient
+
+client = CTAClient('CTASecureMedia')
+client.init_secrets_manager()
+client.get_signing_keys()
+
+result = client.generate_signed_url(
+    'https://cdn.example.com/video/stream.m3u8',
+    {'paths': ['/video/'], 'ttl': '2h', 'sessionId': 'viewer-123'}
+)
+print(result['signedUrl'])
+```
+
+Zero external dependencies — built-in CBOR encoder.
+
+### Ruby
+
+```ruby
+require_relative 'cta_client'
+
+client = CTA::Client.new('CTASecureMedia')
+client.init_secrets_manager
+client.get_signing_keys
+
+result = client.generate_signed_url(
+  'https://cdn.example.com/video/stream.m3u8',
+  { 'paths' => ['/video/'], 'ttl' => '2h', 'sessionId' => 'viewer-123' }
+)
+puts result[:signed_url]
+```
+
+Zero external dependencies — uses `openssl` from stdlib.
+
+## Token Generation API
+
+All three Lambda endpoints accept the same request format:
 
 ```bash
-npx cdk deploy --all
+curl -X POST https://<api-endpoint>/prod/token \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policy": {
+      "paths": ["/video/"],
+      "ttl": "2h",
+      "placement": "path",
+      "sessionId": "viewer-123",
+      "ips": "203.0.113.50",
+      "countries": ["us", "ca"]
+    },
+    "mediaUrl": "https://your-distribution.cloudfront.net/video/stream.m3u8"
+  }'
 ```
 
+**Endpoints:**
+- `POST /token` — Node.js SDK
+- `POST /token-python` — Python SDK
+- `POST /token-ruby` — Ruby SDK
+- `POST /revoke` — Token revocation
 
-### Option 2: Generate a CloudFormation template.
-The CloudFormation template (generated by the CDK) includes a lambda backed custom resource to configure MediaLive and create a UUID. To launch the solution the Lambda source code has to be deployed to an Amazon S3 bucket in the region you intend to deploy the solution. 
-
-#### 1. Clone the repo
-Download or clone the repo and make the required changes to the source code.
-
-#### 2. Running unit tests for customization
-Run unit tests to make sure added customization passes the tests:
-```
-cd ./deployment
-chmod +x ./run-unit-tests.sh && ./run-unit-tests.sh
-```
-
-#### 3. Create an Amazon S3 Bucket
-The CloudFormation template is configured to pull the Lambda deployment packages from Amazon S3 bucket in the region the template is being launched in. Create a bucket in the desired region with the region name appended to the name of the bucket. eg: for us-east-1 create a bucket named: `my-bucket-us-east-1`
-```
-aws s3 mb s3://my-bucket-us-east-1
+**Response:**
+```json
+{
+  "token": "2D3YEYRDoQEF...",
+  "signedUrl": "https://cdn/TOKEN/video/stream.m3u8",
+  "expiresAt": 1776881062
+}
 ```
 
-Ensure that you are owner of the AWS S3 bucket. 
-```
-aws s3api head-bucket --bucket my-bucket-us-east-1 --expected-bucket-owner YOUR-AWS-ACCOUNT-NUMBER
-```
+## Token Renewal Flow
 
-#### 4. Create the deployment packages
-Build the distributable:
-```
-chmod +x ./build-s3-dist.sh
-./build-s3-dist.sh <my-bucket> secure-media-delivery-at-the-edge <version>
-```
+1. **Initial playback**: Player loads `/{TOKEN₁}/video/stream.m3u8`
+2. **Renewal timer**: At 2/3 of TTL, player calls `POST /token` for a fresh token
+3. **Token swap**: Player replaces the old path token with the new one in segment URLs
+4. **Seamless playback**: No interruption — CloudFront validates the new token identically
 
-> **Notes**: The _build-s3-dist_ script expects the bucket name as one of its parameters. This value should not have the region suffix (remove the -us-east-1)
+## Session Revocation
 
-Deploy the distributable to the Amazon S3 bucket in your account:
-```
-aws s3 sync ./regional-s3-assets/ s3://my-bucket-us-east-1/secure-media-delivery-at-the-edge/<version>/ 
-aws s3 sync ./global-s3-assets/ s3://my-bucket-us-east-1/secure-media-delivery-at-the-edge/<version>/ 
+```bash
+curl -X POST https://<api-endpoint>/prod/revoke \
+  -H "Content-Type: application/json" \
+  -d '{"tokenId": "viewer-123", "reason": "manual"}'
 ```
 
-#### 5. Launch the CloudFormation template.
-* Get the link of the VIDEOSTREAM.template uploaded to your Amazon S3 bucket.
-* Deploy the solution.
+The revocation propagates to CloudFront edge locations via KeyValueStore within ~15 seconds. Subsequent requests with the revoked session ID receive HTTP 401.
 
+## CloudFront Distribution Layout
 
-## License
+| Path | Behavior | Origin | Auth |
+|------|----------|--------|------|
+| `/website/*` | Static site + dashboard | S3 bucket | None |
+| `/api/*` | API Gateway | REST API | None (CORS enabled) |
+| `/*` (default) | Video content | HTTP origin | CTA Validator Function |
 
-* This project is licensed under the terms of the Apache 2.0 license. See here `LICENSE`.
+The demo website is at `/website/index.html` and the revocation dashboard is at `/website/dashboard.html`.
 
-This solution collects anonymized operational metrics to help AWS improve the
-quality of features of the solution. For more information, including how to disable
-this capability, please see the [implementation guide](https://docs.aws.amazon.com/solutions/latest/live-streaming/welcome.html).
+## Key Rotation
 
-## Information
+Signing keys are stored in Secrets Manager and synced to CloudFront KeyValueStore. Rotation is handled by a Step Functions workflow:
 
-The below information displays approximate values associated with deploying and using this stack.
+1. Generates new 32-byte hex key
+2. Stores in Secrets Manager
+3. Syncs to KVS as `key:default`
+4. Preserves previous key as `key:previous` for graceful transition
 
-Metric | Value
------- | ------
-**Deployment Time** | 5-10 minutes (depending on the selected options)
-**CDK Version** | 2.95.1
+## Real-Time Log Analysis (Auto-Revocation Stack)
+
+An optional second CDK stack adds AI-powered session analysis:
+
+1. CloudFront real-time access logs stream to Kinesis Data Streams
+2. A Lambda consumer aggregates session metrics (IPs, countries, user agents, request rates)
+3. Bedrock Nova Lite/Pro analyzes the metrics and flags suspicious sessions
+4. Flagged sessions are automatically revoked in CloudFront KeyValueStore
+
+The analysis prompt is editable via the revocation dashboard or the Prompt API (`GET/PUT /prompt`).
+
+Deploy with:
+
+```bash
+npx cdk deploy --all -c enableAutoRevocation=true -c enableDemo=true
+```
+
+## KVS Cleanup
+
+A scheduled Lambda runs hourly to purge expired revocation entries from KeyValueStore (default TTL: 24 hours).
+
+## Stacks
+
+| Stack | Description |
+|-------|-------------|
+| `CTASecureMedia` | Main stack: CloudFront, KVS, API Gateway, Lambdas, Secrets Manager, Kinesis, Step Functions |
+| `CTAAutoRevocation` | Optional: Bedrock-powered Kinesis consumer, SSM prompt parameter, Prompt API |
 
 ## Requirements
 
-- An AWS Account ([How to create an AWS account](https://aws.amazon.com/premiumsupport/knowledge-center/create-and-activate-aws-account/?nc1=h_ls) | [How to create an AWS Organization account](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_accounts_create.html))
-- [Node JS 22+](https://nodejs.org/en/) must be installed on the deployment machine. ([Instructions](https://nodejs.org/en/download/))
-- The [AWS CDK 2.79.1](https://aws.amazon.com/en/cdk/) must be installed on the deployment machine. ([Instructions](https://docs.aws.amazon.com/cdk/latest/guide/getting_started.html))
-
-
+- Node.js 22+
+- AWS CDK v2.79.1+
+- AWS account with CloudFront Functions CWT support

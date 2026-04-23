@@ -1,113 +1,132 @@
 #!/usr/bin/env node
 
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
-
 import * as prompts from 'prompts';
 import * as fs from 'fs';
 import * as path from 'path';
 
-import { IConfiguration } from '../../helpers/validators/configuration';
-import { AutoSessionRevocationModule } from './lib/auto-session-revocation-module';
-import { PromptComponent } from './lib/prompt-component';
-import { onCancel } from './lib/handlers';
-import { MainModule } from './lib/main-module';
-import { ApiModule } from './lib/api-module';
+interface CTAConfiguration {
+  main: {
+    stackName: string;
+    region: string;
+    enableAutoRevocation: boolean;
+    revocationFrequency: string;
+    enableDemo: boolean;
+  };
+  bedrock?: {
+    model: string;
+    region: string;
+  };
+}
 
-/**
- * A question prompting for the components to deploy to the sandbox account.
- */
-const componentQuestion = {
-  type: 'multiselect',
-  name: 'value',
-  message: 'Which optional module would you like to deploy ?',
-  min: 0,
-  instructions: false,
-  hint: '- Space to select. Return to submit. \'a\' to toggle all.',
-  choices: [
-    { title: '[API]', 'value': 'b' },
-    { title: '[AUTO SESSION REVOCATION]', 'value': 'c' }
-  ]
+const onCancel = () => {
+  console.log('Deployment cancelled');
+  process.exit(0);
 };
 
-/**
- * Prompts the user whether the configuration is valid
- * and should be written.
- */
- const confirmConfigurationQuestion = {
-  type: 'confirm',
-  name: 'value',
-  message: 'Please check your choices before saving the current configuration. Would you like to use it ?'
-};
+const questions = [
+  {
+    type: 'text',
+    name: 'stackName',
+    message: 'Stack name for CTA deployment:',
+    initial: 'CTASecureMedia',
+    validate: (value: string) => value.length > 0 || 'Stack name required'
+  },
+  {
+    type: 'select',
+    name: 'region',
+    message: 'AWS Region:',
+    choices: [
+      { title: 'us-east-1 (N. Virginia)', value: 'us-east-1' },
+      { title: 'us-west-2 (Oregon)', value: 'us-west-2' },
+      { title: 'eu-west-1 (Ireland)', value: 'eu-west-1' },
+      { title: 'ap-southeast-1 (Singapore)', value: 'ap-southeast-1' }
+    ],
+    initial: 0
+  },
+  {
+    type: 'confirm',
+    name: 'enableDemo',
+    message: 'Deploy demo website?',
+    initial: true
+  },
+  {
+    type: 'confirm',
+    name: 'enableAutoRevocation',
+    message: 'Enable AI-powered auto-revocation?',
+    initial: true
+  },
+  {
+    type: ((prev: any, values: any) => values.enableAutoRevocation ? 'select' : null) as any,
+    name: 'revocationFrequency',
+    message: 'Auto-revocation frequency:',
+    choices: [
+      { title: '5 minutes', value: '5m' },
+      { title: '10 minutes', value: '10m' },
+      { title: '30 minutes', value: '30m' },
+      { title: '1 hour', value: '1h' }
+    ],
+    initial: 1
+  },
+  {
+    type: ((prev: any, values: any) => values.enableAutoRevocation ? 'select' : null) as any,
+    name: 'bedrockModel',
+    message: 'Bedrock model for analysis:',
+    choices: [
+      { title: 'Nova Pro (recommended)', value: 'amazon.nova-pro-v1:0' },
+      { title: 'Nova Lite (faster/cheaper)', value: 'amazon.nova-lite-v1:0' }
+    ],
+    initial: 0
+  },
+  {
+    type: ((prev: any, values: any) => values.enableAutoRevocation ? 'select' : null) as any,
+    name: 'bedrockRegion',
+    message: 'Bedrock region:',
+    choices: [
+      { title: 'us-east-1', value: 'us-east-1' },
+      { title: 'us-west-2', value: 'us-west-2' }
+    ],
+    initial: 0
+  }
+];
 
-/**
- * A map between component identifiers and their instance.
- */
-const moduleMap: { [key: string]: PromptComponent } = {
-  'a': new MainModule(),
-  'b': new ApiModule(),
-  'c': new AutoSessionRevocationModule(),
-};
-
-
-/**
- * Prompts the user for different information and
- * returns the gathered configuration.
- */
-const getConfiguration = async (): Promise<IConfiguration> => {
-  const configuration: IConfiguration = { 
-    "main": {
-      "stack_name": "MYSTREAM",
-      "rotate_secrets_frequency": "1m",
-      "rotate_secrets_pattern": "P",
-      "wcu": "100",
-      "retention": "5", 
-      "metrics": true
+async function main() {
+  console.log('🔐 CTA-5007-B Secure Media Delivery Setup\n');
+  
+  const answers = await prompts(questions as any, { onCancel });
+  
+  const config: CTAConfiguration = {
+    main: {
+      stackName: answers.stackName,
+      region: answers.region,
+      enableAutoRevocation: answers.enableAutoRevocation,
+      revocationFrequency: answers.revocationFrequency || '10m',
+      enableDemo: answers.enableDemo
     }
   };
-
-  const mainComponent = new Array('a');
-
-  const components: Array<string>     = (await prompts.prompt(componentQuestion, { onCancel })).value;
-  const allComponents = mainComponent.concat(components);
-
-  // Iterating over the component prompts.
-  for (const item of allComponents) {
-    const moduleImpl = moduleMap[item];
-
-    if (moduleImpl) {
-      try {
-        await moduleImpl.prompt(configuration);
-      } catch (e) {
-        console.log((e as Error).message);
-        process.exit(0);
-      }
-    }
-  }
-  configuration.main.metrics = true;
-  return (configuration);
-};
-
-(async () => {
-  const configuration = await getConfiguration();
   
-  // The pretty-printed version of the configuration.
-  const data = JSON.stringify(configuration, null, 2);
-  
-
-  console.log("\n--------------------- Summary -------------------\n")
-  // Prompting the user to confirm.
-  const confirmation = await prompts.prompt(confirmConfigurationQuestion);
-
-  if (!confirmation.value) {
-    console.log(`The configuration has been rejected, exiting.`);
-    process.exit(0);
+  if (answers.enableAutoRevocation) {
+    config.bedrock = {
+      model: answers.bedrockModel,
+      region: answers.bedrockRegion
+    };
   }
+  
+  // Write configuration
+  const configPath = path.resolve(__dirname, '..', '..', '..', 'cta.config.json');
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  
+  console.log('\n✅ Configuration saved to cta.config.json');
+  console.log('\n📋 Summary:');
+  console.log(`   Stack: ${config.main.stackName}`);
+  console.log(`   Region: ${config.main.region}`);
+  console.log(`   Demo Site: ${config.main.enableDemo ? 'Yes' : 'No'}`);
+  console.log(`   Auto-Revocation: ${config.main.enableAutoRevocation ? 'Yes' : 'No'}`);
+  
+  if (config.bedrock) {
+    console.log(`   Bedrock Model: ${config.bedrock.model}`);
+  }
+  
+  console.log('\n🚀 Ready to deploy! Run: npx cdk deploy');
+}
 
-  // The path to the configuration file.
-  const filePath = path.resolve(__dirname, '..', '..', '..', 'solution.context.json');
-
-  // Writing the configuration.
-  fs.writeFileSync(filePath, data);
-  console.log(`\nThe configuration has been successfully written to ${filePath}.\nYou can now deploy the solution by running :\n\nnpx cdk deploy`);
-})();
+main().catch(console.error);

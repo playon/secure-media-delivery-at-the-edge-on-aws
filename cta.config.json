@@ -1,0 +1,12 @@
+{
+  "main": {
+    "stackName": "CTASecureMedia",
+    "region": "us-east-1",
+    "enableAutoRevocation": true,
+    "enableDemo": true
+  },
+  "bedrock": {
+    "model": "amazon.nova-lite-v1:0",
+    "region": "us-east-1"
+  }
+}

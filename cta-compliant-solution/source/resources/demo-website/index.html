@@ -38,7 +38,7 @@
 
         /* Video player */
         .player-wrap { position: relative; width: 100%; border-radius: 8px; overflow: hidden; background: #000; aspect-ratio: 16/9; }
-        .player-wrap video { width: 100%; height: 100%; display: block; }
+        .player-wrap video { width: 100%; height: 100%; display: block; max-height: 100%; object-fit: contain; }
 
         /* Controls card */
         .card { background: #f8f8fa; border: 1px solid #e9ebed; border-radius: 8px; padding: 24px; margin-top: 32px; }
@@ -264,6 +264,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="config.js"></script>
 <script src="cta-client.js"></script>
 <script>
 const API_ENDPOINT = window.CTA_CONFIG?.apiEndpoint || '';
@@ -460,6 +461,10 @@ function loadDash(signedUrl) {
     const video = document.getElementById('video');
     if (hls) { hls.destroy(); hls = null; }
     if (dashPlayer) { dashPlayer.destroy(); dashPlayer = null; }
+    video.removeAttribute('width');
+    video.removeAttribute('height');
+    video.style.width = '100%';
+    video.style.height = '100%';
 
     let reqCount = 0;
     dashPlayer = dashjs.MediaPlayer().create();
@@ -511,23 +516,19 @@ async function revokeToken() {
 
 log('🔐 CTA-5007-B Demo Ready');
 
-// Populate fields from deployment config
-if (window.CTA_CONFIG) {
-    const c = window.CTA_CONFIG;
-    document.getElementById('streamUrl').value = c.hlsUrl || '';
-    document.getElementById('pathRestriction').value = c.hlsPath || '';
-}
+const CDN = window.CTA_CONFIG?.cdnDomain || '';
+const STREAMS = {
+    hls: { url: CDN + '/securemedia/index.m3u8', path: '/securemedia/' },
+    dash: { url: CDN + '/securemedia/index.mpd', path: '/securemedia/' }
+};
+
+document.getElementById('streamUrl').value = STREAMS.hls.url;
+document.getElementById('pathRestriction').value = STREAMS.hls.path;
 
 function switchPlayer() {
-    const c = window.CTA_CONFIG || {};
     const type = document.getElementById('playerType').value;
-    if (type === 'dash') {
-        document.getElementById('streamUrl').value = c.dashUrl || '';
-        document.getElementById('pathRestriction').value = c.dashPath || '';
-    } else {
-        document.getElementById('streamUrl').value = c.hlsUrl || '';
-        document.getElementById('pathRestriction').value = c.hlsPath || '';
-    }
+    document.getElementById('streamUrl').value = STREAMS[type].url;
+    document.getElementById('pathRestriction').value = STREAMS[type].path;
 }
 
 // Detect public IP for display — not auto-filled because IPv6 privacy

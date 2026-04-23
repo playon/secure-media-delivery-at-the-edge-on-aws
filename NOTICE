@@ -828,3 +828,17 @@ thingies                                                                Unlicens
 tree-dump                                                               Apache-2.0
 ws                                                                      MIT
 aws-secure-media-delivery                                               Apache-2.0
+
+**********************
+CTA-5007-B Demo Website Bundled Libraries
+**********************
+
+hls.js v1.5.17
+Copyright (c) 2017 Dailymotion (http://www.dailymotion.com)
+Licensed under the Apache License, Version 2.0
+https://github.com/video-dev/hls.js/blob/master/LICENSE
+
+dash.js v5.1.1
+Copyright (c) 2015, Dash Industry Forum
+Licensed under the BSD 3-Clause License
+https://github.com/Dash-Industry-Forum/dash.js/blob/development/LICENSE.md

@@ -4,6 +4,7 @@
     "solution_id": "SO0195-CTA",
     "solution_name": "CTA-5007-B Compliant Secure Media Delivery",
     "solution_version": "v1.0.0",
-    "@aws-cdk/customresources:installLatestAwsSdkDefault": false
+    "@aws-cdk/customresources:installLatestAwsSdkDefault": false,
+    "@aws-cdk/aws-apigateway:disableCloudWatchRole": true
   }
 }

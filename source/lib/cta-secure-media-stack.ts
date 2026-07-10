@@ -212,6 +212,13 @@ export class CTASecureMediaStack extends Stack {
         allowMethods: apigateway.Cors.ALL_METHODS,
       },
     });
+    // Belt-and-suspenders: even with cloudWatchRole:false AND the
+    // @aws-cdk/aws-apigateway:disableCloudWatchRole feature flag in cdk.json,
+    // something in this stack was still emitting the Account resource in the
+    // synthesized template. Force-remove any lingering child so it can't reach
+    // CloudFormation and re-trip the SCP.
+    api.node.tryRemoveChild("Account");
+    api.node.tryRemoveChild("CloudWatchRole");
 
     const tokenResource = api.root.addResource("token");
     tokenResource.addMethod("POST", new apigateway.LambdaIntegration(generator));

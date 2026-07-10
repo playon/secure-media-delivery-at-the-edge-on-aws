@@ -77,12 +77,20 @@ export class CTASecureMediaStack extends Stack {
     });
 
     // CTA validator function
+    //
+    // Explicit addDependency on the KVS: CloudFront KeyValueStore is a
+    // two-phase AWS resource (Provisioning → Ready), and the L2 construct
+    // returns the ARN before the store is Ready. Without this dependency,
+    // CDK can order the CF Function's KeyValueStoreAssociations first and
+    // CloudFormation fails with "cannot be associated before the resource
+    // is provisioned."
     const validator = new cloudfront.Function(this, "CTAValidator", {
       code: cloudfront.FunctionCode.fromFile({ filePath: "lambda/cta_token_validator.js" }),
       functionName: `${Aws.STACK_NAME}-CTA-Validator`,
       runtime: cloudfront.FunctionRuntime.JS_2_0,
       keyValueStore: this.kvStore,
     });
+    validator.node.addDependency(this.kvStore);
 
     // Token generator (Node SDK)
     const generator = new lambda.Function(this, "CTAGenerator", {
@@ -189,8 +197,16 @@ export class CTASecureMediaStack extends Stack {
     });
 
     // API Gateway
+    //
+    // cloudWatchRole: false — CDK's default (true in older 2.x) auto-creates
+    // an AWS::ApiGateway::Account resource to set the account-wide CloudWatch
+    // Logs role. Our AWS org's SCP explicitly denies apigateway:PATCH on
+    // arn:aws:apigateway:*::/account, so leaving CDK's default on causes the
+    // whole stack to fail. Per-stage access-log destination (if we want it
+    // later) doesn't need the account-level role and isn't blocked.
     const api = new apigateway.RestApi(this, "CTAAPI", {
       restApiName: "CTA Token API",
+      cloudWatchRole: false,
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: apigateway.Cors.ALL_METHODS,

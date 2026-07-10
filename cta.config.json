@@ -2,7 +2,7 @@
   "main": {
     "stackName": "CTASecureMedia",
     "region": "us-east-1",
-    "enableAutoRevocation": true,
+    "enableAutoRevocation": false,
     "enableDemo": true
   },
   "bedrock": {

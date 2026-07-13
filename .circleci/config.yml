@@ -1,0 +1,146 @@
+version: 2.1
+
+# CircleCI pipeline for the CTASecureMedia CDK stack.
+#
+# Fork of aws-solutions-library-samples/secure-media-delivery-at-the-edge-on-aws.
+# See VID-3417 for context on the CTA-5007-B CWT pivot and stage deploy.
+#
+# Trigger: every push to `cwt` runs test + synth. Deploy to stage and
+# prod are each gated by a manual approval job. Prod is a placeholder
+# until CTA rollout gets past the initial stage-only phase — the deploy
+# job intentionally no-ops until the prod IAM role + real deploy step
+# are wired.
+#
+# AWS auth: CircleCI OIDC (short-lived, no static keys). The CI job
+# exchanges $CIRCLE_OIDC_TOKEN for temporary creds via
+# sts:AssumeRoleWithWebIdentity. Both role ARNs come from CircleCI
+# contexts (PLAYON_VIDEO_AWS_STAGE / PLAYON_VIDEO_AWS_PROD).
+#
+# See docs/CIRCLECI.md for the DO ticket + IAM trust policy needed to
+# provision the OIDC role.
+
+commands:
+  cdk_setup:
+    description: Checkout + install source deps (postinstall runs build + lambda:install)
+    steps:
+      - checkout
+      - run:
+          name: npm ci (source)
+          working_directory: source
+          command: npm ci --no-audit --no-fund
+
+  assume_aws_role:
+    description: Exchange CircleCI OIDC token for temporary AWS creds
+    parameters:
+      role_arn_var:
+        type: string
+        description: Env var holding the target IAM role ARN (set from context)
+    steps:
+      - run:
+          name: sts:AssumeRoleWithWebIdentity via OIDC
+          command: |
+            set -euo pipefail
+            : "${<< parameters.role_arn_var >>:?role arn env var missing}"
+            : "${CIRCLE_OIDC_TOKEN:?CircleCI OIDC token missing}"
+            CREDS=$(aws sts assume-role-with-web-identity \
+              --role-arn "${<< parameters.role_arn_var >>}" \
+              --role-session-name "circleci-${CIRCLE_BUILD_NUM}" \
+              --web-identity-token "${CIRCLE_OIDC_TOKEN}" \
+              --duration-seconds 3600 \
+              --query 'Credentials' --output json)
+            echo "export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)" >> "$BASH_ENV"
+            echo "export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)" >> "$BASH_ENV"
+            echo "export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)" >> "$BASH_ENV"
+            echo "export AWS_REGION=us-east-1" >> "$BASH_ENV"
+
+jobs:
+  test:
+    docker:
+      - image: cimg/node:22.11
+    steps:
+      - cdk_setup
+      - run:
+          name: jest --passWithNoTests
+          working_directory: source
+          command: npm test -- --passWithNoTests
+
+  synth:
+    docker:
+      - image: cimg/node:22.11
+    steps:
+      - cdk_setup
+      - run:
+          name: cdk synth CTASecureMedia
+          working_directory: source
+          command: npx cdk synth CTASecureMedia
+      - store_artifacts:
+          path: source/cdk.out
+          destination: cdk.out
+
+  deploy-stage:
+    docker:
+      - image: cimg/node:22.11
+    steps:
+      - cdk_setup
+      - assume_aws_role:
+          role_arn_var: CTA_AWS_STAGE_ROLE_ARN
+      - run:
+          name: cdk deploy CTASecureMedia (stage)
+          working_directory: source
+          command: npx cdk deploy CTASecureMedia --require-approval never
+
+  deploy-prod:
+    docker:
+      - image: cimg/node:22.11
+    steps:
+      - run:
+          name: Prod deploy not yet wired
+          command: |
+            echo "Prod pipeline is a skeleton placeholder — CTA is stage-only"
+            echo "through the initial rollout. Wire the real deploy step and"
+            echo "the PLAYON_VIDEO_AWS_PROD context when promoting to prod."
+            echo "See VID-3417 / the CTA epic for context."
+
+workflows:
+  cta-secure-media:
+    jobs:
+      - test:
+          filters:
+            branches:
+              only: cwt
+      - synth:
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - test
+
+      - approve-stage:
+          type: approval
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - synth
+      - deploy-stage:
+          context:
+            - PLAYON_VIDEO_AWS_STAGE
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - approve-stage
+
+      - approve-prod:
+          type: approval
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - deploy-stage
+      - deploy-prod:
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - approve-prod

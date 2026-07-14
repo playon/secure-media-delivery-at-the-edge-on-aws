@@ -289,6 +289,25 @@ export class CTASecureMediaStack extends Stack {
       }],
     });
 
+    // VID-3434: rewrite /api/foo → /foo before the /api/* behavior forwards
+    // to APIGW. RestApiOrigin sets originPath = /prod, so without this the
+    // request would arrive at APIGW as /prod/api/token and 403 against
+    // APIGW's /prod/token route. Stripping /api at the edge keeps the
+    // public URL shape (/api/token) and lets APIGW's routes stay clean.
+    const apiPathRewriter = new cloudfront.Function(this, "CTAApiPathRewriter", {
+      functionName: `${Aws.STACK_NAME}-api-path-rewriter`,
+      runtime: cloudfront.FunctionRuntime.JS_2_0,
+      code: cloudfront.FunctionCode.fromInline(
+        "function handler(event) {\n" +
+        "  var req = event.request;\n" +
+        "  if (req.uri.indexOf('/api/') === 0) {\n" +
+        "    req.uri = req.uri.substring(4);\n" +
+        "  }\n" +
+        "  return req;\n" +
+        "}\n"
+      ),
+    });
+
     // Demo website (conditional)
     let distribution: cloudfront.Distribution;
     let demoBucket: s3.Bucket | undefined;
@@ -329,6 +348,10 @@ export class CTASecureMediaStack extends Stack {
             allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
             cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
             originRequestPolicy: cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
+            functionAssociations: [{
+              function: apiPathRewriter,
+              eventType: cloudfront.FunctionEventType.VIEWER_REQUEST,
+            }],
           },
           "/website/*": {
             origin: S3BucketOrigin.withOriginAccessControl(demoBucket),

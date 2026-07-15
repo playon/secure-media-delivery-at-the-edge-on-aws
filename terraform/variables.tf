@@ -1,0 +1,39 @@
+variable "account_id" {
+  type        = string
+  description = "Target AWS account id. Guards against workspace/tfvars mismatch."
+  nullable    = false
+}
+
+variable "region" {
+  type        = string
+  description = "AWS region for all resources."
+  default     = "us-east-1"
+  nullable    = false
+}
+
+variable "environment" {
+  type        = string
+  description = "Deployment environment (nfhs-staging | nfhs-prod)."
+  nullable    = false
+}
+
+variable "name_prefix" {
+  type        = string
+  description = "Prefix for named resources (function, key group, WebACL, etc.)."
+  default     = "cta-secure-media"
+  nullable    = false
+}
+
+variable "signing_key_length" {
+  type        = number
+  description = "HMAC signing key length. 64 matches the CDK reference solution."
+  default     = 64
+  nullable    = false
+}
+
+variable "token_ttl_default" {
+  type        = string
+  description = "Default TTL for minted tokens (parseable by the token generator: e.g. 2h, 30m). Passed to the mint Lambda as an env var."
+  default     = "2h"
+  nullable    = false
+}

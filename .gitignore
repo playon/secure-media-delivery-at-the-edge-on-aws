@@ -5,3 +5,10 @@ cta-session.json
 source/dist/
 source/cdk.out/
 source/solution.context.json
+
+# Terraform state (backend is remote; local state files should never be committed)
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate*
+tfplan-*.binary
+tfplan-*.json

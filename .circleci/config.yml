@@ -81,12 +81,22 @@ commands:
             echo "export AWS_REGION=us-east-1" >> "$BASH_ENV"
 
 jobs:
-  # fmt + validate — no AWS creds needed, runs on every push
+  # fmt + validate — no AWS creds, runs on every branch so PRs get
+  # signal before merge. Skips gracefully if terraform/ doesn't exist
+  # yet (relevant on cwt HEAD between merging this PR and the
+  # VID-3439 port PR #4).
   static-checks:
     docker:
       - image: cimg/base:2024.11
     steps:
       - checkout
+      - run:
+          name: Skip if terraform/ absent (VID-3439 port not yet merged)
+          command: |
+            if [ ! -d terraform ]; then
+              echo "terraform/ not present on this ref — skipping static checks."
+              circleci-agent step halt
+            fi
       - install_terraform
       - run:
           name: terraform fmt -check -recursive
@@ -179,11 +189,11 @@ jobs:
 workflows:
   cta-secure-media:
     jobs:
-      - static-checks:
-          filters:
-            branches:
-              only: cwt
+      # Runs on ALL branches so PRs targeting cwt get fmt+validate
+      # signal before merge. No AWS creds so it's cheap and safe.
+      - static-checks
 
+      # Plan + apply stay gated to cwt only. PR branches never touch AWS.
       - plan-stage:
           context:
             - PLAYON_VIDEO_AWS_STAGE

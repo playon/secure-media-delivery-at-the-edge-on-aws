@@ -32,10 +32,10 @@ Each account (stage first, prod later) needs:
 **1. OIDC identity provider** — one per account, already present if any other CircleCI-managed workload uses OIDC in the account. Provider URL:
 
 ```
-https://oidc.circleci.com/org/<PLAYON_CIRCLECI_ORG_UUID>
+https://oidc.circleci.com/org/7977265f-fff8-4794-b8aa-b86b11ae1eb7
 ```
 
-Client ID: `<PLAYON_CIRCLECI_ORG_UUID>`
+Client ID: `7977265f-fff8-4794-b8aa-b86b11ae1eb7`
 
 **2. IAM role** — one per account. Suggested name: `ctaSecureMediaCircleCIDeploy`.
 
@@ -47,15 +47,15 @@ Trust policy:
   "Statement": [{
     "Effect": "Allow",
     "Principal": {
-      "Federated": "arn:aws:iam::<ACCOUNT>:oidc-provider/oidc.circleci.com/org/<PLAYON_CIRCLECI_ORG_UUID>"
+      "Federated": "arn:aws:iam::<ACCOUNT>:oidc-provider/oidc.circleci.com/org/7977265f-fff8-4794-b8aa-b86b11ae1eb7"
     },
     "Action": "sts:AssumeRoleWithWebIdentity",
     "Condition": {
       "StringEquals": {
-        "oidc.circleci.com/org/<PLAYON_CIRCLECI_ORG_UUID>:aud": "<PLAYON_CIRCLECI_ORG_UUID>"
+        "oidc.circleci.com/org/7977265f-fff8-4794-b8aa-b86b11ae1eb7:aud": "7977265f-fff8-4794-b8aa-b86b11ae1eb7"
       },
       "StringLike": {
-        "oidc.circleci.com/org/<PLAYON_CIRCLECI_ORG_UUID>:sub": "org/<PLAYON_CIRCLECI_ORG_UUID>/project/<PLAYON_CIRCLECI_PROJECT_UUID>/user/*/vcs-origin/github.com/playon/secure-media-delivery-at-the-edge-on-aws/vcs-ref/refs/heads/cwt"
+        "oidc.circleci.com/org/7977265f-fff8-4794-b8aa-b86b11ae1eb7:sub": "org/7977265f-fff8-4794-b8aa-b86b11ae1eb7/project/79321557-ab72-4422-9ccd-d7f579db2f1a/user/*/vcs-origin/github.com/playon/secure-media-delivery-at-the-edge-on-aws/vcs-ref/refs/heads/cwt"
       }
     }
   }]

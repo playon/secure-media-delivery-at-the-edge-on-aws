@@ -1,0 +1,236 @@
+version: 2.1
+
+# CircleCI pipeline for the CTASecureMedia Terraform stack.
+#
+# Fork of aws-solutions-library-samples/secure-media-delivery-at-the-edge-on-aws.
+# See VID-3417 (original CDK deploy) and VID-3439 (Terraform port) for context.
+#
+# Trigger: every push to `cwt` runs fmt + validate + plan-stage. Apply-stage
+# and apply-prod are each gated by a manual approval job. Prod is a
+# placeholder no-op until CTA rollout gets past the initial stage-only
+# phase — the apply job intentionally does nothing until the prod IAM role
+# is wired in a follow-up.
+#
+# AWS auth: CircleCI OIDC (short-lived, no static keys). The plan/apply
+# jobs exchange $CIRCLE_OIDC_TOKEN for temporary creds via
+# sts:AssumeRoleWithWebIdentity. Role ARN comes from a CircleCI context
+# (PLAYON_VIDEO_AWS_STAGE / later PLAYON_VIDEO_AWS_PROD).
+#
+# See docs/CIRCLECI.md for the DO ticket + IAM trust policy needed to
+# provision the OIDC role.
+
+parameters:
+  terraform_version:
+    type: string
+    default: "1.9.8"
+  node_version:
+    type: string
+    default: "22.11"
+
+commands:
+  install_terraform:
+    description: Install a pinned Terraform CLI
+    steps:
+      - run:
+          name: Install Terraform << pipeline.parameters.terraform_version >>
+          command: |
+            set -eux
+            TF_VER="<< pipeline.parameters.terraform_version >>"
+            curl -fsSL -o terraform.zip "https://releases.hashicorp.com/terraform/${TF_VER}/terraform_${TF_VER}_linux_amd64.zip"
+            unzip -o terraform.zip -d "$HOME/.local/bin"
+            rm -f terraform.zip
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+            "$HOME/.local/bin/terraform" version
+
+  install_lambda_deps:
+    description: |
+      Install Node lambda deps so archive_file zips them in. The Node
+      lambdas declare cbor-x + @aws-sdk/* in package.json — if node_modules
+      is missing at plan time, apply will ship an incomplete zip and
+      generator invocations will crash on cold start.
+    steps:
+      - run:
+          name: npm install (source/lambda + sync_keys)
+          command: |
+            set -eux
+            npm install --omit=dev --no-audit --no-fund --prefix source/lambda
+            npm install --omit=dev --no-audit --no-fund --prefix source/lambda/sync_keys
+
+  assume_aws_role:
+    description: Exchange CircleCI OIDC token for temporary AWS creds
+    parameters:
+      role_arn_var:
+        type: string
+        description: Env var holding the target IAM role ARN (set from context)
+    steps:
+      - run:
+          name: sts:AssumeRoleWithWebIdentity via OIDC
+          command: |
+            set -euo pipefail
+            : "${<< parameters.role_arn_var >>:?role arn env var missing}"
+            : "${CIRCLE_OIDC_TOKEN:?CircleCI OIDC token missing}"
+            CREDS=$(aws sts assume-role-with-web-identity \
+              --role-arn "${<< parameters.role_arn_var >>}" \
+              --role-session-name "circleci-${CIRCLE_BUILD_NUM}" \
+              --web-identity-token "${CIRCLE_OIDC_TOKEN}" \
+              --duration-seconds 3600 \
+              --query 'Credentials' --output json)
+            echo "export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)" >> "$BASH_ENV"
+            echo "export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)" >> "$BASH_ENV"
+            echo "export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)" >> "$BASH_ENV"
+            echo "export AWS_REGION=us-east-1" >> "$BASH_ENV"
+
+jobs:
+  # fmt + validate — no AWS creds, runs on every branch so PRs get
+  # signal before merge. Skips gracefully if terraform/ doesn't exist
+  # yet (relevant on cwt HEAD between merging this PR and the
+  # VID-3439 port PR #4).
+  static-checks:
+    docker:
+      - image: cimg/base:2024.11
+    steps:
+      - checkout
+      - run:
+          name: Skip if terraform/ absent (VID-3439 port not yet merged)
+          command: |
+            if [ ! -d terraform ]; then
+              echo "terraform/ not present on this ref — skipping static checks."
+              circleci-agent step halt
+            fi
+      - install_terraform
+      - run:
+          name: terraform fmt -check -recursive
+          working_directory: terraform
+          command: terraform fmt -check -recursive -diff
+      - run:
+          name: terraform init -backend=false
+          working_directory: terraform
+          command: terraform init -backend=false -input=false
+      - run:
+          name: terraform validate
+          working_directory: terraform
+          command: terraform validate
+
+  plan-stage:
+    docker:
+      - image: cimg/node:<< pipeline.parameters.node_version >>
+    steps:
+      - checkout
+      - install_terraform
+      - install_lambda_deps
+      - assume_aws_role:
+          role_arn_var: CTA_AWS_STAGE_ROLE_ARN
+      - run:
+          name: terraform init
+          working_directory: terraform
+          command: terraform init -input=false
+      - run:
+          name: terraform workspace select nfhs-staging-us-east-1
+          working_directory: terraform
+          command: |
+            terraform workspace new nfhs-staging-us-east-1 || terraform workspace select nfhs-staging-us-east-1
+      - run:
+          name: terraform plan -out=tfplan.binary
+          working_directory: terraform
+          command: |
+            terraform plan \
+              -input=false \
+              -var-file=envs/nfhs-staging-us-east-1.tfvars \
+              -out=tfplan.binary
+            terraform show -no-color tfplan.binary > tfplan.txt
+            terraform show -json tfplan.binary > tfplan.json
+      - store_artifacts:
+          path: terraform/tfplan.txt
+          destination: plan/nfhs-staging.txt
+      - store_artifacts:
+          path: terraform/tfplan.json
+          destination: plan/nfhs-staging.json
+      - persist_to_workspace:
+          root: terraform
+          paths:
+            - tfplan.binary
+            - .terraform
+            - .terraform.lock.hcl
+
+  apply-stage:
+    docker:
+      - image: cimg/node:<< pipeline.parameters.node_version >>
+    steps:
+      - checkout
+      - install_terraform
+      - install_lambda_deps
+      - assume_aws_role:
+          role_arn_var: CTA_AWS_STAGE_ROLE_ARN
+      - attach_workspace:
+          at: terraform
+      - run:
+          name: terraform apply tfplan.binary
+          working_directory: terraform
+          command: |
+            terraform workspace select nfhs-staging-us-east-1
+            terraform apply -input=false -auto-approve tfplan.binary
+      - run:
+          name: terraform output (post-apply)
+          working_directory: terraform
+          command: terraform output -json | tee ../tf-outputs-stage.json
+
+  apply-prod:
+    docker:
+      - image: cimg/base:2024.11
+    steps:
+      - run:
+          name: Prod apply not yet wired
+          command: |
+            echo "Prod pipeline is a skeleton placeholder — CTA is stage-only"
+            echo "through the initial rollout. Wire the real apply step and"
+            echo "the PLAYON_VIDEO_AWS_PROD context when promoting to prod."
+            echo "See VID-3417 / VID-3439 for context."
+
+workflows:
+  cta-secure-media:
+    jobs:
+      # Runs on ALL branches so PRs targeting cwt get fmt+validate
+      # signal before merge. No AWS creds so it's cheap and safe.
+      - static-checks
+
+      # Plan + apply stay gated to cwt only. PR branches never touch AWS.
+      - plan-stage:
+          context:
+            - PLAYON_VIDEO_AWS_STAGE
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - static-checks
+
+      - approve-stage:
+          type: approval
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - plan-stage
+
+      - apply-stage:
+          context:
+            - PLAYON_VIDEO_AWS_STAGE
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - approve-stage
+
+      - approve-prod:
+          type: approval
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - apply-stage
+
+      - apply-prod:
+          filters:
+            branches:
+              only: cwt
+          requires:
+            - approve-prod

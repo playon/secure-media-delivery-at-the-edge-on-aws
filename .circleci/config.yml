@@ -193,8 +193,30 @@ workflows:
       # signal before merge. No AWS creds so it's cheap and safe.
       - static-checks
 
-      # Plan + apply stay gated to cwt only. PR branches never touch AWS.
+      # PR branches: plan-only. Runs the same job as cwt's plan but
+      # doesn't chain into apply. Reviewers get the actual tfplan diff
+      # as an artifact when looking at the PR.
+      #
+      # Requires the OIDC role's trust to accept any branch (not just
+      # refs/heads/cwt). See docs/CIRCLECI.md — sub claim uses
+      # refs/heads/* rather than pinning cwt.
+      #
+      # Plan doesn't mutate anything on its own, so the wider trust is
+      # safe. Apply-capable paths (below) stay locked to cwt.
       - plan-stage:
+          name: plan-branch
+          context:
+            - PLAYON_VIDEO_AWS_STAGE
+          filters:
+            branches:
+              ignore: cwt
+          requires:
+            - static-checks
+
+      # cwt: plan → approve → apply. Only branch that can actually
+      # touch AWS beyond read-only plan operations.
+      - plan-stage:
+          name: plan-cwt
           context:
             - PLAYON_VIDEO_AWS_STAGE
           filters:
@@ -209,7 +231,7 @@ workflows:
             branches:
               only: cwt
           requires:
-            - plan-stage
+            - plan-cwt
 
       - apply-stage:
           context:

@@ -37,3 +37,10 @@ variable "token_ttl_default" {
   default     = "2h"
   nullable    = false
 }
+
+variable "rotation_schedule" {
+  type        = string
+  description = "EventBridge schedule expression for the signing-key rotation Step Function. Default matches the CDK stack's 30-day cadence."
+  default     = "rate(30 days)"
+  nullable    = false
+}

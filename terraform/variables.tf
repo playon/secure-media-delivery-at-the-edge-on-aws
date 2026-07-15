@@ -31,13 +31,6 @@ variable "signing_key_length" {
   nullable    = false
 }
 
-variable "token_ttl_default" {
-  type        = string
-  description = "Default TTL for minted tokens (parseable by the token generator: e.g. 2h, 30m). Passed to the mint Lambda as an env var."
-  default     = "2h"
-  nullable    = false
-}
-
 variable "rotation_schedule" {
   type        = string
   description = "EventBridge schedule expression for the signing-key rotation Step Function. Default matches the CDK stack's 30-day cadence."

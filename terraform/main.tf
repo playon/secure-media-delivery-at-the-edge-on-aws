@@ -81,18 +81,3 @@ resource "aws_cloudfront_function" "validator" {
 
   key_value_store_associations = [aws_cloudfront_key_value_store.this.arn]
 }
-
-# --------------------------------------------------------------------------
-# TODO (VID-3439): remaining resources
-#
-# WAFv2 Web ACL + rate rule (from CDK stack's WAF section)
-# API Gateway REST API + resources + methods
-# Lambda: CTAGenerator, CTAGeneratorPython, CTAGeneratorRuby, CTARevoker,
-#         ListRevoked, KvsCleanup, KeySync (custom resource)
-# Lambda execution IAM roles + policies (KVS read/write, Secrets read)
-# Step Functions rotation workflow + IAM
-# EventBridge Scheduler for rotation
-# Kinesis stream + IAM + RealtimeLogConfig
-# CloudFront Distribution (with WAF + real-time logs + KVS-associated function)
-# S3 demo bucket + upload (stage only)
-# --------------------------------------------------------------------------

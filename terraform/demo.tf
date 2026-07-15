@@ -1,12 +1,13 @@
 # S3 demo bucket + upload of resources/demo-website/.
 #
-# Only useful in stage/dev; prod deployment sets var.enable_demo = false
-# and skips this file's resources entirely (well, TF doesn't have per-file
-# gating — the resources here are unconditional, but the tfvars for prod
-# should override with an empty upload or a separate module.)
+# Currently unconditional — this port covers stage only (per VID-3439
+# ticket scope), and stage always wants the demo. When prod deployment
+# is scoped, add an `enable_demo` variable and gate these resources
+# with `count`; the distribution's /website/* behavior + demo-website
+# origin need matching conditionalization at that time.
 #
-# For stage this MVP just deploys the demo files as-is. Dashboard is
-# not included in this port (was optional in the CDK stack too).
+# Dashboard is not included in this port (was optional in the CDK
+# stack too).
 
 resource "aws_s3_bucket" "demo" {
   bucket_prefix = "${local.name_prefix}-${local.env_slug}-demo-"

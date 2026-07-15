@@ -1,33 +1,60 @@
 version: 2.1
 
-# CircleCI pipeline for the CTASecureMedia CDK stack.
+# CircleCI pipeline for the CTASecureMedia Terraform stack.
 #
 # Fork of aws-solutions-library-samples/secure-media-delivery-at-the-edge-on-aws.
-# See VID-3417 for context on the CTA-5007-B CWT pivot and stage deploy.
+# See VID-3417 (original CDK deploy) and VID-3439 (Terraform port) for context.
 #
-# Trigger: every push to `cwt` runs test + synth. Deploy to stage and
-# prod are each gated by a manual approval job. Prod is a placeholder
-# until CTA rollout gets past the initial stage-only phase — the deploy
-# job intentionally no-ops until the prod IAM role + real deploy step
-# are wired.
+# Trigger: every push to `cwt` runs fmt + validate + plan-stage. Apply-stage
+# and apply-prod are each gated by a manual approval job. Prod is a
+# placeholder no-op until CTA rollout gets past the initial stage-only
+# phase — the apply job intentionally does nothing until the prod IAM role
+# is wired in a follow-up.
 #
-# AWS auth: CircleCI OIDC (short-lived, no static keys). The CI job
-# exchanges $CIRCLE_OIDC_TOKEN for temporary creds via
-# sts:AssumeRoleWithWebIdentity. Both role ARNs come from CircleCI
-# contexts (PLAYON_VIDEO_AWS_STAGE / PLAYON_VIDEO_AWS_PROD).
+# AWS auth: CircleCI OIDC (short-lived, no static keys). The plan/apply
+# jobs exchange $CIRCLE_OIDC_TOKEN for temporary creds via
+# sts:AssumeRoleWithWebIdentity. Role ARN comes from a CircleCI context
+# (PLAYON_VIDEO_AWS_STAGE / later PLAYON_VIDEO_AWS_PROD).
 #
 # See docs/CIRCLECI.md for the DO ticket + IAM trust policy needed to
 # provision the OIDC role.
 
+parameters:
+  terraform_version:
+    type: string
+    default: "1.9.8"
+  node_version:
+    type: string
+    default: "22.11"
+
 commands:
-  cdk_setup:
-    description: Checkout + install source deps (postinstall runs build + lambda:install)
+  install_terraform:
+    description: Install a pinned Terraform CLI
     steps:
-      - checkout
       - run:
-          name: npm ci (source)
-          working_directory: source
-          command: npm ci --no-audit --no-fund
+          name: Install Terraform << pipeline.parameters.terraform_version >>
+          command: |
+            set -eux
+            TF_VER="<< pipeline.parameters.terraform_version >>"
+            curl -fsSL -o terraform.zip "https://releases.hashicorp.com/terraform/${TF_VER}/terraform_${TF_VER}_linux_amd64.zip"
+            unzip -o terraform.zip -d "$HOME/.local/bin"
+            rm -f terraform.zip
+            echo 'export PATH=$HOME/.local/bin:$PATH' >> "$BASH_ENV"
+            "$HOME/.local/bin/terraform" version
+
+  install_lambda_deps:
+    description: |
+      Install Node lambda deps so archive_file zips them in. The Node
+      lambdas declare cbor-x + @aws-sdk/* in package.json — if node_modules
+      is missing at plan time, apply will ship an incomplete zip and
+      generator invocations will crash on cold start.
+    steps:
+      - run:
+          name: npm install (source/lambda + sync_keys)
+          command: |
+            set -eux
+            npm install --omit=dev --no-audit --no-fund --prefix source/lambda
+            npm install --omit=dev --no-audit --no-fund --prefix source/lambda/sync_keys
 
   assume_aws_role:
     description: Exchange CircleCI OIDC token for temporary AWS creds
@@ -54,66 +81,117 @@ commands:
             echo "export AWS_REGION=us-east-1" >> "$BASH_ENV"
 
 jobs:
-  test:
+  # fmt + validate — no AWS creds needed, runs on every push
+  static-checks:
     docker:
-      - image: cimg/node:22.11
+      - image: cimg/base:2024.11
     steps:
-      - cdk_setup
+      - checkout
+      - install_terraform
       - run:
-          name: jest --passWithNoTests
-          working_directory: source
-          command: npm test -- --passWithNoTests
-
-  synth:
-    docker:
-      - image: cimg/node:22.11
-    steps:
-      - cdk_setup
+          name: terraform fmt -check -recursive
+          working_directory: terraform
+          command: terraform fmt -check -recursive -diff
       - run:
-          name: cdk synth CTASecureMedia
-          working_directory: source
-          command: npx cdk synth CTASecureMedia
-      - store_artifacts:
-          path: source/cdk.out
-          destination: cdk.out
+          name: terraform init -backend=false
+          working_directory: terraform
+          command: terraform init -backend=false -input=false
+      - run:
+          name: terraform validate
+          working_directory: terraform
+          command: terraform validate
 
-  deploy-stage:
+  plan-stage:
     docker:
-      - image: cimg/node:22.11
+      - image: cimg/node:<< pipeline.parameters.node_version >>
     steps:
-      - cdk_setup
+      - checkout
+      - install_terraform
+      - install_lambda_deps
       - assume_aws_role:
           role_arn_var: CTA_AWS_STAGE_ROLE_ARN
       - run:
-          name: cdk deploy CTASecureMedia (stage)
-          working_directory: source
-          command: npx cdk deploy CTASecureMedia --require-approval never
+          name: terraform init
+          working_directory: terraform
+          command: terraform init -input=false
+      - run:
+          name: terraform workspace select nfhs-staging-us-east-1
+          working_directory: terraform
+          command: |
+            terraform workspace new nfhs-staging-us-east-1 || terraform workspace select nfhs-staging-us-east-1
+      - run:
+          name: terraform plan -out=tfplan.binary
+          working_directory: terraform
+          command: |
+            terraform plan \
+              -input=false \
+              -var-file=envs/nfhs-staging-us-east-1.tfvars \
+              -out=tfplan.binary
+            terraform show -no-color tfplan.binary > tfplan.txt
+            terraform show -json tfplan.binary > tfplan.json
+      - store_artifacts:
+          path: terraform/tfplan.txt
+          destination: plan/nfhs-staging.txt
+      - store_artifacts:
+          path: terraform/tfplan.json
+          destination: plan/nfhs-staging.json
+      - persist_to_workspace:
+          root: terraform
+          paths:
+            - tfplan.binary
+            - .terraform
+            - .terraform.lock.hcl
 
-  deploy-prod:
+  apply-stage:
     docker:
-      - image: cimg/node:22.11
+      - image: cimg/node:<< pipeline.parameters.node_version >>
+    steps:
+      - checkout
+      - install_terraform
+      - install_lambda_deps
+      - assume_aws_role:
+          role_arn_var: CTA_AWS_STAGE_ROLE_ARN
+      - attach_workspace:
+          at: terraform
+      - run:
+          name: terraform apply tfplan.binary
+          working_directory: terraform
+          command: |
+            terraform workspace select nfhs-staging-us-east-1
+            terraform apply -input=false -auto-approve tfplan.binary
+      - run:
+          name: terraform output (post-apply)
+          working_directory: terraform
+          command: terraform output -json | tee ../tf-outputs-stage.json
+
+  apply-prod:
+    docker:
+      - image: cimg/base:2024.11
     steps:
       - run:
-          name: Prod deploy not yet wired
+          name: Prod apply not yet wired
           command: |
             echo "Prod pipeline is a skeleton placeholder — CTA is stage-only"
-            echo "through the initial rollout. Wire the real deploy step and"
+            echo "through the initial rollout. Wire the real apply step and"
             echo "the PLAYON_VIDEO_AWS_PROD context when promoting to prod."
-            echo "See VID-3417 / the CTA epic for context."
+            echo "See VID-3417 / VID-3439 for context."
 
 workflows:
   cta-secure-media:
     jobs:
-      - test:
+      - static-checks:
           filters:
             branches:
               only: cwt
-      - synth:
+
+      - plan-stage:
+          context:
+            - PLAYON_VIDEO_AWS_STAGE
           filters:
             branches:
               only: cwt
           requires:
-            - test
+            - static-checks
 
       - approve-stage:
           type: approval
@@ -121,8 +199,9 @@ workflows:
             branches:
               only: cwt
           requires:
-            - synth
-      - deploy-stage:
+            - plan-stage
+
+      - apply-stage:
           context:
             - PLAYON_VIDEO_AWS_STAGE
           filters:
@@ -137,8 +216,9 @@ workflows:
             branches:
               only: cwt
           requires:
-            - deploy-stage
-      - deploy-prod:
+            - apply-stage
+
+      - apply-prod:
           filters:
             branches:
               only: cwt

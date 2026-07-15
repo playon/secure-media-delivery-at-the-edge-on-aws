@@ -5,23 +5,20 @@
 Every push to `cwt` runs:
 
 ```
-test → synth → approve-stage → deploy-stage → approve-prod → deploy-prod
+static-checks → plan-stage → approve-stage → apply-stage → approve-prod → apply-prod
 ```
 
-`test` and `synth` run automatically. `approve-stage` and `approve-prod`
-are manual gates. `deploy-prod` is a placeholder no-op until CTA moves
-past the initial stage-only rollout — it exists so the workflow shape
-matches the other video-team services and prod wiring is a one-file
-change when we're ready.
+- `static-checks` — `terraform fmt -check` + `terraform init -backend=false` + `terraform validate`. No AWS creds.
+- `plan-stage` — assumes the stage OIDC role, `terraform init` (with backend), `terraform plan -out=tfplan.binary`. Uploads the plan as a workspace + as an artifact (`plan/nfhs-staging.txt` and `.json`).
+- `approve-stage` — manual gate. Reviewer looks at the plan artifact before clicking.
+- `apply-stage` — attaches the plan workspace and runs `terraform apply tfplan.binary`. Prints outputs.
+- `approve-prod` / `apply-prod` — placeholder for the prod cutover. Currently a no-op that just logs a note; wire the real apply step (and `PLAYON_VIDEO_AWS_PROD` context) when we're ready.
 
 ## AWS auth (OIDC)
 
-Deploy jobs exchange `$CIRCLE_OIDC_TOKEN` for temporary AWS credentials
-via `sts:AssumeRoleWithWebIdentity`. No static AWS keys live in
-CircleCI.
+The plan and apply jobs exchange `$CIRCLE_OIDC_TOKEN` for temporary AWS credentials via `sts:AssumeRoleWithWebIdentity`. No static AWS keys live in CircleCI.
 
-Two CircleCI contexts inject the target role ARN as `CTA_AWS_STAGE_ROLE_ARN`
-and (later) `CTA_AWS_PROD_ROLE_ARN`:
+CircleCI contexts inject the target role ARN:
 
 | Context | Env var | Trusts |
 |---|---|---|
@@ -32,8 +29,7 @@ and (later) `CTA_AWS_PROD_ROLE_ARN`:
 
 Each account (stage first, prod later) needs:
 
-**1. OIDC identity provider** — one per account, already present if any
-other CircleCI-managed workload uses OIDC in the account. Provider URL:
+**1. OIDC identity provider** — one per account, already present if any other CircleCI-managed workload uses OIDC in the account. Provider URL:
 
 ```
 https://oidc.circleci.com/org/<PLAYON_CIRCLECI_ORG_UUID>
@@ -66,27 +62,48 @@ Trust policy:
 }
 ```
 
-The `sub` claim scoping locks the role to the fork's `cwt` branch — a
-PR branch or a different repo cannot assume it.
+The `sub` claim scoping locks the role to the fork's `cwt` branch — a PR branch or a different repo cannot assume it.
 
-Permissions: the CDK app is already bootstrapped in stage. The CI role
-only needs to assume the CDK bootstrap roles:
+**Permissions**: the role runs `terraform plan` / `terraform apply` directly against the AWS API. Two things it needs:
+
+1. Assume the shared backend state role:
 
 ```json
 {
-  "Version": "2012-10-17",
-  "Statement": [{
-    "Effect": "Allow",
-    "Action": "sts:AssumeRole",
-    "Resource": [
-      "arn:aws:iam::<ACCOUNT>:role/cdk-hnb659fds-deploy-role-<ACCOUNT>-us-east-1",
-      "arn:aws:iam::<ACCOUNT>:role/cdk-hnb659fds-file-publishing-role-<ACCOUNT>-us-east-1",
-      "arn:aws:iam::<ACCOUNT>:role/cdk-hnb659fds-image-publishing-role-<ACCOUNT>-us-east-1",
-      "arn:aws:iam::<ACCOUNT>:role/cdk-hnb659fds-lookup-role-<ACCOUNT>-us-east-1"
-    ]
-  }]
+  "Sid": "TerraformStateBackend",
+  "Effect": "Allow",
+  "Action": "sts:AssumeRole",
+  "Resource": "arn:aws:iam::938096786822:role/playon/cloudengineering/PlayOn-IacTerraformBackends"
 }
 ```
 
-The CDK bootstrap roles carry the actual CloudFormation / Lambda / IAM
-PassRole / etc permissions — this keeps our CI role minimal.
+2. Direct permissions for CTA resources:
+
+```json
+{
+  "Sid": "CTAResources",
+  "Effect": "Allow",
+  "Action": [
+    "cloudfront:*",
+    "cloudfront-keyvaluestore:*",
+    "wafv2:*",
+    "lambda:*",
+    "apigateway:*",
+    "secretsmanager:*",
+    "kinesis:*",
+    "states:*",
+    "events:*",
+    "scheduler:*",
+    "iam:*Role*",
+    "iam:*Policy*",
+    "iam:PassRole",
+    "iam:*InstanceProfile*",
+    "s3:*"
+  ],
+  "Resource": "*"
+}
+```
+
+`Resource: *` because Terraform creates resources whose names include random suffixes; scoping to a name prefix would break on rename. Same pattern as `video-iac-tf-aws-project-video-common-deployer`.
+
+**Alternative** (cleaner if DevOps prefers): reuse the existing `video-iac-tf-aws-project-video-common-deployer` role — extend its trust to include this repo's OIDC principal. Fewer moving parts, one deployer for all video-team TF.

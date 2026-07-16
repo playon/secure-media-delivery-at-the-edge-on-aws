@@ -29,13 +29,16 @@ terraform {
 provider "aws" {
   region = var.region
 
-  # Local dev: assume this role via the AWS SSO profile the developer is
-  # already logged into (nfhsnet_stage_admin for stage). CI (once wired)
-  # will use the OIDC role from DO-1833 or equivalent.
+  # Video-team convention (per Ion Popescu on DO-1833): CircleCI GOFAN_OPS
+  # context supplies the base runner creds; provider assume_role's into a
+  # per-repo deployer role. Same shape as iac-tf-aws-project-video-common.
   #
-  # Not using an assume_role block here since the caller identity varies
-  # (SSO admin locally, OIDC in CI); let the AWS SDK's default credential
-  # chain resolve.
+  # Local dev: the developer's SSO session (nfhsnet_stage_admin) must be
+  # allowed to assume this role. If not, CI is the intended path.
+  assume_role {
+    role_arn     = "arn:aws:iam::${var.account_id}:role/playon/iam/deployer/video/secure-media-delivery-at-the-edge-deployer"
+    session_name = "terraform_aws"
+  }
 
   default_tags {
     tags = {

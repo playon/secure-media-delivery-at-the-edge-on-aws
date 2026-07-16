@@ -5,19 +5,15 @@ version: 2.1
 # Fork of aws-solutions-library-samples/secure-media-delivery-at-the-edge-on-aws.
 # See VID-3417 (original CDK deploy) and VID-3439 (Terraform port) for context.
 #
-# Trigger: every push to `cwt` runs fmt + validate + plan-stage. Apply-stage
-# and apply-prod are each gated by a manual approval job. Prod is a
-# placeholder no-op until CTA rollout gets past the initial stage-only
-# phase — the apply job intentionally does nothing until the prod IAM role
-# is wired in a follow-up.
+# Trigger: every push runs static-checks (fmt + validate, no AWS).
+# Branches run plan-only (read state, no apply). cwt runs plan → approve →
+# apply. Prod is a placeholder no-op until CTA rollout gets past the
+# initial stage-only phase.
 #
-# AWS auth: CircleCI OIDC (short-lived, no static keys). The plan/apply
-# jobs exchange $CIRCLE_OIDC_TOKEN for temporary creds via
-# sts:AssumeRoleWithWebIdentity. Role ARN comes from a CircleCI context
-# (PLAYON_VIDEO_AWS_STAGE / later PLAYON_VIDEO_AWS_PROD).
-#
-# See docs/CIRCLECI.md for the DO ticket + IAM trust policy needed to
-# provision the OIDC role.
+# AWS auth: video-team convention (per Ion, DO-1833). CircleCI GOFAN_OPS
+# context supplies runner AWS creds; the aws provider in
+# terraform/providers.tf assume_role's into a per-repo deployer role.
+# See docs/CIRCLECI.md.
 
 parameters:
   terraform_version:
@@ -56,35 +52,10 @@ commands:
             npm install --omit=dev --no-audit --no-fund --prefix source/lambda
             npm install --omit=dev --no-audit --no-fund --prefix source/lambda/sync_keys
 
-  assume_aws_role:
-    description: Exchange CircleCI OIDC token for temporary AWS creds
-    parameters:
-      role_arn_var:
-        type: string
-        description: Env var holding the target IAM role ARN (set from context)
-    steps:
-      - run:
-          name: sts:AssumeRoleWithWebIdentity via OIDC
-          command: |
-            set -euo pipefail
-            : "${<< parameters.role_arn_var >>:?role arn env var missing}"
-            : "${CIRCLE_OIDC_TOKEN:?CircleCI OIDC token missing}"
-            CREDS=$(aws sts assume-role-with-web-identity \
-              --role-arn "${<< parameters.role_arn_var >>}" \
-              --role-session-name "circleci-${CIRCLE_BUILD_NUM}" \
-              --web-identity-token "${CIRCLE_OIDC_TOKEN}" \
-              --duration-seconds 3600 \
-              --query 'Credentials' --output json)
-            echo "export AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r .AccessKeyId)" >> "$BASH_ENV"
-            echo "export AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r .SecretAccessKey)" >> "$BASH_ENV"
-            echo "export AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r .SessionToken)" >> "$BASH_ENV"
-            echo "export AWS_REGION=us-east-1" >> "$BASH_ENV"
-
 jobs:
   # fmt + validate — no AWS creds, runs on every branch so PRs get
   # signal before merge. Skips gracefully if terraform/ doesn't exist
-  # yet (relevant on cwt HEAD between merging this PR and the
-  # VID-3439 port PR #4).
+  # yet (relevant on cwt HEAD until the VID-3439 port PR #4 lands).
   static-checks:
     docker:
       - image: cimg/base:2024.11
@@ -118,8 +89,6 @@ jobs:
       - checkout
       - install_terraform
       - install_lambda_deps
-      - assume_aws_role:
-          role_arn_var: CTA_AWS_STAGE_ROLE_ARN
       - run:
           name: terraform init
           working_directory: terraform
@@ -159,8 +128,6 @@ jobs:
       - checkout
       - install_terraform
       - install_lambda_deps
-      - assume_aws_role:
-          role_arn_var: CTA_AWS_STAGE_ROLE_ARN
       - attach_workspace:
           at: terraform
       - run:
@@ -182,9 +149,8 @@ jobs:
           name: Prod apply not yet wired
           command: |
             echo "Prod pipeline is a skeleton placeholder — CTA is stage-only"
-            echo "through the initial rollout. Wire the real apply step and"
-            echo "the PLAYON_VIDEO_AWS_PROD context when promoting to prod."
-            echo "See VID-3417 / VID-3439 for context."
+            echo "through the initial rollout. Wire the real apply step when"
+            echo "promoting to prod. See VID-3417 / VID-3439 for context."
 
 workflows:
   cta-secure-media:
@@ -193,20 +159,13 @@ workflows:
       # signal before merge. No AWS creds so it's cheap and safe.
       - static-checks
 
-      # PR branches: plan-only. Runs the same job as cwt's plan but
-      # doesn't chain into apply. Reviewers get the actual tfplan diff
-      # as an artifact when looking at the PR.
-      #
-      # Requires the OIDC role's trust to accept any branch (not just
-      # refs/heads/cwt). See docs/CIRCLECI.md — sub claim uses
-      # refs/heads/* rather than pinning cwt.
-      #
-      # Plan doesn't mutate anything on its own, so the wider trust is
-      # safe. Apply-capable paths (below) stay locked to cwt.
+      # PR branches: plan-only. Reviewers get the actual tfplan diff
+      # as an artifact when looking at the PR. Read-only from AWS's
+      # perspective; workflow filters prevent chaining to apply.
       - plan-stage:
           name: plan-branch
           context:
-            - PLAYON_VIDEO_AWS_STAGE
+            - GOFAN_OPS
           filters:
             branches:
               ignore: cwt
@@ -214,11 +173,11 @@ workflows:
             - static-checks
 
       # cwt: plan → approve → apply. Only branch that can actually
-      # touch AWS beyond read-only plan operations.
+      # mutate AWS beyond read-only plan operations.
       - plan-stage:
           name: plan-cwt
           context:
-            - PLAYON_VIDEO_AWS_STAGE
+            - GOFAN_OPS
           filters:
             branches:
               only: cwt
@@ -235,7 +194,7 @@ workflows:
 
       - apply-stage:
           context:
-            - PLAYON_VIDEO_AWS_STAGE
+            - GOFAN_OPS
           filters:
             branches:
               only: cwt

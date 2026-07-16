@@ -36,7 +36,7 @@ provider "aws" {
   # Local dev: the developer's SSO session (nfhsnet_stage_admin) must be
   # allowed to assume this role. If not, CI is the intended path.
   assume_role {
-    role_arn     = "arn:aws:iam::${var.account_id}:role/playon/iam/deployer/video/secure-media-delivery-at-the-edge-deployer"
+    role_arn     = "arn:aws:iam::${var.account_id}:role/playon/iam/deployer/video/video-secure-media-delivery-at-the-edge-deployer"
     session_name = "terraform_aws"
   }
 

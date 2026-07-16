@@ -31,7 +31,7 @@ CircleCI context `GOFAN_OPS` provides the runner AWS credentials (base session).
 ```hcl
 provider "aws" {
   assume_role {
-    role_arn     = "arn:aws:iam::${local.account_id}:role/playon/iam/deployer/video/secure-media-delivery-at-the-edge-deployer"
+    role_arn     = "arn:aws:iam::${local.account_id}:role/playon/iam/deployer/video/video-secure-media-delivery-at-the-edge-deployer"
     session_name = "terraform_aws"
   }
 }

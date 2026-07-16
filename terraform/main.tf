@@ -33,8 +33,9 @@ resource "aws_cloudfront_key_value_store" "this" {
 # Secrets Manager — HMAC signing key.
 #
 # aws_secretsmanager_secret + aws_secretsmanager_secret_version generate the
-# key on first apply; the value never leaves the state file / secret.
-# Rotation is handled by the Step Functions workflow (still to be ported).
+# key on first apply; the plaintext value is held in Terraform state (see
+# README security section). Rotation is driven by the Step Functions
+# workflow in rotation.tf on the schedule set by var.rotation_schedule.
 # --------------------------------------------------------------------------
 resource "random_password" "signing_key" {
   length  = var.signing_key_length

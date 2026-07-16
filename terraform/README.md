@@ -105,6 +105,39 @@ Once smoke tests pass on the TF stack:
 3. `aws cloudformation delete-stack --stack-name CTASecureMedia` on the CDK stack
 4. Delete `source/` from this repo
 
+## Security
+
+**The signing key lives in Terraform state.** `random_password.signing_key`
+generates the HMAC key and `aws_secretsmanager_secret_version.signing_key`
+writes it to Secrets Manager. Both hold the value **in cleartext in state**.
+
+- **State access = key access.** Anyone with read on `s3://terraform-backends-938096786822-us-east-1/playon/video/secure-media-delivery-at-the-edge-on-aws`
+  can mint or validate CTA tokens for the distribution. The backend is SSE-encrypted
+  and IAM-gated (via the `playon-iac-terraform-backends` role), but treat state
+  access as sensitive as the key itself.
+- **On any suspected state exposure**, force a rotation:
+  `aws stepfunctions start-execution --state-machine-arn $(terraform output -raw rotation_workflow_arn)`
+  (this is the same workflow the EventBridge schedule runs on the `rotation_schedule` cadence).
+
+## Prod cutover checklist
+
+Prod deployment is deliberately out of scope for this ticket. When it's
+scoped, the prod tfvars needs to be created at `envs/nfhs-prod-us-east-1.tfvars`
+with prod-specific values. In particular:
+
+- [ ] `account_id = "<prod acct>"` (currently only staging deployer role exists)
+- [ ] `environment = "nfhs-prod"` (triggers `demo_bucket.force_destroy = false`
+      + `secret.recovery_window_in_days = 30`)
+- [ ] `demo_origin_domain = "<real content origin>"` — the stage default
+      (`cdn.mediaplaypen.com`) is the CDK reference solution's demo playback
+      host; prod needs the actual MediaPackage / CDN origin
+- [ ] Provision the prod deployer role via a follow-up PR to
+      `iac-tf-aws-project-iac` (mirror the staging entry in `envs/nfhs-prod.tfvars`)
+- [ ] Import or destroy the existing CDK `CTASecureMedia` stack in prod
+      before first apply (name collision on the KVS)
+
+Grep for `PROD_TODO` in this dir for the exact spots that need review.
+
 ## Related
 
 - [VID-3439](https://huddleinc.atlassian.net/browse/VID-3439) — this port

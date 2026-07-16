@@ -37,3 +37,10 @@ variable "rotation_schedule" {
   default     = "rate(30 days)"
   nullable    = false
 }
+
+variable "demo_origin_domain" {
+  type        = string
+  description = "Default-behavior origin domain. Stage default matches the CDK reference solution's demo playback host. Override in prod tfvars to point at real content origin."
+  default     = "cdn.mediaplaypen.com"
+  nullable    = false
+}

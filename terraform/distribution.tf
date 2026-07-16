@@ -121,10 +121,14 @@ resource "aws_cloudfront_distribution" "this" {
   comment         = "CTA-5007-B secure media distribution. VID-3439."
   web_acl_id      = aws_wafv2_web_acl.this.arn
 
-  # Default behavior — demo origin, validator on viewer-request, real-time logs
+  # Default behavior — validator on viewer-request, real-time logs.
+  # Origin is the CDK reference solution's demo playback host — fine for
+  # stage smoke tests. PROD_TODO: point at the real prod content origin
+  # (MediaPackage endpoint, our CDN, whatever) via var.demo_origin_domain
+  # in the prod tfvars. See README "Prod cutover" section.
   origin {
     origin_id   = "demo-origin"
-    domain_name = "cdn.mediaplaypen.com"
+    domain_name = var.demo_origin_domain
 
     custom_origin_config {
       http_port                = 80

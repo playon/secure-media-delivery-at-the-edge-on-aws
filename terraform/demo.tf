@@ -11,7 +11,11 @@
 
 resource "aws_s3_bucket" "demo" {
   bucket_prefix = "${local.name_prefix}-${local.env_slug}-demo-"
-  force_destroy = true
+  # Stage: force_destroy so `terraform destroy` wipes the bucket cleanly.
+  # PROD_TODO: flip to false (or make env-gated) on the prod cutover so
+  # accidental destroys fail loudly rather than silently take down demo
+  # objects. See README "Prod cutover" section.
+  force_destroy = local.environment == "nfhs-prod" ? false : true
 }
 
 resource "aws_s3_bucket_public_access_block" "demo" {

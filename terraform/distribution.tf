@@ -205,9 +205,14 @@ resource "aws_cloudfront_distribution" "this" {
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
+  # Cloud Custodian remediates CF distributions in this org to a US-only
+  # whitelist. Codified here so TF and Custodian agree — otherwise TF sets
+  # "none" on apply and Custodian flips it back to whitelist on its next
+  # sweep, cycling the tag drift indefinitely.
   restrictions {
     geo_restriction {
-      restriction_type = "none"
+      restriction_type = "whitelist"
+      locations        = ["US"]
     }
   }
 

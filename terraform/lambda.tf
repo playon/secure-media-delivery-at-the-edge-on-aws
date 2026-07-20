@@ -1,14 +1,19 @@
-# Lambda functions — mint (Node/Python/Ruby), revoke, list-revoked, kvs-cleanup.
+# Lambda functions — mint (Node), revoke, list-revoked, kvs-cleanup.
 # The rotation Lambda (SyncKeysToKvs) lives in rotation.tf next to its
 # Step Functions + EventBridge setup.
 #
-# Note on packaging: archive_file zips the source directory as-is. For
-# the Node lambda, its package.json declares cbor-x + @aws-sdk/* which
-# must be installed BEFORE `terraform apply`. Run `make lambda-deps` at
-# the repo root, or `npm install --omit=dev --prefix source/lambda`
-# manually. Python + Ruby lambdas are stdlib-only.
+# Note on packaging: archive_file zips the source directory as-is. The
+# Node lambda's package.json declares cbor-x + @aws-sdk/* which must be
+# installed BEFORE `terraform apply`. Run `make lambda-deps` at the
+# repo root, or `npm install --omit=dev --prefix source/lambda`
+# manually.
+#
+# VID-3449 removed the /token-python and /token-ruby demo endpoints
+# (SDK samples in the reference solution — no real callers). The Python
+# and Ruby SDK source stays under source/ as documentation for external
+# integrators; only the Lambda + APIGW wiring was dropped.
 
-# --- Zip source directories --------------------------------------------
+# --- Zip source directory ---------------------------------------------
 
 data "archive_file" "lambda_node" {
   type        = "zip"
@@ -16,18 +21,6 @@ data "archive_file" "lambda_node" {
   output_path = "${path.module}/.terraform/lambda-node.zip"
   # Exclude the sync_keys subdir — it's a separate function.
   excludes = ["sync_keys/**", ".jest-cache/**", "__tests__/**"]
-}
-
-data "archive_file" "lambda_python" {
-  type        = "zip"
-  source_dir  = "${path.module}/../source/lambda-python"
-  output_path = "${path.module}/.terraform/lambda-python.zip"
-}
-
-data "archive_file" "lambda_ruby" {
-  type        = "zip"
-  source_dir  = "${path.module}/../source/lambda-ruby"
-  output_path = "${path.module}/.terraform/lambda-ruby.zip"
 }
 
 # --- Shared IAM for Lambda logging -------------------------------------
@@ -74,74 +67,6 @@ resource "aws_lambda_function" "generator" {
   handler          = "cta_token_generator.handler"
   filename         = data.archive_file.lambda_node.output_path
   source_code_hash = data.archive_file.lambda_node.output_base64sha256
-  timeout          = 10
-
-  environment {
-    variables = {
-      SECRET_NAME = aws_secretsmanager_secret.signing_key.arn
-    }
-  }
-}
-
-# --- Token generator (Python) ------------------------------------------
-
-resource "aws_iam_role" "generator_python" {
-  name               = "${local.name_prefix}-${local.env_slug}-generator-python"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "generator_python_logs" {
-  role       = aws_iam_role.generator_python.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_role_policy" "generator_python_secret_read" {
-  name   = "read-signing-key"
-  role   = aws_iam_role.generator_python.id
-  policy = data.aws_iam_policy_document.generator_secret_read.json
-}
-
-resource "aws_lambda_function" "generator_python" {
-  function_name    = "${local.name_prefix}-${local.env_slug}-generator-python"
-  role             = aws_iam_role.generator_python.arn
-  runtime          = "python3.13"
-  handler          = "handler.handler"
-  filename         = data.archive_file.lambda_python.output_path
-  source_code_hash = data.archive_file.lambda_python.output_base64sha256
-  timeout          = 10
-
-  environment {
-    variables = {
-      SECRET_NAME = aws_secretsmanager_secret.signing_key.arn
-    }
-  }
-}
-
-# --- Token generator (Ruby) --------------------------------------------
-
-resource "aws_iam_role" "generator_ruby" {
-  name               = "${local.name_prefix}-${local.env_slug}-generator-ruby"
-  assume_role_policy = data.aws_iam_policy_document.lambda_assume.json
-}
-
-resource "aws_iam_role_policy_attachment" "generator_ruby_logs" {
-  role       = aws_iam_role.generator_ruby.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-resource "aws_iam_role_policy" "generator_ruby_secret_read" {
-  name   = "read-signing-key"
-  role   = aws_iam_role.generator_ruby.id
-  policy = data.aws_iam_policy_document.generator_secret_read.json
-}
-
-resource "aws_lambda_function" "generator_ruby" {
-  function_name    = "${local.name_prefix}-${local.env_slug}-generator-ruby"
-  role             = aws_iam_role.generator_ruby.arn
-  runtime          = "ruby3.3"
-  handler          = "handler.handler"
-  filename         = data.archive_file.lambda_ruby.output_path
-  source_code_hash = data.archive_file.lambda_ruby.output_base64sha256
   timeout          = 10
 
   environment {

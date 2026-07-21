@@ -6,7 +6,7 @@ version: 2.1
 # See VID-3417 (original CDK deploy) and VID-3439 (Terraform port) for context.
 #
 # Trigger: every push runs static-checks (fmt + validate, no AWS).
-# Branches run plan-only (read state, no apply). cwt runs plan → approve →
+# Branches run plan-only (read state, no apply). main runs plan → approve →
 # apply. Prod is a placeholder no-op until CTA rollout gets past the
 # initial stage-only phase.
 #
@@ -55,7 +55,7 @@ commands:
 jobs:
   # fmt + validate — no AWS creds, runs on every branch so PRs get
   # signal before merge. Skips gracefully if terraform/ doesn't exist
-  # yet (relevant on cwt HEAD until the VID-3439 port PR #4 lands).
+  # yet (defensive — the port was merged in VID-3439 PR #4).
   static-checks:
     docker:
       - image: cimg/base:2024.11
@@ -155,7 +155,7 @@ jobs:
 workflows:
   cta-secure-media:
     jobs:
-      # Runs on ALL branches so PRs targeting cwt get fmt+validate
+      # Runs on ALL branches so PRs targeting main get fmt+validate
       # signal before merge. No AWS creds so it's cheap and safe.
       - static-checks
 
@@ -168,19 +168,19 @@ workflows:
             - GOFAN_OPS
           filters:
             branches:
-              ignore: cwt
+              ignore: main
           requires:
             - static-checks
 
-      # cwt: plan → approve → apply. Only branch that can actually
+      # main: plan → approve → apply. Only branch that can actually
       # mutate AWS beyond read-only plan operations.
       - plan-stage:
-          name: plan-cwt
+          name: plan-main
           context:
             - GOFAN_OPS
           filters:
             branches:
-              only: cwt
+              only: main
           requires:
             - static-checks
 
@@ -188,16 +188,16 @@ workflows:
           type: approval
           filters:
             branches:
-              only: cwt
+              only: main
           requires:
-            - plan-cwt
+            - plan-main
 
       - apply-stage:
           context:
             - GOFAN_OPS
           filters:
             branches:
-              only: cwt
+              only: main
           requires:
             - approve-stage
 
@@ -205,13 +205,13 @@ workflows:
           type: approval
           filters:
             branches:
-              only: cwt
+              only: main
           requires:
             - apply-stage
 
       - apply-prod:
           filters:
             branches:
-              only: cwt
+              only: main
           requires:
             - approve-prod

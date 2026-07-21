@@ -153,12 +153,20 @@ resource "aws_lambda_permission" "revoked_apigw" {
 resource "aws_api_gateway_deployment" "this" {
   rest_api_id = aws_api_gateway_rest_api.this.id
 
-  # Triggers redeploy on any change to routes/methods/integrations. Also
-  # hash the resource policy + token method authorization so flipping
-  # VID-3449 forces a fresh deployment out to the stage.
+  # Triggers redeploy on any change to routes/methods/integrations.
+  # Also hash token_post.authorization so flipping VID-3449's AWS_IAM
+  # gate forces a fresh deployment out to the stage.
+  #
+  # Do NOT include aws_api_gateway_rest_api.this.policy here. AWS
+  # normalizes the resource policy JSON on write-back (reorders keys,
+  # rewraps Principal), so sha1(jsonencode([...policy...])) evaluates
+  # differently on plan (config input) vs apply (state read-back),
+  # producing the "Provider produced inconsistent final plan" error
+  # deterministically. Resource policies attach at the API level and
+  # take effect immediately without a deployment, so the trigger was
+  # overzealous — policy changes don't need a stage redeploy anyway.
   triggers = {
     redeployment = sha1(jsonencode([
-      aws_api_gateway_rest_api.this.policy,
       aws_api_gateway_resource.token.id,
       aws_api_gateway_method.token_post.id,
       aws_api_gateway_method.token_post.authorization,

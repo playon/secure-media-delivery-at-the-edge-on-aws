@@ -13,13 +13,13 @@ static-checks → plan-branch  (PR branches only)
 - `static-checks` — `terraform fmt -check` + `terraform init -backend=false` + `terraform validate`. No AWS creds. Halts cleanly on refs where `terraform/` isn't present.
 - `plan-branch` — `terraform init` (with backend) → `terraform plan -out=tfplan.binary`. Uploads the plan as an artifact so reviewers see the exact diff. Read-only from AWS's perspective; doesn't chain into apply.
 
-**On `cwt` push** (typically after PR merge):
+**On `main` push** (typically after PR merge):
 
 ```
-static-checks → plan-cwt → approve-stage → apply-stage → approve-prod → apply-prod
+static-checks → plan-main → approve-stage → apply-stage → approve-prod → apply-prod
 ```
 
-- `plan-cwt` — same job as `plan-branch`, persists plan to the workflow workspace for the downstream apply.
+- `plan-main` — same job as `plan-branch`, persists plan to the workflow workspace for the downstream apply.
 - `approve-stage` — manual gate. Reviewer looks at the plan artifact before clicking.
 - `apply-stage` — attaches the plan workspace and runs `terraform apply tfplan.binary`. Prints outputs.
 - `approve-prod` / `apply-prod` — placeholder for the prod cutover. Currently a no-op.

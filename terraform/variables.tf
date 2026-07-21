@@ -44,3 +44,18 @@ variable "demo_origin_domain" {
   default     = "cdn.mediaplaypen.com"
   nullable    = false
 }
+
+# VID-3449: gate POST /api/token to IAM-authenticated callers so the only
+# way to mint a CWT is through drm-api-lambda (which does entitlement
+# checks against member-service). Anonymous callers hit 403 at APIGW.
+#
+# Empty string keeps the reference-solution behavior (authorization = NONE,
+# anyone can mint). Set to the drm-api-lambda execution role ARN in envs
+# that participate in the CTA-5007-B rollout; the REST API resource policy
+# then restricts invoke to that role alone.
+variable "drm_api_lambda_role_arn" {
+  type        = string
+  description = "ARN of the drm-api-lambda execution role. When non-empty, flips POST /api/token to AWS_IAM authorization and installs a resource policy allowing invoke only from this role."
+  default     = ""
+  nullable    = false
+}

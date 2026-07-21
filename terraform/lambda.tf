@@ -20,7 +20,12 @@ data "archive_file" "lambda_node" {
   source_dir  = "${path.module}/../source/lambda"
   output_path = "${path.module}/.terraform/lambda-node.zip"
   # Exclude the sync_keys subdir — it's a separate function.
-  excludes = ["sync_keys/**", ".jest-cache/**", "__tests__/**"]
+  # Exclude *.tftpl — the CTA validator ships as a Terraform template
+  # rendered into the CloudFront Function (main.tf), not a Lambda import.
+  # Without this, the unrendered template with raw ${...} markers gets
+  # zipped into every Node lambda archive, churning source_code_hash
+  # any time the validator changes.
+  excludes = ["sync_keys/**", ".jest-cache/**", "__tests__/**", "*.tftpl"]
 }
 
 # --- Shared IAM for Lambda logging -------------------------------------

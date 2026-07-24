@@ -14,3 +14,9 @@ drm_api_lambda_role_arn = "arn:aws:iam::877726356953:role/drm-api-lambda-role"
 # Off in stage while VID-3450 geo-fence design + zip/DMA edge check is in
 # flight — flipping back to true (or omitting) restores enforcement.
 token_validation_enabled = false
+
+# VID-3458: DMA blackout enforcement mode. "log" computes the block decision
+# and emits a CloudWatch log line but always forwards — sizes the population
+# that WOULD be blocked before we flip to "enforce". Runs even in break-glass
+# mode above; DMA is independent of token validation.
+dma_enforcement_mode = "log"

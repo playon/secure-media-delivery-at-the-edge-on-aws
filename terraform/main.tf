@@ -81,6 +81,7 @@ resource "aws_cloudfront_function" "validator" {
   code = templatefile("${path.module}/../source/lambda/cta_token_validator.js.tftpl", {
     token_validation_enabled = var.token_validation_enabled ? "true" : "false"
     geo_validation_enabled   = var.geo_validation_enabled ? "true" : "false"
+    dma_enforcement_mode     = var.dma_enforcement_mode
   })
 
   key_value_store_associations = [aws_cloudfront_key_value_store.this.arn]

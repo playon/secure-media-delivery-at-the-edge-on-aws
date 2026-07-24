@@ -62,9 +62,24 @@ variable "token_validation_enabled" {
 
 variable "geo_validation_enabled" {
   type        = bool
-  description = "Enforce geo restrictions at the edge. When false, the catgeoiso3166 country claim is not checked (future zip/DMA edge checks per VID-3450 will live under the same flag). Other claim checks (URI/IP/exp/nbf/revocation) still run."
+  description = "Enforce catgeoiso3166 country claim at the edge. When false, the claim is present but not checked. Other claim checks (URI/IP/exp/nbf/revocation) still run. Distinct from dma_enforcement_mode which handles per-broadcast DMA blackout separately."
   default     = true
   nullable    = false
+}
+
+# VID-3458: per-broadcast DMA blackout enforcement at the CloudFront
+# edge via the sync-writer's KVS entries (VID-3459). Independent of
+# token validation — DMA check runs even in break-glass mode.
+variable "dma_enforcement_mode" {
+  type        = string
+  description = "DMA blackout enforcement mode. 'off' skips the check entirely (zero KVS lookups per request). 'log' computes the block decision and emits a CloudWatch log line but always forwards — useful for measuring the population that WOULD be blocked before flipping to enforce. 'enforce' rejects blocked viewers with 451 Unavailable For Legal Reasons and body 'blackout_dma'."
+  default     = "off"
+  nullable    = false
+
+  validation {
+    condition     = contains(["off", "log", "enforce"], var.dma_enforcement_mode)
+    error_message = "dma_enforcement_mode must be one of: off, log, enforce."
+  }
 }
 
 variable "drm_api_lambda_role_arn" {

@@ -10,10 +10,10 @@ environment = "nfhs-staging"
 # continue to work.
 drm_api_lambda_role_arn = "arn:aws:iam::877726356953:role/drm-api-lambda-role"
 
-# VID-3459: blackout sync-writer target. Read endpoints on unity-api are
-# anonymous, so we point at prod's unity-api even from stage — same source
-# of truth as the console UI, and there's no separate stage instance.
-unity_api_base = "https://unity.nfhsnetwork.com"
+# VID-3459: blackout sync-writer target. Stage unity-api mirrors prod's
+# publisher/broadcast state with test data; read endpoints on both are
+# anonymous.
+unity_api_base = "https://unity.stage.nfhsnetwork.com"
 
 # Break-glass bypass: validator forwards every viewer request unmodified.
 # Off in stage while VID-3450 geo-fence design + zip/DMA edge check is in

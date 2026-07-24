@@ -3,10 +3,17 @@
  *
  * Uses UpdateKeysCommand (batch put/delete in one call) instead of
  * per-key PutKey — one ETag fetch + one API call per batch of ~50 ops.
- * Batch size cap set conservatively at 50 to stay under AWS's per-call limit.
+ * Batch size capped conservatively at 50 to stay under AWS's per-call
+ * limit.
  *
- * All operations scoped to the `blackout:` key prefix. Other keys in the
- * KVS (key:default, revoked:*) are untouched.
+ * All operations scoped to the `blackout:` key prefix. Other keys in
+ * the KVS (key:default, revoked:*) are untouched.
+ *
+ * Deletion scope: only broadcasts SEEN in the current scan window can
+ * have their KVS entries deleted. Broadcasts outside the window
+ * (aged-out historical archives) are left untouched — their entries
+ * persist. This matches the "future VODs only" scoping decision on
+ * VID-3459.
  */
 
 require("@aws-sdk/signature-v4-crt");
@@ -43,15 +50,26 @@ async function listBlackoutKeys(kvsArn) {
     return keys;
 }
 
-function diff(existingKeys, desired) {
+/**
+ * Compute puts + deletes given:
+ *   existingKeys — full "blackout:*" set currently in KVS
+ *   desired      — Map<broadcastKey, dmaListCsv> — broadcasts in window WITH DMAs
+ *   inScan       — Set<broadcastKey> — every broadcast seen in the current scan window
+ *
+ * Deletion rule: only delete existing KVS entries whose broadcast is
+ * IN the scan window (inScan) but NOT in desired (i.e. DMAs cleared
+ * since last write). Entries outside the scan window are preserved.
+ */
+function diff(existingKeys, desired, inScan) {
     const puts = [];
     const deletes = [];
     for (const [broadcastKey, value] of desired) {
         puts.push({ Key: KEY_PREFIX + broadcastKey, Value: value });
     }
-    const desiredFullKeys = new Set([...desired.keys()].map(k => KEY_PREFIX + k));
     for (const existing of existingKeys) {
-        if (!desiredFullKeys.has(existing)) {
+        if (!existing.startsWith(KEY_PREFIX)) continue;
+        const broadcastKey = existing.slice(KEY_PREFIX.length);
+        if (inScan.has(broadcastKey) && !desired.has(broadcastKey)) {
             deletes.push({ Key: existing });
         }
     }
@@ -66,12 +84,12 @@ function chunk(arr, size) {
     return out;
 }
 
-async function reconcile(kvsArn, desired) {
+async function reconcile(kvsArn, desired, inScan) {
     const existingKeys = await listBlackoutKeys(kvsArn);
-    const { puts, deletes } = diff(existingKeys, desired);
+    const { puts, deletes } = diff(existingKeys, desired, inScan);
 
     if (puts.length === 0 && deletes.length === 0) {
-        return { puts: 0, deletes: 0, batches: 0 };
+        return { puts: 0, deletes: 0, batches: 0, existing: existingKeys.size };
     }
 
     // AWS caps UpdateKeys at 50 ops per call — batch puts + deletes together.
@@ -91,7 +109,7 @@ async function reconcile(kvsArn, desired) {
         }));
     }
 
-    return { puts: puts.length, deletes: deletes.length, batches: batches.length };
+    return { puts: puts.length, deletes: deletes.length, batches: batches.length, existing: existingKeys.size };
 }
 
 module.exports = { reconcile, listBlackoutKeys, diff, KEY_PREFIX };

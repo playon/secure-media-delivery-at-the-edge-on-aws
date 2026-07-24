@@ -1,23 +1,33 @@
 /**
  * VID-3459 — blackout sync-writer.
  *
- * Every 5 min: enumerate broadcasts from unity-api, filter to non-empty
- * dma_list, reconcile against CloudFront KVS. Idempotent — safe to
- * restart, run twice, crash and retry.
+ * Every 5 min: enumerate broadcasts from unity-api within a bounded
+ * scan window (start_time > now - SCAN_WINDOW_HOURS). For each broadcast
+ * seen, upsert blackout:{key} if it has DMAs; delete the KVS entry if
+ * DMAs were cleared. Broadcasts OUTSIDE the scan window are left alone
+ * — their KVS entries persist stale-but-correct-at-time-of-last-write.
  *
- * Fail-safe: on any error before writes commit, exits without touching
- * KVS so viewers keep enforcing against last-known-good rules.
+ * Idempotent, stateless, restart-safe. On any error before writes
+ * commit, exits without touching KVS.
  */
 
-const { iterateBlackoutBroadcasts } = require("./unity_client");
+const { iterateBroadcasts } = require("./unity_client");
 const { reconcile } = require("./kvs_client");
 
-async function collectDesired(unityBase, perPage) {
+function computeCutoffIso(nowMs, windowHours) {
+    return new Date(nowMs - windowHours * 3600 * 1000).toISOString();
+}
+
+async function collectScan(unityBase, startTimeGteIso, perPage) {
     const desired = new Map();
-    for await (const b of iterateBlackoutBroadcasts(unityBase, perPage)) {
-        desired.set(b.key, b.dma_list.join(","));
+    const inScan = new Set();
+    for await (const b of iterateBroadcasts(unityBase, startTimeGteIso, perPage)) {
+        inScan.add(b.key);
+        if (b.dma_list && Array.isArray(b.dma_list) && b.dma_list.length > 0) {
+            desired.set(b.key, b.dma_list.join(","));
+        }
     }
-    return desired;
+    return { desired, inScan };
 }
 
 exports.handler = async (event) => {
@@ -25,21 +35,35 @@ exports.handler = async (event) => {
     const kvsArn = process.env.KVS_ARN;
     const unityBase = process.env.UNITY_API_BASE;
     const perPage = parseInt(process.env.PAGE_SIZE || "1000", 10);
+    const windowHours = parseInt(process.env.SCAN_WINDOW_HOURS || "24", 10);
 
     if (!kvsArn) throw new Error("KVS_ARN not set");
     if (!unityBase) throw new Error("UNITY_API_BASE not set");
 
-    console.log(JSON.stringify({ msg: "reconcile_start", unityBase, kvsArn }));
+    const startTimeGteIso = computeCutoffIso(start, windowHours);
+    console.log(JSON.stringify({
+        msg: "reconcile_start",
+        unityBase,
+        kvsArn,
+        window_hours: windowHours,
+        start_time_gte: startTimeGteIso,
+    }));
 
-    const desired = await collectDesired(unityBase, perPage);
-    console.log(JSON.stringify({ msg: "unity_scan_complete", broadcasts_with_dmas: desired.size }));
+    const { desired, inScan } = await collectScan(unityBase, startTimeGteIso, perPage);
+    console.log(JSON.stringify({
+        msg: "unity_scan_complete",
+        broadcasts_in_scan: inScan.size,
+        broadcasts_with_dmas: desired.size,
+    }));
 
-    const result = await reconcile(kvsArn, desired);
+    const result = await reconcile(kvsArn, desired, inScan);
 
     const durationMs = Date.now() - start;
     const summary = {
         msg: "reconcile_complete",
+        broadcasts_in_scan: inScan.size,
         broadcasts_with_dmas: desired.size,
+        kvs_existing: result.existing,
         kvs_puts: result.puts,
         kvs_deletes: result.deletes,
         kvs_batches: result.batches,

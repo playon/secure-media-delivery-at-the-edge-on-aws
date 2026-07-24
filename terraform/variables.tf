@@ -53,6 +53,12 @@ variable "demo_origin_domain" {
 # anyone can mint). Set to the drm-api-lambda execution role ARN in envs
 # that participate in the CTA-5007-B rollout; the REST API resource policy
 # then restricts invoke to that role alone.
+variable "unity_api_base" {
+  type        = string
+  description = "Base URL of unity-api used by the blackout sync-writer (VID-3459). E.g. https://unity.nfhsnetwork.com — the Lambda hits /v2/broadcasts under this base. Read endpoints are anonymous; no credential threaded through."
+  nullable    = false
+}
+
 variable "token_validation_enabled" {
   type        = bool
   description = "Master switch for CTA token validation at the edge. When false, the validator forwards every viewer request without inspecting the token — break-glass bypass for staged rollout or incident response. Baked into the CloudFront Function at deploy time; flipping requires a Terraform apply."

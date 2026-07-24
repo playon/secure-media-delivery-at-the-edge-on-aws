@@ -25,7 +25,7 @@ data "archive_file" "lambda_node" {
   # Without this, the unrendered template with raw ${...} markers gets
   # zipped into every Node lambda archive, churning source_code_hash
   # any time the validator changes.
-  excludes = ["sync_keys/**", ".jest-cache/**", "__tests__/**", "*.tftpl"]
+  excludes = ["sync_keys/**", "blackout_sync/**", ".jest-cache/**", "__tests__/**", "*.tftpl"]
 }
 
 # --- Shared IAM for Lambda logging -------------------------------------
@@ -98,6 +98,20 @@ data "aws_iam_policy_document" "kvs_write" {
     actions = [
       "cloudfront-keyvaluestore:PutKey",
       "cloudfront-keyvaluestore:DescribeKeyValueStore",
+    ]
+    resources = [aws_cloudfront_key_value_store.this.arn]
+  }
+}
+
+# Reconciler needs list + batch update for full-scan reconciliation.
+data "aws_iam_policy_document" "kvs_reconcile" {
+  statement {
+    actions = [
+      "cloudfront-keyvaluestore:DescribeKeyValueStore",
+      "cloudfront-keyvaluestore:ListKeys",
+      "cloudfront-keyvaluestore:PutKey",
+      "cloudfront-keyvaluestore:DeleteKey",
+      "cloudfront-keyvaluestore:UpdateKeys",
     ]
     resources = [aws_cloudfront_key_value_store.this.arn]
   }

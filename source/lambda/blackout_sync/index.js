@@ -1,0 +1,74 @@
+/**
+ * VID-3459 — blackout sync-writer.
+ *
+ * Every 5 min: enumerate broadcasts from unity-api within a bounded
+ * scan window (start_time > now - SCAN_WINDOW_HOURS). For each broadcast
+ * seen, upsert blackout:{key} if it has DMAs; delete the KVS entry if
+ * DMAs were cleared. Broadcasts OUTSIDE the scan window are left alone
+ * — their KVS entries persist stale-but-correct-at-time-of-last-write.
+ *
+ * Idempotent, stateless, restart-safe. On any error before writes
+ * commit, exits without touching KVS.
+ */
+
+const { iterateBroadcasts } = require("./unity_client");
+const { reconcile } = require("./kvs_client");
+
+function computeCutoffIso(nowMs, windowHours) {
+    return new Date(nowMs - windowHours * 3600 * 1000).toISOString();
+}
+
+async function collectScan(unityBase, startTimeGteIso, perPage) {
+    const desired = new Map();
+    const inScan = new Set();
+    for await (const b of iterateBroadcasts(unityBase, startTimeGteIso, perPage)) {
+        inScan.add(b.key);
+        if (b.dma_list && Array.isArray(b.dma_list) && b.dma_list.length > 0) {
+            desired.set(b.key, b.dma_list.join(","));
+        }
+    }
+    return { desired, inScan };
+}
+
+exports.handler = async (event) => {
+    const start = Date.now();
+    const kvsArn = process.env.KVS_ARN;
+    const unityBase = process.env.UNITY_API_BASE;
+    const perPage = parseInt(process.env.PAGE_SIZE || "1000", 10);
+    const windowHours = parseInt(process.env.SCAN_WINDOW_HOURS || "24", 10);
+
+    if (!kvsArn) throw new Error("KVS_ARN not set");
+    if (!unityBase) throw new Error("UNITY_API_BASE not set");
+
+    const startTimeGteIso = computeCutoffIso(start, windowHours);
+    console.log(JSON.stringify({
+        msg: "reconcile_start",
+        unityBase,
+        kvsArn,
+        window_hours: windowHours,
+        start_time_gte: startTimeGteIso,
+    }));
+
+    const { desired, inScan } = await collectScan(unityBase, startTimeGteIso, perPage);
+    console.log(JSON.stringify({
+        msg: "unity_scan_complete",
+        broadcasts_in_scan: inScan.size,
+        broadcasts_with_dmas: desired.size,
+    }));
+
+    const result = await reconcile(kvsArn, desired, inScan);
+
+    const durationMs = Date.now() - start;
+    const summary = {
+        msg: "reconcile_complete",
+        broadcasts_in_scan: inScan.size,
+        broadcasts_with_dmas: desired.size,
+        kvs_existing: result.existing,
+        kvs_puts: result.puts,
+        kvs_deletes: result.deletes,
+        kvs_batches: result.batches,
+        duration_ms: durationMs,
+    };
+    console.log(JSON.stringify(summary));
+    return summary;
+};

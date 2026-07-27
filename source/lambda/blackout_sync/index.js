@@ -2,10 +2,16 @@
  * VID-3459 — blackout sync-writer.
  *
  * Every 5 min: enumerate broadcasts from unity-api within a bounded
- * scan window (start_time > now - SCAN_WINDOW_HOURS). For each broadcast
- * seen, upsert blackout:{key} if it has DMAs; delete the KVS entry if
- * DMAs were cleared. Broadcasts OUTSIDE the scan window are left alone
- * — their KVS entries persist stale-but-correct-at-time-of-last-write.
+ * scan window [now - SCAN_WINDOW_HOURS, now + SCAN_WINDOW_FUTURE_DAYS].
+ * For each broadcast seen, upsert blackout:{key} if it has DMAs; delete
+ * the KVS entry if DMAs were cleared. Broadcasts OUTSIDE the scan
+ * window are left alone — their KVS entries persist stale-but-correct-
+ * at-time-of-last-write.
+ *
+ * Both bounds matter — start_time_gte alone (unbounded future) 504's on
+ * prod-scale data because NFHS Network schedules months of games in
+ * advance. Broadcasts scheduled 6+ months out roll into the window as
+ * they approach start_time.
  *
  * Idempotent, stateless, restart-safe. On any error before writes
  * commit, exits without touching KVS.
@@ -14,14 +20,18 @@
 const { iterateBroadcasts } = require("./unity_client");
 const { reconcile } = require("./kvs_client");
 
-function computeCutoffIso(nowMs, windowHours) {
+function computeGteIso(nowMs, windowHours) {
     return new Date(nowMs - windowHours * 3600 * 1000).toISOString();
 }
 
-async function collectScan(unityBase, startTimeGteIso, perPage) {
+function computeLteIso(nowMs, futureDays) {
+    return new Date(nowMs + futureDays * 86400 * 1000).toISOString();
+}
+
+async function collectScan(unityBase, gteIso, lteIso, perPage) {
     const desired = new Map();
     const inScan = new Set();
-    for await (const b of iterateBroadcasts(unityBase, startTimeGteIso, perPage)) {
+    for await (const b of iterateBroadcasts(unityBase, gteIso, lteIso, perPage)) {
         inScan.add(b.key);
         if (b.dma_list && Array.isArray(b.dma_list) && b.dma_list.length > 0) {
             desired.set(b.key, b.dma_list.join(","));
@@ -36,20 +46,24 @@ exports.handler = async (event) => {
     const unityBase = process.env.UNITY_API_BASE;
     const perPage = parseInt(process.env.PAGE_SIZE || "1000", 10);
     const windowHours = parseInt(process.env.SCAN_WINDOW_HOURS || "24", 10);
+    const futureDays = parseInt(process.env.SCAN_WINDOW_FUTURE_DAYS || "30", 10);
 
     if (!kvsArn) throw new Error("KVS_ARN not set");
     if (!unityBase) throw new Error("UNITY_API_BASE not set");
 
-    const startTimeGteIso = computeCutoffIso(start, windowHours);
+    const gteIso = computeGteIso(start, windowHours);
+    const lteIso = computeLteIso(start, futureDays);
     console.log(JSON.stringify({
         msg: "reconcile_start",
         unityBase,
         kvsArn,
-        window_hours: windowHours,
-        start_time_gte: startTimeGteIso,
+        window_hours_past: windowHours,
+        window_days_future: futureDays,
+        start_time_gte: gteIso,
+        start_time_lte: lteIso,
     }));
 
-    const { desired, inScan } = await collectScan(unityBase, startTimeGteIso, perPage);
+    const { desired, inScan } = await collectScan(unityBase, gteIso, lteIso, perPage);
     console.log(JSON.stringify({
         msg: "unity_scan_complete",
         broadcasts_in_scan: inScan.size,

@@ -1,17 +1,36 @@
 /**
- * CTA-5007-B CloudFront Function with Hybrid Token Renewal
- * Supports path→header token transition for streaming players
+ * CTA-5007-B CloudFront Function with Hybrid Token Renewal.
  *
- * Requires CloudFront Functions JavaScript runtime 2.0
+ * Runs on viewer-request. Responsibilities:
+ *   1. Enforce per-broadcast DMA blackout (VID-3458 / VID-3450 Option B)
+ *      via CloudFront-Viewer-Metro-Code + KVS blackout:<broadcast_id>
+ *      entries populated by the sync-writer (VID-3459).
+ *   2. Validate CTA-5007-B CWT (header / query / path transports).
+ *   3. Enforce standard CWT claims (URI restriction, country, IP,
+ *      expiration, revocation).
  *
- * Feature flags are baked at deploy time via Terraform templatefile.
- * See var.token_validation_enabled and var.geo_validation_enabled.
+ * Rejection status codes (VID-3458):
+ *   451 Unavailable For Legal Reasons — DMA blackout
+ *   410 Gone                          — token revoked
+ *   401 Unauthorized                  — everything else (missing/expired/
+ *                                       invalid token, URI/country/IP mismatch)
+ *
+ * All rejections carry Cache-Control: no-store so CloudFront doesn't
+ * serve one viewer's rejection to another viewer.
+ *
+ * Feature flags baked at deploy time via Terraform templatefile:
+ *   token_validation_enabled — master token-check switch
+ *   geo_validation_enabled   — catgeoiso3166 country claim check
+ *   dma_enforcement_mode     — off | log | enforce
+ *
+ * Requires CloudFront Functions JavaScript runtime 2.0.
  */
 
 import cf from 'cloudfront';
 
 var TOKEN_VALIDATION_ENABLED = ${token_validation_enabled};
 var GEO_VALIDATION_ENABLED = ${geo_validation_enabled};
+var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}"; // "off" | "log" | "enforce"
 
 var CTA = {
     EXP: "4",           // Expiration
@@ -36,6 +55,30 @@ var CatuMatch = {
     EXACT: "3"
 };
 
+// --- Response helpers -------------------------------------------------
+
+// Every rejection response gets Cache-Control: no-store so CloudFront
+// doesn't cache one viewer's per-request decision (DMA / token / IP)
+// and serve it to another viewer whose decision would differ.
+function respond(statusCode, body) {
+    return {
+        statusCode: statusCode,
+        body: body,
+        headers: {
+            'cache-control': { value: 'no-store, max-age=0' }
+        }
+    };
+}
+
+// --- URL parsing ------------------------------------------------------
+
+// Manifest / segment URLs look like /broadcast/<id>/<variant>/<file>.
+// Segments in /broadcast/<id>/segments/<seg>.ts also parse cleanly.
+function extractBroadcastId(uri) {
+    var m = /^\/broadcast\/([^\/]+)/.exec(uri);
+    return m ? m[1] : null;
+}
+
 function extractPathToken(request) {
     var segments = request.uri.split('/');
     if (segments[1] && segments[1].length > 50) {
@@ -43,6 +86,51 @@ function extractPathToken(request) {
     }
     return null;
 }
+
+// --- DMA blackout enforcement (VID-3458) ------------------------------
+
+function isMetroBlocked(metroValue, blocklistCsv) {
+    if (!metroValue || !blocklistCsv) return false;
+    var list = blocklistCsv.split(',');
+    var target = String(metroValue).trim();
+    for (var i = 0; i < list.length; i++) {
+        if (list[i].trim() === target) return true;
+    }
+    return false;
+}
+
+// Returns a response object to short-circuit the pipeline, or null to
+// continue. In "log" mode always returns null after emitting a log line.
+async function checkDmaBlackout(request, kvs) {
+    if (DMA_ENFORCEMENT_MODE === "off") return null;
+
+    var broadcastId = extractBroadcastId(request.uri);
+    if (!broadcastId) return null;
+
+    var blocklistCsv = null;
+    try {
+        blocklistCsv = await kvs.get("blackout:" + broadcastId);
+    } catch (e) {
+        // Key not found = no blackout configured. Forward.
+        return null;
+    }
+    if (!blocklistCsv) return null;
+
+    var metroHeader = request.headers["cloudfront-viewer-metro-code"];
+    if (!metroHeader) return null; // No metro info; can't decide, don't block.
+
+    if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
+
+    // Blocked. Kinesis realtime-logs will pick this up via the standard
+    // access-log pipeline; the log line here is for CloudWatch too.
+    console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
+    if (DMA_ENFORCEMENT_MODE === "enforce") {
+        return respond(451, "blackout_dma");
+    }
+    return null; // "log" mode: computed the decision, but forward anyway.
+}
+
+// --- Token claim validation -------------------------------------------
 
 function validateClaims(payload, request, viewerIp) {
     var now = Math.floor(Date.now() / 1000);
@@ -63,8 +151,8 @@ function validateClaims(payload, request, viewerIp) {
     }
 
     // Country validation (catgeoiso3166). Gated by GEO_VALIDATION_ENABLED —
-    // when off, the claim is present but not enforced. Future zip/DMA edge
-    // checks (VID-3450) will live under the same flag.
+    // when off, the claim is present but not enforced. DMA-level enforcement
+    // is now handled separately in checkDmaBlackout (VID-3458).
     if (GEO_VALIDATION_ENABLED && payload[CTA.CATGEOISO3166]) {
         var country = request.headers["cloudfront-viewer-country"];
         if (!country || payload[CTA.CATGEOISO3166].indexOf(country.value.toLowerCase()) === -1) {
@@ -89,6 +177,8 @@ function validateClaims(payload, request, viewerIp) {
     }
 }
 
+// --- Handler ----------------------------------------------------------
+
 async function handler(event) {
     try {
         var request = event.request;
@@ -106,18 +196,24 @@ async function handler(event) {
             };
         }
 
+        var kvs = cf.kvs();
+
+        // DMA enforcement runs BEFORE token bypass so that an env in
+        // break-glass mode (TOKEN_VALIDATION_ENABLED=false) still enforces
+        // regional blackouts. They're independent concerns.
+        var dmaResponse = await checkDmaBlackout(request, kvs);
+        if (dmaResponse) return dmaResponse;
+
         // Break-glass bypass. When token validation is disabled at deploy
         // time, forward every viewer request unmodified — the edge becomes
-        // a no-op and origin serves anonymously. Use only for staged
-        // rollout or incident response.
+        // a no-op for tokens (but DMA enforcement above still runs).
         if (!TOKEN_VALIDATION_ENABLED) {
             return request;
         }
 
-        // /website/* and /api/* are handled by separate behaviors
-        // Default behavior only gets token-protected content requests
+        // /website/* and /api/* are handled by separate behaviors.
+        // Default behavior only gets token-protected content requests.
 
-        var kvs = cf.kvs();
         var signingKey = await kvs.get("key:default");
         var token = null;
         var payload = null;
@@ -139,7 +235,7 @@ async function handler(event) {
         else {
             token = extractPathToken(request);
             if (!token) {
-                return { statusCode: 401, body: "missing_token" };
+                return respond(401, "missing_token");
             }
 
             var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
@@ -151,13 +247,14 @@ async function handler(event) {
             request.uri = segments.join('/') || '/';
         }
 
-        // Check revocation
+        // Check revocation. Distinct 410 Gone so clients can tell a
+        // revoked token apart from a plain-invalid one.
         if (payload[CTA.CTI]) {
             try {
                 var cti = String(payload[CTA.CTI]);
                 var revoked = await kvs.get("revoked:" + cti);
                 if (revoked) {
-                    return { statusCode: 401, body: "token_revoked" };
+                    return respond(410, "token_revoked");
                 }
             } catch (e) {
                 // Key not found in KVS means not revoked — continue
@@ -171,6 +268,10 @@ async function handler(event) {
         return request;
 
     } catch (e) {
-        return { statusCode: 401, body: e.message };
+        // Everything thrown from token/claim validation lands here.
+        // 401 stays generic for the token-issue family; DMA (451) and
+        // revocation (410) return directly above and don't reach this
+        // catch.
+        return respond(401, e.message);
     }
 }

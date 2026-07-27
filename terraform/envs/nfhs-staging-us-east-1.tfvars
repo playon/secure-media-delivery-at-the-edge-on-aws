@@ -19,3 +19,9 @@ unity_api_base = "https://unity.stage.nfhsnetwork.com"
 # Off in stage while VID-3450 geo-fence design + zip/DMA edge check is in
 # flight — flipping back to true (or omitting) restores enforcement.
 token_validation_enabled = false
+
+# VID-3458: DMA blackout enforcement mode. "log" computes the block decision
+# and emits a CloudWatch log line but always forwards — sizes the population
+# that WOULD be blocked before we flip to "enforce". Runs even in break-glass
+# mode above; DMA is independent of token validation.
+dma_enforcement_mode = "log"

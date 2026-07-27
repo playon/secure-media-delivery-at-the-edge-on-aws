@@ -205,21 +205,14 @@ resource "aws_cloudfront_distribution" "this" {
     cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
-  # Belt-and-suspenders against caching viewer-specific rejections from
-  # the CTA validator. The validator itself returns Cache-Control:
-  # no-store on all 4xx/451/410 responses (see
-  # source/lambda/cta_token_validator.js.tftpl); these entries force CF
-  # to also treat the rejections as non-cacheable at the distribution
-  # layer. 451 = DMA blackout (VID-3458), viewer-DMA-specific decision.
-  # 410 = token revoked, viewer-token-specific decision.
-  custom_error_response {
-    error_code            = 451
-    error_caching_min_ttl = 0
-  }
-  custom_error_response {
-    error_code            = 410
-    error_caching_min_ttl = 0
-  }
+  # Cache safety for viewer-specific rejections from the CTA validator
+  # (451 DMA blackout / 410 token revoked) is enforced solely by the
+  # Cache-Control: no-store header the function returns — see
+  # source/lambda/cta_token_validator.js.tftpl. CloudFront's
+  # custom_error_response only accepts a fixed set of status codes
+  # (400, 403, 404, 405, 414, 416, 500-504); 410 and 451 both return
+  # InvalidArgument at apply time, so we can't add belt-and-suspenders
+  # at the distribution layer.
 
   # Cloud Custodian remediates CF distributions in this org to a US-only
   # whitelist. Codified here so TF and Custodian agree — otherwise TF sets

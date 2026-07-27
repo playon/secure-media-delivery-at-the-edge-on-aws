@@ -34,7 +34,7 @@ test("iterate: yields every broadcast seen — no client-side dma_list filter", 
         ],
     });
     const out = [];
-    for await (const b of iterateBroadcasts(baseUrl, null, 100)) {
+    for await (const b of iterateBroadcasts(baseUrl, null, null, 100)) {
         out.push(b);
     }
     assert.equal(out.length, 3, "all broadcasts yielded regardless of dma_list state");
@@ -54,23 +54,24 @@ test("iterate: paginates until short page", async () => {
         return { status: 200, body: [] };
     };
     const out = [];
-    for await (const b of iterateBroadcasts(baseUrl, null, 3)) {
+    for await (const b of iterateBroadcasts(baseUrl, null, null, 3)) {
         out.push(b);
     }
     assert.equal(out.length, 4);
     assert.equal(callCount, 2, "should stop when page returns fewer than per_page items");
 });
 
-test("iterate: sends start_time_gte in query string", async () => {
+test("iterate: sends start_time_gte AND start_time_lte in query string", async () => {
     handler = () => ({ status: 200, body: [] });
-    const cutoff = "2026-07-24T00:00:00.000Z";
+    const gte = "2026-07-24T00:00:00.000Z";
+    const lte = "2026-08-23T00:00:00.000Z";
     // eslint-disable-next-line no-unused-vars
-    for await (const _ of iterateBroadcasts(baseUrl, cutoff, 100)) { /* noop */ }
-    assert.equal(lastQuery.get("start_time_gte"), cutoff);
+    for await (const _ of iterateBroadcasts(baseUrl, gte, lte, 100)) { /* noop */ }
+    assert.equal(lastQuery.get("start_time_gte"), gte);
+    assert.equal(lastQuery.get("start_time_lte"), lte);
 });
 
-test("iterate: client-side filter drops broadcasts with start_time before cutoff", async () => {
-    // Belt-and-suspenders: if unity-api ignores start_time_gte, client filter kicks in.
+test("iterate: client-side filter drops broadcasts outside the gte cutoff", async () => {
     handler = () => ({
         status: 200,
         body: [
@@ -79,17 +80,33 @@ test("iterate: client-side filter drops broadcasts with start_time before cutoff
         ],
     });
     const out = [];
-    for await (const b of iterateBroadcasts(baseUrl, "2026-01-01T00:00:00Z", 100)) {
+    for await (const b of iterateBroadcasts(baseUrl, "2026-01-01T00:00:00Z", null, 100)) {
         out.push(b);
     }
     assert.equal(out.length, 1);
     assert.equal(out[0].key, "future");
 });
 
+test("iterate: client-side filter drops broadcasts past the lte cutoff", async () => {
+    handler = () => ({
+        status: 200,
+        body: [
+            { key: "in_window", start_time: "2026-08-01T00:00:00Z", dma_list: [512] },
+            { key: "far_future", start_time: "2030-01-01T00:00:00Z", dma_list: [523] },
+        ],
+    });
+    const out = [];
+    for await (const b of iterateBroadcasts(baseUrl, null, "2026-08-31T00:00:00Z", 100)) {
+        out.push(b);
+    }
+    assert.equal(out.length, 1);
+    assert.equal(out[0].key, "in_window");
+});
+
 test("iterate: throws on non-2xx", async () => {
     handler = () => ({ status: 500, body: { error: "boom" } });
     await assert.rejects(async () => {
         // eslint-disable-next-line no-unused-vars
-        for await (const _ of iterateBroadcasts(baseUrl, null, 100)) { /* noop */ }
+        for await (const _ of iterateBroadcasts(baseUrl, null, null, 100)) { /* noop */ }
     }, /unity-api 500/);
 });

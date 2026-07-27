@@ -46,10 +46,11 @@ resource "aws_lambda_function" "blackout_sync" {
 
   environment {
     variables = {
-      KVS_ARN           = aws_cloudfront_key_value_store.this.arn
-      UNITY_API_BASE    = var.unity_api_base
-      PAGE_SIZE         = "1000"
-      SCAN_WINDOW_HOURS = "24"
+      KVS_ARN                 = aws_cloudfront_key_value_store.this.arn
+      UNITY_API_BASE          = var.unity_api_base
+      PAGE_SIZE               = "1000"
+      SCAN_WINDOW_HOURS       = "24"
+      SCAN_WINDOW_FUTURE_DAYS = "30"
     }
   }
 }

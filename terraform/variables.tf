@@ -94,3 +94,33 @@ variable "drm_api_lambda_role_arn" {
   default     = ""
   nullable    = false
 }
+
+# VID-3464: transitional User-Agent allowlist. Legacy native app installs
+# (iOS, Android, tvOS, Roku) can't ship CTA-minting builds on the prod
+# cutover date, and a hard flip blacks them out. Patterns here are
+# regex strings matched against the viewer User-Agent header at the
+# CTA validator; matches bypass token validation entirely. See
+# docs/plans/vid-3457-ua-allowlist.md (live-cc-service repo) for the
+# threat-model + sunset criterion.
+variable "legacy_client_allowlist" {
+  type        = list(string)
+  description = "Regex patterns matched against the viewer User-Agent. Requests whose UA matches ANY pattern bypass CTA token validation. Order: after DMA blackout, before token check. Keep list small (< 20 entries) — matcher is linear per request. Empty list disables the bridge."
+  default     = []
+  nullable    = false
+}
+
+# VID-3464: log/enforce ramp for CTA token validation. Parallel shape
+# to dma_enforcement_mode. "off" is redundant with
+# token_validation_enabled=false — kept for symmetry so operators can
+# use one knob shape across DMA and token controls.
+variable "token_enforcement_mode" {
+  type        = string
+  description = "Token validation enforcement mode when token_validation_enabled is true. 'off' skips the check entirely (equivalent to token_validation_enabled=false). 'log' runs the check and emits a Kinesis/CloudWatch log line on failure but forwards the request anyway — measures the population that WOULD be blocked before flipping to enforce. 'enforce' rejects with 401 (missing/invalid/expired) or 410 (revoked). DMA blackout enforcement is independent (dma_enforcement_mode)."
+  default     = "enforce"
+  nullable    = false
+
+  validation {
+    condition     = contains(["off", "log", "enforce"], var.token_enforcement_mode)
+    error_message = "token_enforcement_mode must be one of: off, log, enforce."
+  }
+}

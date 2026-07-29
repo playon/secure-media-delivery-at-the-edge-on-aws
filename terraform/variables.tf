@@ -59,13 +59,6 @@ variable "unity_api_base" {
   nullable    = false
 }
 
-variable "token_validation_enabled" {
-  type        = bool
-  description = "Master switch for CTA token validation at the edge. When false, the validator forwards every viewer request without inspecting the token — break-glass bypass for staged rollout or incident response. Baked into the CloudFront Function at deploy time; flipping requires a Terraform apply."
-  default     = true
-  nullable    = false
-}
-
 variable "geo_validation_enabled" {
   type        = bool
   description = "Enforce catgeoiso3166 country claim at the edge. When false, the claim is present but not checked. Other claim checks (URI/IP/exp/nbf/revocation) still run. Distinct from dma_enforcement_mode which handles per-broadcast DMA blackout separately."
@@ -93,4 +86,44 @@ variable "drm_api_lambda_role_arn" {
   description = "ARN of the drm-api-lambda execution role. When non-empty, flips POST /api/token to AWS_IAM authorization and installs a resource policy allowing invoke only from this role."
   default     = ""
   nullable    = false
+}
+
+# VID-3464: transitional User-Agent allowlist. Legacy native app installs
+# (iOS, Android, tvOS, Roku) can't ship CTA-minting builds on the prod
+# cutover date, and a hard flip blacks them out. Patterns here are
+# regex strings matched against the viewer User-Agent header at the
+# CTA validator; matches bypass token validation entirely. See
+# docs/plans/vid-3457-ua-allowlist.md (live-cc-service repo) for the
+# threat-model + sunset criterion.
+variable "legacy_client_allowlist" {
+  type        = list(string)
+  description = "Regex patterns matched against the viewer User-Agent. Requests whose UA matches ANY pattern bypass CTA token validation. Order: after DMA blackout, before token check. Keep list small (< 20 entries) — matcher is linear per request. Empty list disables the bridge."
+  default     = []
+  nullable    = false
+
+  # Guard against a bad regex bricking the edge. new RegExp(...) runs at
+  # CloudFront-Function-init on every invocation; an uncompilable pattern
+  # throws before we reach the handler and every viewer request 5xxs.
+  # Terraform's `regex` is RE2, which is stricter than JS (no lookaheads,
+  # etc.), so this catches obvious syntax errors at plan time. Patterns
+  # here are anchored literal prefixes — RE2 handles them fine.
+  validation {
+    condition     = alltrue([for p in var.legacy_client_allowlist : can(regex(p, ""))])
+    error_message = "Each legacy_client_allowlist entry must be a valid RE2 regex (empirically also a valid JS RegExp for the anchored-literal patterns we use)."
+  }
+}
+
+# VID-3464: token-check enforcement mode. Parallel shape to
+# dma_enforcement_mode. Single knob covers what was previously split
+# between token_validation_enabled (bool) and enforcement mode.
+variable "token_enforcement_mode" {
+  type        = string
+  description = "CTA token validation mode. 'off' skips the check entirely — the validator forwards every viewer request without inspecting the token (break-glass bypass; DMA enforcement still runs). 'log' runs the check and emits a Kinesis/CloudWatch log line on failure but forwards anyway — measures the population that WOULD be blocked before flipping to enforce. 'enforce' rejects with 401 (missing/invalid/expired) or 410 (revoked). DMA blackout enforcement is independent (dma_enforcement_mode)."
+  default     = "enforce"
+  nullable    = false
+
+  validation {
+    condition     = contains(["off", "log", "enforce"], var.token_enforcement_mode)
+    error_message = "token_enforcement_mode must be one of: off, log, enforce."
+  }
 }

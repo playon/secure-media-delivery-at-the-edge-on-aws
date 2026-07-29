@@ -19,18 +19,33 @@
  * serve one viewer's rejection to another viewer.
  *
  * Feature flags baked at deploy time via Terraform templatefile:
- *   token_validation_enabled — master token-check switch
- *   geo_validation_enabled   — catgeoiso3166 country claim check
- *   dma_enforcement_mode     — off | log | enforce
+ *   token_enforcement_mode       — off | log | enforce (CTA token check)
+ *   geo_validation_enabled       — catgeoiso3166 country claim check
+ *   dma_enforcement_mode         — off | log | enforce
+ *   legacy_client_allowlist_json — regex patterns for UA-based bypass (VID-3464)
  *
  * Requires CloudFront Functions JavaScript runtime 2.0.
  */
 
 import cf from 'cloudfront';
 
-var TOKEN_VALIDATION_ENABLED = ${token_validation_enabled};
+var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}"; // "off" | "log" | "enforce"
 var GEO_VALIDATION_ENABLED = ${geo_validation_enabled};
 var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}"; // "off" | "log" | "enforce"
+
+// VID-3464: transitional User-Agent allowlist. See variables.tf +
+// docs/plans/vid-3457-ua-allowlist.md. Patterns are pre-compiled once
+// at function-init time (CloudFront Functions reuse the runtime across
+// invocations within an edge process, so this pays off after the first
+// request).
+var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
+    var raw = ${legacy_client_allowlist_json};
+    var compiled = [];
+    for (var i = 0; i < raw.length; i++) {
+        compiled.push(new RegExp(raw[i]));
+    }
+    return compiled;
+})();
 
 var CTA = {
     EXP: "4",           // Expiration
@@ -68,6 +83,20 @@ function respond(statusCode, body) {
             'cache-control': { value: 'no-store, max-age=0' }
         }
     };
+}
+
+// VID-3464: token-failure dispatch. In "enforce" mode returns the
+// rejection response; in "log" mode logs the reason and forwards the
+// request so we can observe would-be rejections without blocking.
+// DMA failures use their own DMA_ENFORCEMENT_MODE (checkDmaBlackout);
+// this only affects token-family rejections (missing/expired/invalid,
+// URI/country/IP mismatch, revocation).
+function tokenReject(request, statusCode, reason) {
+    console.log("token_reject reason=" + reason + " mode=" + TOKEN_ENFORCEMENT_MODE);
+    if (TOKEN_ENFORCEMENT_MODE === "enforce") {
+        return respond(statusCode, reason);
+    }
+    return request;
 }
 
 // --- URL parsing ------------------------------------------------------
@@ -128,6 +157,26 @@ async function checkDmaBlackout(request, kvs) {
         return respond(451, "blackout_dma");
     }
     return null; // "log" mode: computed the decision, but forward anyway.
+}
+
+// --- Legacy-client User-Agent allowlist (VID-3464) --------------------
+
+// Match the viewer UA against the compiled allowlist. Returns the
+// matching pattern (as string) or null. Linear scan; keep the list
+// small (< 20 entries) — hot path.
+function matchesLegacyAllowlist(request) {
+    if (LEGACY_CLIENT_ALLOWLIST_PATTERNS.length === 0) return null;
+    var uaHeader = request.headers["user-agent"];
+    if (!uaHeader || !uaHeader.value) return null;
+    var ua = uaHeader.value;
+    for (var i = 0; i < LEGACY_CLIENT_ALLOWLIST_PATTERNS.length; i++) {
+        if (LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].test(ua)) {
+            // Return the source pattern for telemetry — CloudFront
+            // Functions RegExp exposes .source, which is portable.
+            return LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].source;
+        }
+    }
+    return null;
 }
 
 // --- Token claim validation -------------------------------------------
@@ -199,15 +248,26 @@ async function handler(event) {
         var kvs = cf.kvs();
 
         // DMA enforcement runs BEFORE token bypass so that an env in
-        // break-glass mode (TOKEN_VALIDATION_ENABLED=false) still enforces
+        // break-glass mode (token_enforcement_mode="off") still enforces
         // regional blackouts. They're independent concerns.
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
 
-        // Break-glass bypass. When token validation is disabled at deploy
-        // time, forward every viewer request unmodified — the edge becomes
-        // a no-op for tokens (but DMA enforcement above still runs).
-        if (!TOKEN_VALIDATION_ENABLED) {
+        // Break-glass bypass. When token_enforcement_mode is "off" the
+        // validator forwards every viewer request unmodified — the edge
+        // becomes a no-op for tokens (but DMA enforcement above still
+        // runs).
+        if (TOKEN_ENFORCEMENT_MODE === "off") {
+            return request;
+        }
+
+        // VID-3464: transitional UA allowlist. Requests matching a legacy
+        // client pattern skip token validation and forward. Runs after
+        // DMA (independent) and after the break-glass bypass. Empty
+        // allowlist → no-op branch.
+        var allowlistedPattern = matchesLegacyAllowlist(request);
+        if (allowlistedPattern) {
+            console.log("allowlist_bypass pattern=" + allowlistedPattern);
             return request;
         }
 
@@ -218,34 +278,34 @@ async function handler(event) {
         var token = null;
         var payload = null;
 
-        // Try header token first
+        // Extract the token and STRIP it from the request BEFORE
+        // validating. In enforce mode ordering doesn't matter — a
+        // rejection response replaces the request wholesale. But in
+        // log mode a validation failure forwards the request, and we
+        // don't want the ?CAT= param or the /<token>/ path segment
+        // going through to origin (origin either 404s on the token
+        // path or logs the raw CWT in access logs — both bad).
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
-            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            payload = cwt.payload;
+            // Header transport: nothing to strip from URI/querystring.
         }
-        // Try query parameter token (?CAT=...)
         else if (request.querystring["CAT"]) {
             token = request.querystring["CAT"].value;
-            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            payload = cwt.payload;
             delete request.querystring["CAT"];
         }
-        // Fallback to path token
         else {
             token = extractPathToken(request);
             if (!token) {
-                return respond(401, "missing_token");
+                return tokenReject(request, 401, "missing_token");
             }
-
-            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            payload = cwt.payload;
-
-            // Strip token from path before sending to origin
+            // Strip token from path immediately — before validation.
             var segments = request.uri.split('/');
             segments.splice(1, 1);
             request.uri = segments.join('/') || '/';
         }
+
+        var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
+        payload = cwt.payload;
 
         // Check revocation. Distinct 410 Gone so clients can tell a
         // revoked token apart from a plain-invalid one.
@@ -254,7 +314,7 @@ async function handler(event) {
                 var cti = String(payload[CTA.CTI]);
                 var revoked = await kvs.get("revoked:" + cti);
                 if (revoked) {
-                    return respond(410, "token_revoked");
+                    return tokenReject(request, 410, "token_revoked");
                 }
             } catch (e) {
                 // Key not found in KVS means not revoked — continue
@@ -271,7 +331,8 @@ async function handler(event) {
         // Everything thrown from token/claim validation lands here.
         // 401 stays generic for the token-issue family; DMA (451) and
         // revocation (410) return directly above and don't reach this
-        // catch.
-        return respond(401, e.message);
+        // catch. Falls through TOKEN_ENFORCEMENT_MODE so "log" mode
+        // still forwards the request while emitting the reason.
+        return tokenReject(event.request, 401, e.message);
     }
 }

@@ -15,13 +15,15 @@ drm_api_lambda_role_arn = "arn:aws:iam::877726356953:role/drm-api-lambda-role"
 # anonymous.
 unity_api_base = "https://unity.stage.nfhsnetwork.com"
 
-# VID-3464 collapse: token_enforcement_mode now covers what was previously
-# split with token_validation_enabled. "off" here is break-glass — the
-# validator forwards every viewer request unmodified. Off in stage while
-# VID-3450 geo-fence design + zip/DMA edge check is in flight, and while
-# VID-3464's UA allowlist hasn't been seeded with real patterns. Flip to
-# "log" first, then "enforce", once clients are minting tokens on stage.
-token_enforcement_mode = "off"
+# VID-3464 collapse: token_enforcement_mode covers what was previously
+# split with token_validation_enabled. Stage stepping up to "log" —
+# validator runs the token check on every request but forwards on
+# failure (emits a `token_reject reason=<x> mode=log` CloudWatch line),
+# so we can see the shape of what would-be-blocked traffic looks like
+# without breaking any existing tokenless viewers. Flip to "enforce"
+# once the UA allowlist has been seeded and the log signal shows only
+# expected clients failing.
+token_enforcement_mode = "log"
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after
 # end-to-end smoke against a test broadcast (bdcc0ab49f6f9 with DMAs

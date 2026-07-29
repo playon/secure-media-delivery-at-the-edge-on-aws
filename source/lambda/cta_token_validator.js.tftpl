@@ -1,108 +1,44 @@
-/**
- * CTA-5007-B CloudFront Function with Hybrid Token Renewal.
- *
- * Runs on viewer-request. Responsibilities:
- *   1. Enforce per-broadcast DMA blackout (VID-3458 / VID-3450 Option B)
- *      via CloudFront-Viewer-Metro-Code + KVS blackout:<broadcast_id>
- *      entries populated by the sync-writer (VID-3459).
- *   2. Validate CTA-5007-B CWT (header / query / path transports).
- *   3. Enforce standard CWT claims (URI restriction, country, IP,
- *      expiration, revocation).
- *
- * Rejection status codes (VID-3458):
- *   451 Unavailable For Legal Reasons — DMA blackout
- *   410 Gone                          — token revoked
- *   401 Unauthorized                  — everything else (missing/expired/
- *                                       invalid token, URI/country/IP mismatch)
- *
- * All rejections carry Cache-Control: no-store so CloudFront doesn't
- * serve one viewer's rejection to another viewer.
- *
- * Feature flags baked at deploy time via Terraform templatefile:
- *   token_enforcement_mode       — off | log | enforce (CTA token check)
- *   geo_validation_enabled       — catgeoiso3166 country claim check
- *   dma_enforcement_mode         — off | log | enforce
- *   legacy_client_allowlist_json — regex patterns for UA-based bypass (VID-3464)
- *
- * Requires CloudFront Functions JavaScript runtime 2.0.
- */
+// CTA-5007-B validator. See docs/plans/vid-3457-ua-allowlist.md and
+// AGENTS.md for design context. Feature flags baked at deploy via
+// Terraform templatefile: token_enforcement_mode (off|log|enforce),
+// geo_validation_enabled, dma_enforcement_mode (off|log|enforce),
+// legacy_client_allowlist_json.
 
 import cf from 'cloudfront';
 
-var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}"; // "off" | "log" | "enforce"
+var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}";
 var GEO_VALIDATION_ENABLED = ${geo_validation_enabled};
-var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}"; // "off" | "log" | "enforce"
+var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}";
 
-// VID-3464: transitional User-Agent allowlist. See variables.tf +
-// docs/plans/vid-3457-ua-allowlist.md. Patterns are pre-compiled once
-// at function-init time (CloudFront Functions reuse the runtime across
-// invocations within an edge process, so this pays off after the first
-// request).
+// VID-3464: pre-compile UA allowlist at init.
 var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
     var raw = ${legacy_client_allowlist_json};
-    var compiled = [];
-    for (var i = 0; i < raw.length; i++) {
-        compiled.push(new RegExp(raw[i]));
-    }
-    return compiled;
+    var out = [];
+    for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
+    return out;
 })();
 
-var CTA = {
-    EXP: "4",           // Expiration
-    NBF: "5",           // Not Before
-    IAT: "6",           // Issued At
-    CTI: "7",           // Token ID
-    CATNIP: "402",      // Network IP (per CloudFront docs)
-    CATU: "401",        // URI restrictions (per CloudFront docs)
-    CATGEOISO3166: "316" // Country codes
-};
+var CTA = { EXP: "4", NBF: "5", CTI: "7", CATNIP: "402", CATU: "401", CATGEOISO3166: "316" };
+var Catu = { PATH: "2" };
+var CatuMatch = { PREFIX: "1" };
 
-// catu sub-claim keys per AWS docs
-var Catu = {
-    HOST: "1",
-    PATH: "2",
-    EXT: "3"
-};
-
-var CatuMatch = {
-    PREFIX: "1",
-    SUFFIX: "2",
-    EXACT: "3"
-};
-
-// --- Response helpers -------------------------------------------------
-
-// Every rejection response gets Cache-Control: no-store so CloudFront
-// doesn't cache one viewer's per-request decision (DMA / token / IP)
-// and serve it to another viewer whose decision would differ.
+// Cache-Control: no-store on every rejection so CF doesn't serve one
+// viewer's per-request decision to another.
 function respond(statusCode, body) {
     return {
         statusCode: statusCode,
         body: body,
-        headers: {
-            'cache-control': { value: 'no-store, max-age=0' }
-        }
+        headers: { 'cache-control': { value: 'no-store, max-age=0' } }
     };
 }
 
-// VID-3464: token-failure dispatch. In "enforce" mode returns the
-// rejection response; in "log" mode logs the reason and forwards the
-// request so we can observe would-be rejections without blocking.
-// DMA failures use their own DMA_ENFORCEMENT_MODE (checkDmaBlackout);
-// this only affects token-family rejections (missing/expired/invalid,
-// URI/country/IP mismatch, revocation).
+// VID-3464: enforce → reject; log → log+forward; off handled upstream.
 function tokenReject(request, statusCode, reason) {
     console.log("token_reject reason=" + reason + " mode=" + TOKEN_ENFORCEMENT_MODE);
-    if (TOKEN_ENFORCEMENT_MODE === "enforce") {
-        return respond(statusCode, reason);
-    }
+    if (TOKEN_ENFORCEMENT_MODE === "enforce") return respond(statusCode, reason);
     return request;
 }
 
-// --- URL parsing ------------------------------------------------------
-
-// Manifest / segment URLs look like /broadcast/<id>/<variant>/<file>.
-// Segments in /broadcast/<id>/segments/<seg>.ts also parse cleanly.
 function extractBroadcastId(uri) {
     var m = /^\/broadcast\/([^\/]+)/.exec(uri);
     return m ? m[1] : null;
@@ -110,13 +46,9 @@ function extractBroadcastId(uri) {
 
 function extractPathToken(request) {
     var segments = request.uri.split('/');
-    if (segments[1] && segments[1].length > 50) {
-        return segments[1];
-    }
+    if (segments[1] && segments[1].length > 50) return segments[1];
     return null;
 }
-
-// --- DMA blackout enforcement (VID-3458) ------------------------------
 
 function isMetroBlocked(metroValue, blocklistCsv) {
     if (!metroValue || !blocklistCsv) return false;
@@ -128,111 +60,59 @@ function isMetroBlocked(metroValue, blocklistCsv) {
     return false;
 }
 
-// Returns a response object to short-circuit the pipeline, or null to
-// continue. In "log" mode always returns null after emitting a log line.
+// Returns a response to short-circuit, or null to continue. Log mode
+// always returns null after emitting the log line.
 async function checkDmaBlackout(request, kvs) {
     if (DMA_ENFORCEMENT_MODE === "off") return null;
-
     var broadcastId = extractBroadcastId(request.uri);
     if (!broadcastId) return null;
-
     var blocklistCsv = null;
-    try {
-        blocklistCsv = await kvs.get("blackout:" + broadcastId);
-    } catch (e) {
-        // Key not found = no blackout configured. Forward.
-        return null;
-    }
+    try { blocklistCsv = await kvs.get("blackout:" + broadcastId); } catch (e) { return null; }
     if (!blocklistCsv) return null;
-
     var metroHeader = request.headers["cloudfront-viewer-metro-code"];
-    if (!metroHeader) return null; // No metro info; can't decide, don't block.
-
+    if (!metroHeader) return null;
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
-
-    // Blocked. Kinesis realtime-logs will pick this up via the standard
-    // access-log pipeline; the log line here is for CloudWatch too.
     console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
-    if (DMA_ENFORCEMENT_MODE === "enforce") {
-        return respond(451, "blackout_dma");
-    }
-    return null; // "log" mode: computed the decision, but forward anyway.
+    if (DMA_ENFORCEMENT_MODE === "enforce") return respond(451, "blackout_dma");
+    return null;
 }
 
-// --- Legacy-client User-Agent allowlist (VID-3464) --------------------
-
-// Match the viewer UA against the compiled allowlist. Returns the
-// matching pattern (as string) or null. Linear scan; keep the list
-// small (< 20 entries) — hot path.
+// VID-3464: transitional UA allowlist. Linear scan; keep list < 20.
 function matchesLegacyAllowlist(request) {
     if (LEGACY_CLIENT_ALLOWLIST_PATTERNS.length === 0) return null;
     var uaHeader = request.headers["user-agent"];
     if (!uaHeader || !uaHeader.value) return null;
     var ua = uaHeader.value;
     for (var i = 0; i < LEGACY_CLIENT_ALLOWLIST_PATTERNS.length; i++) {
-        if (LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].test(ua)) {
-            // Return the source pattern for telemetry — CloudFront
-            // Functions RegExp exposes .source, which is portable.
-            return LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].source;
-        }
+        if (LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].test(ua)) return LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].source;
     }
     return null;
 }
 
-// --- Token claim validation -------------------------------------------
-
 function validateClaims(payload, request, viewerIp) {
     var now = Math.floor(Date.now() / 1000);
-
-    if (payload[CTA.EXP] && now > payload[CTA.EXP]) {
-        throw new Error("expired");
-    }
-
-    if (payload[CTA.NBF] && now < payload[CTA.NBF]) {
-        throw new Error("not_yet_valid");
-    }
-
-    // URI path validation (catu → path → prefix_match)
+    if (payload[CTA.EXP] && now > payload[CTA.EXP]) throw new Error("expired");
+    if (payload[CTA.NBF] && now < payload[CTA.NBF]) throw new Error("not_yet_valid");
     if (payload[CTA.CATU] && payload[CTA.CATU][Catu.PATH] && payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX]) {
-        if (!request.uri.startsWith(payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX])) {
-            throw new Error("uri_not_allowed");
-        }
+        if (!request.uri.startsWith(payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX])) throw new Error("uri_not_allowed");
     }
-
-    // Country validation (catgeoiso3166). Gated by GEO_VALIDATION_ENABLED —
-    // when off, the claim is present but not enforced. DMA-level enforcement
-    // is now handled separately in checkDmaBlackout (VID-3458).
     if (GEO_VALIDATION_ENABLED && payload[CTA.CATGEOISO3166]) {
         var country = request.headers["cloudfront-viewer-country"];
-        if (!country || payload[CTA.CATGEOISO3166].indexOf(country.value.toLowerCase()) === -1) {
-            throw new Error("geo_restricted");
-        }
+        if (!country || payload[CTA.CATGEOISO3166].indexOf(country.value.toLowerCase()) === -1) throw new Error("geo_restricted");
     }
-
-    // IP validation (catnip — claim 402)
-    // event.viewer.ip is available in CloudFront Functions JS 2.0
     if (payload[CTA.CATNIP] && viewerIp) {
         var allowed = payload[CTA.CATNIP];
         var ipMatch = false;
         for (var i = 0; i < allowed.length; i++) {
-            if (allowed[i] === viewerIp) {
-                ipMatch = true;
-                break;
-            }
+            if (allowed[i] === viewerIp) { ipMatch = true; break; }
         }
-        if (!ipMatch) {
-            throw new Error("ip_restricted");
-        }
+        if (!ipMatch) throw new Error("ip_restricted");
     }
 }
-
-// --- Handler ----------------------------------------------------------
 
 async function handler(event) {
     try {
         var request = event.request;
-
-        // Handle CORS preflight
         if (request.method === 'OPTIONS') {
             return {
                 statusCode: 204,
@@ -247,58 +127,33 @@ async function handler(event) {
 
         var kvs = cf.kvs();
 
-        // DMA enforcement runs BEFORE token bypass so that an env in
-        // break-glass mode (token_enforcement_mode="off") still enforces
-        // regional blackouts. They're independent concerns.
+        // DMA runs before token bypass — regional blackouts enforce
+        // even when tokens are off.
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
 
-        // Break-glass bypass. When token_enforcement_mode is "off" the
-        // validator forwards every viewer request unmodified — the edge
-        // becomes a no-op for tokens (but DMA enforcement above still
-        // runs).
-        if (TOKEN_ENFORCEMENT_MODE === "off") {
-            return request;
-        }
+        if (TOKEN_ENFORCEMENT_MODE === "off") return request;
 
-        // VID-3464: transitional UA allowlist. Requests matching a legacy
-        // client pattern skip token validation and forward. Runs after
-        // DMA (independent) and after the break-glass bypass. Empty
-        // allowlist → no-op branch.
         var allowlistedPattern = matchesLegacyAllowlist(request);
         if (allowlistedPattern) {
             console.log("allowlist_bypass pattern=" + allowlistedPattern);
             return request;
         }
 
-        // /website/* and /api/* are handled by separate behaviors.
-        // Default behavior only gets token-protected content requests.
-
         var signingKey = await kvs.get("key:default");
         var token = null;
         var payload = null;
 
-        // Extract the token and STRIP it from the request BEFORE
-        // validating. In enforce mode ordering doesn't matter — a
-        // rejection response replaces the request wholesale. But in
-        // log mode a validation failure forwards the request, and we
-        // don't want the ?CAT= param or the /<token>/ path segment
-        // going through to origin (origin either 404s on the token
-        // path or logs the raw CWT in access logs — both bad).
+        // Strip token from URI/query BEFORE validation so log-mode
+        // failure paths forward a clean request to origin.
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
-            // Header transport: nothing to strip from URI/querystring.
-        }
-        else if (request.querystring["CAT"]) {
+        } else if (request.querystring["CAT"]) {
             token = request.querystring["CAT"].value;
             delete request.querystring["CAT"];
-        }
-        else {
+        } else {
             token = extractPathToken(request);
-            if (!token) {
-                return tokenReject(request, 401, "missing_token");
-            }
-            // Strip token from path immediately — before validation.
+            if (!token) return tokenReject(request, 401, "missing_token");
             var segments = request.uri.split('/');
             segments.splice(1, 1);
             request.uri = segments.join('/') || '/';
@@ -307,32 +162,18 @@ async function handler(event) {
         var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
         payload = cwt.payload;
 
-        // Check revocation. Distinct 410 Gone so clients can tell a
-        // revoked token apart from a plain-invalid one.
+        // 410 Gone (revoked) is distinct from generic 401 so clients
+        // can tell a revoked token apart from a plain-invalid one.
         if (payload[CTA.CTI]) {
             try {
-                var cti = String(payload[CTA.CTI]);
-                var revoked = await kvs.get("revoked:" + cti);
-                if (revoked) {
-                    return tokenReject(request, 410, "token_revoked");
-                }
-            } catch (e) {
-                // Key not found in KVS means not revoked — continue
-            }
+                var revoked = await kvs.get("revoked:" + String(payload[CTA.CTI]));
+                if (revoked) return tokenReject(request, 410, "token_revoked");
+            } catch (e) { /* not revoked */ }
         }
 
-        // Validate claims
         validateClaims(payload, request, event.viewer.ip);
-
-        // Forward request to origin
         return request;
-
     } catch (e) {
-        // Everything thrown from token/claim validation lands here.
-        // 401 stays generic for the token-issue family; DMA (451) and
-        // revocation (410) return directly above and don't reach this
-        // catch. Falls through TOKEN_ENFORCEMENT_MODE so "log" mode
-        // still forwards the request while emitting the reason.
         return tokenReject(event.request, 401, e.message);
     }
 }

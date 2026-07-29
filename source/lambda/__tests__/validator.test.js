@@ -36,7 +36,9 @@ function render(overrides) {
 // Load the rendered validator into a fresh vm context and return its
 // handler. The `cf` import is replaced with a stub because CloudFront
 // Functions ESM syntax isn't available in Node's CommonJS jest runner.
-function loadValidator(rendered, kvsMap) {
+function loadValidator(rendered, kvsMap, opts) {
+  const validateToken = (opts && opts.validateToken) || (() => { throw new Error('cwt_stub_called'); });
+  const logs = [];
   const kvs = {
     get: async (key) => {
       if (!(key in kvsMap)) throw new Error('KeyNotFound');
@@ -45,10 +47,7 @@ function loadValidator(rendered, kvsMap) {
   };
   const cfMock = {
     kvs: () => kvs,
-    cwt: {
-      // Bare stub — tests exercising real CWT paths supply their own.
-      validateToken: () => { throw new Error('cwt_stub_called'); },
-    },
+    cwt: { validateToken },
   };
 
   // Strip the ESM `import cf from 'cloudfront'` — inject `var cf` before eval.
@@ -64,7 +63,7 @@ function loadValidator(rendered, kvsMap) {
   const context = vm.createContext({
     __cfMock: cfMock,
     module,
-    console: { log: () => {} },
+    console: { log: (...args) => logs.push(args.join(' ')) },
     Math,
     Date,
     RegExp,
@@ -74,7 +73,7 @@ function loadValidator(rendered, kvsMap) {
     clearTimeout,
   });
   vm.runInContext(wrapped, context);
-  return module.exports.handler;
+  return { handler: module.exports.handler, logs };
 }
 
 function makeRequest({ uri = '/broadcast/abc/720p30/live.m3u8', userAgent = 'Mozilla/5.0', method = 'GET', pathToken } = {}) {
@@ -96,14 +95,14 @@ function makeRequest({ uri = '/broadcast/abc/720p30/live.m3u8', userAgent = 'Moz
 
 describe('CTA validator — VID-3464 UA allowlist', () => {
   test('empty allowlist forwards through to token validation (missing_token → 401 in enforce)', async () => {
-    const handler = loadValidator(render({}), { 'key:default': 'test-signing-key' });
+    const { handler } = loadValidator(render({}), { 'key:default': 'test-signing-key' });
     const res = await handler(makeRequest());
     expect(res.statusCode).toBe(401);
     expect(res.body).toBe('missing_token');
   });
 
   test('allowlisted UA bypasses token validation and forwards request', async () => {
-    const handler = loadValidator(
+    const { handler } = loadValidator(
       render({ legacy_client_allowlist_json: '["^Roku/DVP-", "^NFHS Network/"]' }),
       {}
     );
@@ -116,7 +115,7 @@ describe('CTA validator — VID-3464 UA allowlist', () => {
   });
 
   test('non-allowlisted UA still enforces token check', async () => {
-    const handler = loadValidator(
+    const { handler } = loadValidator(
       render({ legacy_client_allowlist_json: '["^Roku/DVP-"]' }),
       { 'key:default': 'test-signing-key' }
     );
@@ -126,7 +125,7 @@ describe('CTA validator — VID-3464 UA allowlist', () => {
   });
 
   test('missing User-Agent header is not an allowlist match', async () => {
-    const handler = loadValidator(
+    const { handler } = loadValidator(
       render({ legacy_client_allowlist_json: '["^.*"]' }),  // matches everything
       { 'key:default': 'test-signing-key' }
     );
@@ -136,7 +135,7 @@ describe('CTA validator — VID-3464 UA allowlist', () => {
   });
 
   test('regex escaping: pattern with . as literal (com.playon.nfhslive) does not match arbitrary chars', async () => {
-    const handler = loadValidator(
+    const { handler } = loadValidator(
       render({ legacy_client_allowlist_json: '["^com\\\\.playon\\\\.nfhslive/"]' }),
       {}
     );
@@ -150,28 +149,63 @@ describe('CTA validator — VID-3464 UA allowlist', () => {
 
 describe('CTA validator — VID-3464 token_enforcement_mode', () => {
   test('mode=log forwards request even when token is missing', async () => {
-    const handler = loadValidator(render({ token_enforcement_mode: 'log' }), {});
+    const { handler } = loadValidator(render({ token_enforcement_mode: 'log' }), {});
     const res = await handler(makeRequest());
     expect(res.statusCode).toBeUndefined();
     expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
   });
 
   test('mode=off short-circuits before allowlist even runs', async () => {
-    const handler = loadValidator(
+    // Use an allowlist that DOES match the UA — if off bypasses first
+    // we should NOT see the allowlist_bypass log line. If the code ever
+    // reordered so the allowlist ran before the off short-circuit,
+    // this test would emit the log line and fail.
+    const { handler, logs } = loadValidator(
       render({
         token_enforcement_mode: 'off',
-        // Provide an allowlist that WOULD match — verifies off bypasses first.
-        legacy_client_allowlist_json: '["never-matches"]',
+        legacy_client_allowlist_json: '["^match-anything"]',
       }),
       {}
     );
-    const res = await handler(makeRequest({ userAgent: 'anything' }));
+    const res = await handler(makeRequest({ userAgent: 'match-anything/1.0' }));
     expect(res.statusCode).toBeUndefined();
+    expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
+    expect(logs.some(l => l.includes('allowlist_bypass'))).toBe(false);
+  });
+
+  test('mode=log strips path token before forwarding when validation fails', async () => {
+    // Regression: log mode was forwarding /<token>/broadcast/... to
+    // origin on bad path tokens, causing 404s. Token must be stripped
+    // BEFORE validation so failure-forwarding is safe.
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'log' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => { throw new Error('bad_signature'); } }
+    );
+    const req = makeRequest({ pathToken: 'x'.repeat(60), uri: '/broadcast/abc/720p30/live.m3u8' });
+    const res = await handler(req);
+    expect(res.statusCode).toBeUndefined();
+    // Path token stripped even though validation threw.
     expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
   });
 
+  test('mode=log strips ?CAT= query before forwarding when validation fails', async () => {
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'log' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => { throw new Error('bad_signature'); } }
+    );
+    const evt = makeRequest();
+    evt.request.querystring.CAT = { value: 'bad-token-value' };
+    const res = await handler(evt);
+    expect(res.statusCode).toBeUndefined();
+    expect(res.request === undefined || !('CAT' in (res.querystring || {}))).toBe(true);
+    // The mutated request object is what's forwarded — check its querystring.
+    expect(res.querystring.CAT).toBeUndefined();
+  });
+
   test('mode=enforce rejects with 401 on missing_token (default)', async () => {
-    const handler = loadValidator(render({}), { 'key:default': 'test-signing-key' });
+    const { handler } = loadValidator(render({}), { 'key:default': 'test-signing-key' });
     const res = await handler(makeRequest());
     expect(res.statusCode).toBe(401);
     expect(res.headers['cache-control'].value).toBe('no-store, max-age=0');

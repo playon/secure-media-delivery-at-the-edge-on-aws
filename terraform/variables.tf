@@ -100,6 +100,17 @@ variable "legacy_client_allowlist" {
   description = "Regex patterns matched against the viewer User-Agent. Requests whose UA matches ANY pattern bypass CTA token validation. Order: after DMA blackout, before token check. Keep list small (< 20 entries) — matcher is linear per request. Empty list disables the bridge."
   default     = []
   nullable    = false
+
+  # Guard against a bad regex bricking the edge. new RegExp(...) runs at
+  # CloudFront-Function-init on every invocation; an uncompilable pattern
+  # throws before we reach the handler and every viewer request 5xxs.
+  # Terraform's `regex` is RE2, which is stricter than JS (no lookaheads,
+  # etc.), so this catches obvious syntax errors at plan time. Patterns
+  # here are anchored literal prefixes — RE2 handles them fine.
+  validation {
+    condition     = alltrue([for p in var.legacy_client_allowlist : can(regex(p, ""))])
+    error_message = "Each legacy_client_allowlist entry must be a valid RE2 regex (empirically also a valid JS RegExp for the anchored-literal patterns we use)."
+  }
 }
 
 # VID-3464: token-check enforcement mode. Parallel shape to

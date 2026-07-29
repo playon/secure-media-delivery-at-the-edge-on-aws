@@ -82,6 +82,20 @@ jobs:
           working_directory: terraform
           command: terraform validate
 
+  # VID-3464: jest unit tests for the validator CloudFront Function.
+  # Scoped to source/lambda/__tests__/ — blackout_sync uses node:test.
+  unit-tests:
+    docker:
+      - image: cimg/node:<< pipeline.parameters.node_version >>
+    steps:
+      - checkout
+      - run:
+          name: npm install (source/lambda, includes jest dev dep)
+          command: npm install --no-audit --no-fund --prefix source/lambda
+      - run:
+          name: jest
+          command: npm test --prefix source/lambda
+
   plan-stage:
     docker:
       - image: cimg/node:<< pipeline.parameters.node_version >>
@@ -159,6 +173,10 @@ workflows:
       # signal before merge. No AWS creds so it's cheap and safe.
       - static-checks
 
+      # VID-3464: validator jest suite. No AWS creds, no network, cheap.
+      # Runs on every branch so PRs surface regressions before plan.
+      - unit-tests
+
       # PR branches: plan-only. Reviewers get the actual tfplan diff
       # as an artifact when looking at the PR. Read-only from AWS's
       # perspective; workflow filters prevent chaining to apply.
@@ -171,6 +189,7 @@ workflows:
               ignore: main
           requires:
             - static-checks
+            - unit-tests
 
       # main: plan → approve → apply. Only branch that can actually
       # mutate AWS beyond read-only plan operations.
@@ -183,6 +202,7 @@ workflows:
               only: main
           requires:
             - static-checks
+            - unit-tests
 
       - approve-stage:
           type: approval

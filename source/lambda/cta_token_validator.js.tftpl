@@ -248,7 +248,7 @@ async function handler(event) {
         var kvs = cf.kvs();
 
         // DMA enforcement runs BEFORE token bypass so that an env in
-        // break-glass mode (TOKEN_VALIDATION_ENABLED=false) still enforces
+        // break-glass mode (token_enforcement_mode="off") still enforces
         // regional blackouts. They're independent concerns.
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
@@ -278,34 +278,34 @@ async function handler(event) {
         var token = null;
         var payload = null;
 
-        // Try header token first
+        // Extract the token and STRIP it from the request BEFORE
+        // validating. In enforce mode ordering doesn't matter — a
+        // rejection response replaces the request wholesale. But in
+        // log mode a validation failure forwards the request, and we
+        // don't want the ?CAT= param or the /<token>/ path segment
+        // going through to origin (origin either 404s on the token
+        // path or logs the raw CWT in access logs — both bad).
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
-            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            payload = cwt.payload;
+            // Header transport: nothing to strip from URI/querystring.
         }
-        // Try query parameter token (?CAT=...)
         else if (request.querystring["CAT"]) {
             token = request.querystring["CAT"].value;
-            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            payload = cwt.payload;
             delete request.querystring["CAT"];
         }
-        // Fallback to path token
         else {
             token = extractPathToken(request);
             if (!token) {
                 return tokenReject(request, 401, "missing_token");
             }
-
-            var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
-            payload = cwt.payload;
-
-            // Strip token from path before sending to origin
+            // Strip token from path immediately — before validation.
             var segments = request.uri.split('/');
             segments.splice(1, 1);
             request.uri = segments.join('/') || '/';
         }
+
+        var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
+        payload = cwt.payload;
 
         // Check revocation. Distinct 410 Gone so clients can tell a
         // revoked token apart from a plain-invalid one.

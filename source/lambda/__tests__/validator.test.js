@@ -19,7 +19,6 @@ const TEMPLATE_PATH = path.join(__dirname, '..', 'cta_token_validator.js.tftpl')
 
 function render(overrides) {
   const defaults = {
-    token_validation_enabled: 'true',
     token_enforcement_mode: 'enforce',
     geo_validation_enabled: 'false',
     dma_enforcement_mode: 'off',
@@ -178,15 +177,4 @@ describe('CTA validator — VID-3464 token_enforcement_mode', () => {
     expect(res.headers['cache-control'].value).toBe('no-store, max-age=0');
   });
 
-  test('token_validation_enabled=false takes precedence over token_enforcement_mode', async () => {
-    const handler = loadValidator(
-      render({
-        token_validation_enabled: 'false',
-        token_enforcement_mode: 'enforce',
-      }),
-      {}
-    );
-    const res = await handler(makeRequest());
-    expect(res.statusCode).toBeUndefined();
-  });
 });

@@ -19,8 +19,7 @@
  * serve one viewer's rejection to another viewer.
  *
  * Feature flags baked at deploy time via Terraform templatefile:
- *   token_validation_enabled     — master token-check switch (false = full bypass)
- *   token_enforcement_mode       — off | log | enforce (behavior on token failure)
+ *   token_enforcement_mode       — off | log | enforce (CTA token check)
  *   geo_validation_enabled       — catgeoiso3166 country claim check
  *   dma_enforcement_mode         — off | log | enforce
  *   legacy_client_allowlist_json — regex patterns for UA-based bypass (VID-3464)
@@ -30,7 +29,6 @@
 
 import cf from 'cloudfront';
 
-var TOKEN_VALIDATION_ENABLED = ${token_validation_enabled};
 var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}"; // "off" | "log" | "enforce"
 var GEO_VALIDATION_ENABLED = ${geo_validation_enabled};
 var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}"; // "off" | "log" | "enforce"
@@ -255,13 +253,11 @@ async function handler(event) {
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
 
-        // Break-glass bypass. When token validation is disabled at deploy
-        // time, forward every viewer request unmodified — the edge becomes
-        // a no-op for tokens (but DMA enforcement above still runs).
-        // token_enforcement_mode=off is the equivalent knob under the
-        // log/enforce/off shape shared with DMA; both should behave the
-        // same, so treat them identically.
-        if (!TOKEN_VALIDATION_ENABLED || TOKEN_ENFORCEMENT_MODE === "off") {
+        // Break-glass bypass. When token_enforcement_mode is "off" the
+        // validator forwards every viewer request unmodified — the edge
+        // becomes a no-op for tokens (but DMA enforcement above still
+        // runs).
+        if (TOKEN_ENFORCEMENT_MODE === "off") {
             return request;
         }
 

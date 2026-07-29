@@ -59,13 +59,6 @@ variable "unity_api_base" {
   nullable    = false
 }
 
-variable "token_validation_enabled" {
-  type        = bool
-  description = "Master switch for CTA token validation at the edge. When false, the validator forwards every viewer request without inspecting the token — break-glass bypass for staged rollout or incident response. Baked into the CloudFront Function at deploy time; flipping requires a Terraform apply."
-  default     = true
-  nullable    = false
-}
-
 variable "geo_validation_enabled" {
   type        = bool
   description = "Enforce catgeoiso3166 country claim at the edge. When false, the claim is present but not checked. Other claim checks (URI/IP/exp/nbf/revocation) still run. Distinct from dma_enforcement_mode which handles per-broadcast DMA blackout separately."
@@ -109,13 +102,12 @@ variable "legacy_client_allowlist" {
   nullable    = false
 }
 
-# VID-3464: log/enforce ramp for CTA token validation. Parallel shape
-# to dma_enforcement_mode. "off" is redundant with
-# token_validation_enabled=false — kept for symmetry so operators can
-# use one knob shape across DMA and token controls.
+# VID-3464: token-check enforcement mode. Parallel shape to
+# dma_enforcement_mode. Single knob covers what was previously split
+# between token_validation_enabled (bool) and enforcement mode.
 variable "token_enforcement_mode" {
   type        = string
-  description = "Token validation enforcement mode when token_validation_enabled is true. 'off' skips the check entirely (equivalent to token_validation_enabled=false). 'log' runs the check and emits a Kinesis/CloudWatch log line on failure but forwards the request anyway — measures the population that WOULD be blocked before flipping to enforce. 'enforce' rejects with 401 (missing/invalid/expired) or 410 (revoked). DMA blackout enforcement is independent (dma_enforcement_mode)."
+  description = "CTA token validation mode. 'off' skips the check entirely — the validator forwards every viewer request without inspecting the token (break-glass bypass; DMA enforcement still runs). 'log' runs the check and emits a Kinesis/CloudWatch log line on failure but forwards anyway — measures the population that WOULD be blocked before flipping to enforce. 'enforce' rejects with 401 (missing/invalid/expired) or 410 (revoked). DMA blackout enforcement is independent (dma_enforcement_mode)."
   default     = "enforce"
   nullable    = false
 

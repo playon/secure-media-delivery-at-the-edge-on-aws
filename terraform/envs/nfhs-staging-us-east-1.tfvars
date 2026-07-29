@@ -15,10 +15,13 @@ drm_api_lambda_role_arn = "arn:aws:iam::877726356953:role/drm-api-lambda-role"
 # anonymous.
 unity_api_base = "https://unity.stage.nfhsnetwork.com"
 
-# Break-glass bypass: validator forwards every viewer request unmodified.
-# Off in stage while VID-3450 geo-fence design + zip/DMA edge check is in
-# flight — flipping back to true (or omitting) restores enforcement.
-token_validation_enabled = false
+# VID-3464 collapse: token_enforcement_mode now covers what was previously
+# split with token_validation_enabled. "off" here is break-glass — the
+# validator forwards every viewer request unmodified. Off in stage while
+# VID-3450 geo-fence design + zip/DMA edge check is in flight, and while
+# VID-3464's UA allowlist hasn't been seeded with real patterns. Flip to
+# "log" first, then "enforce", once clients are minting tokens on stage.
+token_enforcement_mode = "off"
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after
 # end-to-end smoke against a test broadcast (bdcc0ab49f6f9 with DMAs

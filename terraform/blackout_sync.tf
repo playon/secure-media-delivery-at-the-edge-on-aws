@@ -46,11 +46,16 @@ resource "aws_lambda_function" "blackout_sync" {
 
   environment {
     variables = {
-      KVS_ARN                 = aws_cloudfront_key_value_store.this.arn
-      UNITY_API_BASE          = var.unity_api_base
-      PAGE_SIZE               = "1000"
-      SCAN_WINDOW_HOURS       = "24"
-      SCAN_WINDOW_FUTURE_DAYS = "30"
+      KVS_ARN                = aws_cloudfront_key_value_store.this.arn
+      UNITY_API_BASE         = var.unity_api_base
+      PAGE_SIZE              = "1000"
+      SCAN_WINDOW_PAST_HOURS = "24"
+      # 6 hours forward is ~72 sync cycles of buffer at the 5-minute
+      # EventBridge cadence. Broadcasts scheduled further out roll into
+      # the window as their start_time approaches; the previous 30-day
+      # window preloaded ~100x more broadcasts than needed and hammered
+      # unity-api for zero correctness benefit.
+      SCAN_WINDOW_FUTURE_HOURS = "6"
     }
   }
 }

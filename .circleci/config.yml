@@ -155,16 +155,64 @@ jobs:
           working_directory: terraform
           command: terraform output -json | tee ../tf-outputs-stage.json
 
+  plan-prod:
+    docker:
+      - image: cimg/node:<< pipeline.parameters.node_version >>
+    steps:
+      - checkout
+      - install_terraform
+      - install_lambda_deps
+      - run:
+          name: terraform init
+          working_directory: terraform
+          command: terraform init -input=false
+      - run:
+          name: terraform workspace select nfhs-prod-us-east-1
+          working_directory: terraform
+          command: |
+            terraform workspace new nfhs-prod-us-east-1 || terraform workspace select nfhs-prod-us-east-1
+      - run:
+          name: terraform plan -out=tfplan.binary
+          working_directory: terraform
+          command: |
+            terraform plan \
+              -input=false \
+              -var-file=envs/nfhs-prod-us-east-1.tfvars \
+              -out=tfplan.binary
+            terraform show -no-color tfplan.binary > tfplan.txt
+            terraform show -json tfplan.binary > tfplan.json
+      - store_artifacts:
+          path: terraform/tfplan.txt
+          destination: plan/nfhs-prod.txt
+      - store_artifacts:
+          path: terraform/tfplan.json
+          destination: plan/nfhs-prod.json
+      - persist_to_workspace:
+          root: terraform
+          paths:
+            - tfplan.binary
+            - .terraform
+            - .terraform.lock.hcl
+
   apply-prod:
     docker:
-      - image: cimg/base:2024.11
+      - image: cimg/node:<< pipeline.parameters.node_version >>
     steps:
+      - checkout
+      - install_terraform
+      - install_lambda_deps
+      - attach_workspace:
+          at: terraform
       - run:
-          name: Prod apply not yet wired
+          name: terraform apply tfplan.binary
+          working_directory: terraform
           command: |
-            echo "Prod pipeline is a skeleton placeholder — CTA is stage-only"
-            echo "through the initial rollout. Wire the real apply step when"
-            echo "promoting to prod. See VID-3417 / VID-3439 for context."
+            terraform workspace select nfhs-prod-us-east-1
+            terraform apply -input=false -auto-approve tfplan.binary
+      - run:
+          name: terraform output (post-apply)
+          working_directory: terraform
+          command: terraform output -json | tee ../tf-outputs-prod.json
 
 workflows:
   cta-secure-media:
@@ -221,7 +269,11 @@ workflows:
           requires:
             - approve-stage
 
-      - approve-prod:
+      # Prod: plan → approve → apply. Two approval gates around the
+      # plan itself so operators review the actual diff artifact before
+      # anything mutates the prod account. Same shape as
+      # iac-tf-aws-project-video-common.
+      - approve-prod-plan:
           type: approval
           filters:
             branches:
@@ -229,9 +281,28 @@ workflows:
           requires:
             - apply-stage
 
-      - apply-prod:
+      - plan-prod:
+          context:
+            - GOFAN_OPS
           filters:
             branches:
               only: main
           requires:
-            - approve-prod
+            - approve-prod-plan
+
+      - approve-prod-apply:
+          type: approval
+          filters:
+            branches:
+              only: main
+          requires:
+            - plan-prod
+
+      - apply-prod:
+          context:
+            - GOFAN_OPS
+          filters:
+            branches:
+              only: main
+          requires:
+            - approve-prod-apply

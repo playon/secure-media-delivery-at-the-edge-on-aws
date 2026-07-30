@@ -59,13 +59,6 @@ variable "unity_api_base" {
   nullable    = false
 }
 
-variable "geo_validation_enabled" {
-  type        = bool
-  description = "Enforce catgeoiso3166 country claim at the edge. When false, the claim is present but not checked. Other claim checks (URI/IP/exp/nbf/revocation) still run. Distinct from dma_enforcement_mode which handles per-broadcast DMA blackout separately."
-  default     = true
-  nullable    = false
-}
-
 # VID-3458: per-broadcast DMA blackout enforcement at the CloudFront
 # edge via the sync-writer's KVS entries (VID-3459). Independent of
 # token validation — DMA check runs even in break-glass mode.

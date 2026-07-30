@@ -20,7 +20,6 @@ const TEMPLATE_PATH = path.join(__dirname, '..', 'cta_token_validator.js.tftpl')
 function render(overrides) {
   const defaults = {
     token_enforcement_mode: 'enforce',
-    geo_validation_enabled: 'false',
     dma_enforcement_mode: 'off',
     legacy_client_allowlist_json: '[]',
   };

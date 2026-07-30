@@ -1,13 +1,11 @@
 // CTA-5007-B validator. See docs/plans/vid-3457-ua-allowlist.md and
 // AGENTS.md for design context. Feature flags baked at deploy via
 // Terraform templatefile: token_enforcement_mode (off|log|enforce),
-// geo_validation_enabled, dma_enforcement_mode (off|log|enforce),
-// legacy_client_allowlist_json.
+// dma_enforcement_mode (off|log|enforce), legacy_client_allowlist_json.
 
 import cf from 'cloudfront';
 
 var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}";
-var GEO_VALIDATION_ENABLED = ${geo_validation_enabled};
 var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}";
 
 // VID-3464: pre-compile UA allowlist at init.
@@ -18,7 +16,7 @@ var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
     return out;
 })();
 
-var CTA = { EXP: "4", NBF: "5", CTI: "7", CATNIP: "402", CATU: "401", CATGEOISO3166: "316" };
+var CTA = { EXP: "4", NBF: "5", CTI: "7", CATNIP: "402", CATU: "401" };
 var Catu = { PATH: "2" };
 var CatuMatch = { PREFIX: "1" };
 
@@ -95,10 +93,6 @@ function validateClaims(payload, request, viewerIp) {
     if (payload[CTA.NBF] && now < payload[CTA.NBF]) throw new Error("not_yet_valid");
     if (payload[CTA.CATU] && payload[CTA.CATU][Catu.PATH] && payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX]) {
         if (!request.uri.startsWith(payload[CTA.CATU][Catu.PATH][CatuMatch.PREFIX])) throw new Error("uri_not_allowed");
-    }
-    if (GEO_VALIDATION_ENABLED && payload[CTA.CATGEOISO3166]) {
-        var country = request.headers["cloudfront-viewer-country"];
-        if (!country || payload[CTA.CATGEOISO3166].indexOf(country.value.toLowerCase()) === -1) throw new Error("geo_restricted");
     }
     if (payload[CTA.CATNIP] && viewerIp) {
         var allowed = payload[CTA.CATNIP];

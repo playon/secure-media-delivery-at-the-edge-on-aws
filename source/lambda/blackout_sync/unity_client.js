@@ -1,25 +1,29 @@
 /**
- * Read-only client for unity-api's /v2/broadcasts endpoint.
+ * Read-only client for unity-api's /v2/broadcasts/dmas endpoint.
  *
- * The broadcast payload's `dma_list` is the EFFECTIVE value —
- * Broadcast#dma_list resolves the broadcast override → publisher fallback
- * (unity-api/app/models/broadcast.rb:489-494). Absent/empty means no
+ * Slim endpoint returning {key, dma_list} per broadcast in the scan
+ * window. dma_list is the effective value (Broadcast#dma_list resolves
+ * broadcast override → publisher fallback); absent/empty means no
  * restriction.
  *
- * Read endpoints on v2 are anonymous — no credential threaded through.
+ * exclude_pixellot=true filters out Pixellot-created broadcasts on the
+ * server side — by convention they don't carry per-broadcast DMA
+ * overrides, and dropping them cuts scan set by an order of magnitude.
  *
- * Scan window is bounded on both sides — start_time_gte alone times out
- * on prod-scale data because NFHS Network schedules months of games in
- * advance and the IN sub-list becomes too large. Sending both bounds
- * keeps the games/events subset small.
+ * Read endpoint is anonymous — no credential threaded through.
+ *
+ * Scan window must be bounded on both sides — the endpoint returns 400
+ * on single-bound requests. NFHS Network schedules months of games in
+ * advance so an unbounded side would timeout.
  */
 
 const DEFAULT_PAGE_SIZE = 1000;
 
 async function fetchPage(baseUrl, page, perPage, startTimeGteIso, startTimeLteIso) {
-    const url = new URL(`${baseUrl}/v2/broadcasts`);
+    const url = new URL(`${baseUrl}/v2/broadcasts/dmas`);
     url.searchParams.set("page", String(page));
     url.searchParams.set("per_page", String(perPage));
+    url.searchParams.set("exclude_pixellot", "true");
     if (startTimeGteIso) {
         url.searchParams.set("start_time_gte", startTimeGteIso);
     }
@@ -34,35 +38,21 @@ async function fetchPage(baseUrl, page, perPage, startTimeGteIso, startTimeLteIs
 }
 
 /**
- * Walk /v2/broadcasts within the scan window and yield every broadcast
- * seen (regardless of dma_list). Callers decide whether to consider
- * each broadcast for KVS write based on its dma_list.
+ * Walk /v2/broadcasts/dmas within the scan window and yield every
+ * broadcast seen (regardless of dma_list). Callers decide whether to
+ * consider each broadcast for KVS write based on its dma_list.
  *
- * Yields: { key, dma_list } — dma_list may be empty/absent.
+ * Yields: { key, dma_list } — dma_list may be null/empty.
  */
 async function* iterateBroadcasts(baseUrl, startTimeGteIso, startTimeLteIso, perPage = DEFAULT_PAGE_SIZE) {
-    const gteMs = startTimeGteIso ? new Date(startTimeGteIso).getTime() : null;
-    const lteMs = startTimeLteIso ? new Date(startTimeLteIso).getTime() : null;
     let page = 1;
     while (true) {
         const body = await fetchPage(baseUrl, page, perPage, startTimeGteIso, startTimeLteIso);
         const broadcasts = Array.isArray(body) ? body : (body.broadcasts || body.data || []);
         if (broadcasts.length === 0) return;
-
         for (const b of broadcasts) {
-            // Client-side filter — belt-and-suspenders in case unity-api's
-            // filter is not yet deployed. Skips broadcasts without a
-            // parseable start_time (very old records).
-            if (b.start_time) {
-                const startMs = new Date(b.start_time).getTime();
-                if (Number.isFinite(startMs)) {
-                    if (gteMs !== null && startMs < gteMs) continue;
-                    if (lteMs !== null && startMs > lteMs) continue;
-                }
-            }
             yield { key: b.key, dma_list: b.dma_list };
         }
-
         if (broadcasts.length < perPage) return;
         page += 1;
     }

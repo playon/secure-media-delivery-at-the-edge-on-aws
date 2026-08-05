@@ -23,19 +23,28 @@ resource "aws_api_gateway_rest_api" "this" {
     types = ["EDGE"]
   }
 
-  # VID-3449: resource policy restricts invoke on POST /token to the
-  # drm-api-lambda role. AWS_IAM auth on the method + this policy = only
-  # calls signed by that role's temporary creds reach the integration.
-  # Everything else (revoke, revoked) stays open on the resource-policy
-  # dimension (they're still individually AuthN'd if we add that later).
-  #
-  # VID-3484: Resource strings are written as full ARNs (not the
-  # short-form `execute-api:/*/...`) so they match what AWS stores.
-  # The service accepts either form as input, but normalizes to the
-  # full ARN on write-back; that made every plan flag a cosmetic diff
-  # from short-form input vs full-form state. Writing the full ARN
-  # ourselves makes desired == stored, no drift.
-  policy = var.drm_api_lambda_role_arn == "" ? null : jsonencode({
+  # VID-3484 follow-up: policy moved to aws_api_gateway_rest_api_policy.this
+  # so its Resource strings can reference this API's .id. TF disallows
+  # self-references inside a resource's own attributes, but not from a
+  # separate resource that depends on this one. The prior VID-3484 merge
+  # (#26) shipped the self-referencing inline `policy` and broke plan;
+  # this PR completes the migration to a separate policy resource.
+}
+
+# VID-3449 (rehomed by VID-3484): resource policy restricts invoke on
+# POST /token to the drm-api-lambda role. AWS_IAM auth on the method +
+# this policy = only calls signed by that role's temporary creds reach
+# the integration. /revoke and /revoked stay open on the resource-policy
+# dimension (they're still individually AuthN'd if we add that later).
+#
+# Full-ARN Resource strings match what AWS stores — the service accepts
+# either the short form `execute-api:/*/...` or the full ARN as input,
+# but normalizes to the full ARN on write-back. Writing the full form
+# ourselves makes desired == stored, no cosmetic drift on every plan.
+resource "aws_api_gateway_rest_api_policy" "this" {
+  count       = var.drm_api_lambda_role_arn == "" ? 0 : 1
+  rest_api_id = aws_api_gateway_rest_api.this.id
+  policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
       {

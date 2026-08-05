@@ -188,5 +188,21 @@ resource "aws_api_gateway_deployment" "this" {
 resource "aws_api_gateway_stage" "prod" {
   rest_api_id   = aws_api_gateway_rest_api.this.id
   deployment_id = aws_api_gateway_deployment.this.id
-  stage_name    = "prod"
+  # The stage_name is the last path segment of the APIGW invoke URL. It
+  # was hardcoded to "prod" in the aws-solutions-library-samples reference
+  # solution — reads as "prod stage" regardless of AWS environment, which
+  # is confusing on the stage account (URLs look like
+  # `https://h7b7t0ztyh.execute-api.us-east-1.amazonaws.com/prod` even
+  # though it's the staging account). Parameterize on env_slug so the
+  # URL matches the environment.
+  #
+  # Effect per env:
+  #   nfhs-prod    → env_slug = "prod"    → URL path stays /prod (no change)
+  #   nfhs-staging → env_slug = "staging" → URL path becomes /staging
+  #
+  # `stage_name` is ForceNew, so the stage apply that lands this on the
+  # stage account destroys+recreates the APIGW stage. Coordinate with
+  # drm-api-lambda's CTA_MINT_URL env var, which must flip from
+  # `.../prod` to `.../staging` in the same window.
+  stage_name = local.env_slug
 }

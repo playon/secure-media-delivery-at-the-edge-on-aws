@@ -48,6 +48,17 @@ provider "aws" {
       Environment = var.environment
     }
   }
+
+  # VID-3484: Cloud Custodian applies its own tag set out-of-band
+  # (`domain`, `environment` [lowercase], `owned-by`, `project`, `region`).
+  # We don't own those keys; TF was stripping them on every apply, and
+  # Custodian was re-applying on its next sweep — infinite drift cycle.
+  # `ignore_tags` tells TF to leave them alone across every resource
+  # managed by this provider. Our uppercase default_tags above stay
+  # authoritatively owned by us.
+  ignore_tags {
+    keys = ["domain", "environment", "owned-by", "project", "region"]
+  }
 }
 
 data "aws_caller_identity" "current" {}

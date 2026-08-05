@@ -28,6 +28,13 @@ resource "aws_api_gateway_rest_api" "this" {
   # calls signed by that role's temporary creds reach the integration.
   # Everything else (revoke, revoked) stays open on the resource-policy
   # dimension (they're still individually AuthN'd if we add that later).
+  #
+  # VID-3484: Resource strings are written as full ARNs (not the
+  # short-form `execute-api:/*/...`) so they match what AWS stores.
+  # The service accepts either form as input, but normalizes to the
+  # full ARN on write-back; that made every plan flag a cosmetic diff
+  # from short-form input vs full-form state. Writing the full ARN
+  # ourselves makes desired == stored, no drift.
   policy = var.drm_api_lambda_role_arn == "" ? null : jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -36,7 +43,7 @@ resource "aws_api_gateway_rest_api" "this" {
         Effect    = "Allow"
         Principal = { AWS = var.drm_api_lambda_role_arn }
         Action    = "execute-api:Invoke"
-        Resource  = "execute-api:/*/POST/token"
+        Resource  = "arn:aws:execute-api:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.this.id}/*/POST/token"
       },
       {
         Sid       = "AllowAnyToRevocationEndpoints"
@@ -44,8 +51,8 @@ resource "aws_api_gateway_rest_api" "this" {
         Principal = "*"
         Action    = "execute-api:Invoke"
         Resource = [
-          "execute-api:/*/POST/revoke",
-          "execute-api:/*/GET/revoked",
+          "arn:aws:execute-api:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.this.id}/*/POST/revoke",
+          "arn:aws:execute-api:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.this.id}/*/GET/revoked",
         ]
       },
     ]

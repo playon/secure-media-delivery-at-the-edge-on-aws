@@ -15,15 +15,18 @@ drm_api_lambda_role_arn = "arn:aws:iam::877726356953:role/drm-api-lambda-role"
 # anonymous.
 unity_api_base = "https://unity.stage.nfhsnetwork.com"
 
-# VID-3464 collapse: token_enforcement_mode covers what was previously
-# split with token_validation_enabled. Stage stepping up to "log" —
-# validator runs the token check on every request but forwards on
-# failure (emits a `token_reject reason=<x> mode=log` CloudWatch line),
-# so we can see the shape of what would-be-blocked traffic looks like
-# without breaking any existing tokenless viewers. Flip to "enforce"
-# once the UA allowlist has been seeded and the log signal shows only
-# expected clients failing.
-token_enforcement_mode = "log"
+# VID-3464: stage stepping up to "enforce". Log-mode signal on stage
+# was clean — 60 min of traffic showed ~30 validator invocations with
+# only `reason=missing_token` reject entries (no invalid / expired /
+# revoked). Stage is a controlled test environment; any tokenless
+# viewer that starts 401'ing here is the intended signal for their
+# client to integrate CTA minting. No `legacy_client_allowlist` seeded
+# — if a legitimate stage client trips on this, seed a UA pattern for
+# it in a follow-up rather than blanket-bypassing.
+#
+# Rollback: set back to "log" (or "off") and re-apply. Function code
+# is unchanged, only the templatefile-baked constant flips.
+token_enforcement_mode = "enforce"
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after
 # end-to-end smoke against a test broadcast (bdcc0ab49f6f9 with DMAs

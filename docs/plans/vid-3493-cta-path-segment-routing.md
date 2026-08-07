@@ -13,8 +13,32 @@ CTA-5007-B lets a token ride in one of three transports on a request:
 
 Query works today. Header triggers CORS preflight per request and can't be
 set on native `<video src="…">` players. Path-segment 403s on
-`hls.bcast.nfhsnetwork.com`, and this doc is about whether to fix that
-and how.
+`hls.bcast.nfhsnetwork.com`, and this doc is about how to enable it.
+
+## Why path-segment matters
+
+Reference-solution author's position (2026-08 meeting): **path-segment
+is the expected usage**; query-string transport carries substantial
+overhead in real deployments. The specific overheads worth being honest
+about:
+
+- **Cache-key/auth-bypass hazard.** If `CAT` isn't in the cache-key
+  policy, a valid-token success caches under the bare URI and a
+  tokenless viewer requesting the same path gets that success — a
+  documented leak (§1a leak #3 of the meeting brief). If `CAT` *is* in
+  the cache-key policy, every viewer's token fragments the cache and
+  hit rate collapses. Path-segment tokens naturally participate in the
+  cache key without operator vigilance.
+- **URL construction fragility.** Appending `?CAT=` to URLs that
+  already carry query strings needs care in every client. Path-segment
+  is invariant.
+- **Intermediary behavior.** Some middleware strips query strings for
+  privacy or normalizes them for caching. Path is more resilient.
+- **Analytics/log-line bloat.** CATs run ~500 bytes; every log line
+  carries them if they're in the query string.
+- **Semantic fit.** Query-string tokens read as "URL parameters"
+  (session-like, freely rotatable); path-segment tokens read as "part
+  of the resource identity." The latter matches CTA-5007-B's model.
 
 ## Why path-segment breaks on hls.bcast
 
@@ -28,202 +52,170 @@ and how.
 CloudFront picks the cache behavior from the **original** request URI —
 **before** any viewer-request function runs. A request for
 `/<token>/broadcast/{bkey}/720p30/live.m3u8` matches the default
-behavior, not `/broadcast/*`. The validator function attached to the
-default behavior can strip the token from `event.request.uri`, but the
-routing decision is already made — the request is destined for S3,
-which doesn't have a dynamically-generated playlist to serve. 403.
+behavior, not `/broadcast/*`. The validator can strip the token in
+viewer-request, but the routing decision is already made — the request
+is destined for S3, which doesn't have a dynamically-generated playlist
+to serve. 403.
 
 Two CloudFront primitives shape the option space:
 
 - **Cache-behavior path patterns are strict-suffix wildcards.** You can
-  say `/broadcast/*` or `/cta/*` but not `/*/broadcast/*`. The token's
-  variable position makes it un-matchable by pattern.
-- **CloudFront Functions cannot change origin.** The `event.request`
-  object exposes `.uri`, `.querystring`, `.headers`, `.method`,
-  `.cookies` — no `.origin`. Only Lambda@Edge origin-request can
-  reroute across origins.
+  say `/broadcast/*` or `/cta/*` but not `/*/broadcast/*`. A
+  variable-length token prefix at position 0 breaks pattern matching.
+- **CloudFront Functions cannot change origin.** `event.request`
+  exposes `.uri`, `.querystring`, `.headers`, `.method`, `.cookies` —
+  no `.origin`. Only Lambda@Edge origin-request can reroute across
+  origins.
 
-Everything below is a workaround for these two constraints.
+Everything below works around these two facts.
 
-## Options
-
-### Option A — dedicated `/cta/*` behavior with Lambda@Edge origin router
+## Recommended: Option A — `/cta/*` behavior + Lambda@Edge origin router
 
 **Shape.** Client sends `/cta/<token>/broadcast/…` and
-`/cta/<token>/<bkey>/…`. Add one cache behavior with pattern `/cta/*`.
+`/cta/<token>/<bkey>/…`. Add one `/cta/*` cache behavior.
 
 **Wiring.**
-1. Viewer-request CF Function — validator: parse `<token>` from URI,
-   validate, strip `/cta/<token>` from `event.request.uri`.
-2. Origin-request Lambda@Edge — inspect the stripped URI. If it starts
-   with `/broadcast/`, dispatch to playlist-lambda origin; otherwise
-   dispatch to S3 origin.
+1. **Viewer-request CF Function** — validator: parse `<token>` from URI,
+   validate, strip `/cta/<token>` from `event.request.uri`. Downstream
+   gates (DMA, UA allowlist) evaluate against the stripped URI.
+2. **Origin-request Lambda@Edge** — inspect the stripped URI. If it
+   starts with `/broadcast/`, set `event.Records[0].cf.request.origin`
+   to the playlist-lambda origin; otherwise the S3 origin.
 
-**Pros.**
-- Fully-realized path-segment transport. Any client that can construct
-  a URL can use it.
-- Native `<video src="…">` on iOS Safari works without a query string.
-- Symmetric with the reference solution's intent.
+**Why this works.**
+- Fixed literal `/cta/` prefix makes routing deterministic.
+- CF Function URI rewrite happens *before* cache lookup, so cache keys
+  use the stripped URI. Tokens don't fragment the cache; multi-transport
+  clients (query + path-segment) can even share cache entries.
+- Direct-to-S3 segment serving is preserved via Lambda@Edge
+  origin-selection — segments don't traverse an extra hop.
 
-**Cons.**
-- **Lambda@Edge is the wrong tool for hot-path routing.** Regional
-  execution (not edge PoP), cold starts, ~10–50 ms p50 vs sub-ms for
-  CF Functions. Adds latency to every segment request.
-- Lambda@Edge deploys are slow (up to 10 min to propagate globally)
-  and painful to roll back — versions are pinned by ARN.
-- Cache-key composition still needs care so per-token cache
-  fragmentation doesn't tank hit rate. (Include the stripped URI, not
-  the tokenized one.)
-- More moving parts to reason about during on-call.
+**Cost, honestly.**
+- Lambda@Edge origin-request adds latency **only on cache miss**. For
+  live streaming with wide fan-out, segment cache hit rate is high
+  (typically >95%); the Lambda@Edge tax is on <5% of segment requests.
+  Warm invocations 5–15 ms, cold starts 50–100 ms per PoP per version.
+- Lambda@Edge deploys are slower to propagate globally (minutes) and
+  versions pin by ARN. Rollback is deliberate, not instant.
+- Cache-key policy for `/cta/*` needs to match the underlying behaviors'
+  policies so the shared-cache-across-transports property actually
+  holds. Sanity-check with real traffic during soak.
 
-**Effort.** ~2 weeks. New Lambda@Edge function + TF wiring +
-CircleCI + staged rollout + soak. Two repos affected
-(`secure-media-delivery-at-the-edge-on-aws` and
-`terraform-aws-cta-secure-media`).
+**Effort.** ~2 weeks.
+- New Lambda@Edge function + IAM + tests
+- Validator update to parse and strip `/cta/<token>/`
+- New `/cta/*` behavior in TF (both `secure-media-delivery-at-the-edge-on-aws`
+  and `terraform-aws-cta-secure-media`)
+- CircleCI + staged rollout on stage + 24 h soak
+- Docs + client integration example
+
+**Rollout plan.**
+1. Deploy Option A to stage behind `enable_path_segment_transport = false`.
+2. Flip the flag on stage; measure segment latency and cache hit rate
+   for 24 h. No client traffic yet.
+3. Migrate one internal test client to `/cta/<token>/…`; validate all
+   three players (hls.js, iOS Safari native, Android ExoPlayer).
+4. Prod deploy behind the same flag; flip after a second stage soak.
+5. Migrate real clients one at a time. `?CAT=` remains as fallback
+   until all clients cut over.
+6. Deprecate `?CAT=` support in a later ticket once traffic is <1%.
+
+## Alternatives considered
 
 ### Option B — router lambda behind `/cta/*`
 
 Same client shape as A. `/cta/*` behavior points at a single lambda
-that fetches from the right upstream (playlist-lambda or S3) after
-stripping the token. Effectively moves the origin-selection logic from
-Lambda@Edge into a regional lambda function.
+that fetches from the right upstream after stripping the token.
 
-**Pros.** Simpler CloudFront config than A; one origin per behavior.
+**Rejected because:** every request pays an extra HTTP hop (CF →
+router → playlist-lambda or S3). Segments today serve direct from S3
+with sub-30 ms end-to-end; adding a lambda hop is a step back. Also
+adds a new service to run, monitor, and secure.
 
-**Cons.**
-- Every request goes through an extra HTTP hop (CF → router lambda →
-  playlist-lambda or S3). Segments in particular are today served
-  direct from S3 with minimal latency; routing them through a lambda
-  is a step back.
-- Same cache-fragmentation concern as A.
-- Router lambda is a new service to run, monitor, and secure.
+### Option C — deprecate path-segment; ship only query
 
-**Effort.** ~2–3 weeks. New service repo, deploy pipeline, IAM,
-observability, plus the CloudFront + validator changes.
+Keep `?CAT=<token>`; document path-segment as unsupported.
 
-### Option C — deprecate path-segment; ship only query and header
+**Rejected because:** the meeting made clear that the reference-solution
+author considers query overhead substantial and path-segment the
+intended usage. C also fixes the ergonomics on hls.bcast only —
+partners installing the whitelabel module would inherit the same
+compromise indefinitely. The cache-key hazard alone (§1a leak #3) is a
+recurring footgun in query-transport deployments.
 
-Keep the current `?CAT=<token>` transport as the supported path.
-Document header as available for MSE-based players that can set custom
-headers. Document path-segment as unsupported on multi-behavior
-distributions.
+### Option D — collapse hls.bcast to single-behavior
 
-**Pros.**
-- Zero engineering cost.
-- Zero new moving parts on the hot path.
-- Query transport already works on every player we care about,
-  including iOS Safari native (query strings *do* work on
-  `<video src="…?CAT=xyz">`).
-- Client-side integration is already aligned on `?CAT=` per Slack
-  thread with Ajay's team.
+Restructure so playlist-lambda serves manifests directly and
+proxies-through to S3 for segments. Everything runs through
+`/broadcast/*`. Path-segment becomes trivial.
 
-**Cons.**
-- One documented transport we can't offer to partners with distributions
-  shaped like ours. Reads as a footnote in partner-facing docs.
-- If a future partner or client genuinely can't send query strings
-  (rare — most inability-to-modify-URL scenarios also can't set the
-  path either), we're back to designing this.
+**Rejected because:** every segment request now traverses
+playlist-lambda instead of hitting S3 direct — lambda cost + latency
+added to the hot path for *all* traffic, not just CTA traffic. Also
+touches more than the security stack and needs cross-team sign-off.
+~3–4 weeks vs A's ~2. Worse cost profile, more coordination.
 
-**Effort.** ~1 day. Documentation only — meeting brief §3 already
-carries the technical narrative; ports into the whitelabel repo's README
-and the CTA integration guide.
+### Option E — token at position 2 of the URL, no Lambda@Edge
 
-### Option D — collapse to single-behavior
+Insert token at position 2: `/broadcast/<token>/{bkey}/…` for
+playlists, `/<bkey>/<token>/…` for segments. Both shapes route to
+their existing behavior — the routing decision is preserved because
+the token isn't at position 0. Validator strips in viewer-request.
 
-Restructure `hls.bcast` so `/broadcast/*` (playlists) and `/{bkey}/*`
-(segments) both flow through **one** cache behavior with **one** origin
-in front. That origin becomes playlist-lambda-with-S3-passthrough —
-playlist-lambda serves manifests directly, and for any other path
-proxies to S3 and returns the response.
+**Rejected because:**
+- Playlist-lambda has to know the token at render time so it can embed
+  it at position 2 of every child segment reference. That couples the
+  token machinery to playlist-lambda in a way A doesn't.
+- URL shapes diverge: token position is "after `/broadcast/`" for
+  playlists but "after `/{bkey}/`" for segments. Ugly for partners
+  writing clients from scratch; doesn't match the reference solution's
+  uniform shape.
+- Only works on hls.bcast — partners with different URL shapes can't
+  reuse the pattern.
 
-**Pros.**
-- Path-segment transport becomes trivial (single behavior, validator can
-  strip in viewer-request, done).
-- Architecturally cleaner. Removes the special-case S3 default behavior.
+Effort would be lower (~1 week, no Lambda@Edge), but the shape debt
+isn't worth the savings.
 
-**Cons.**
-- Every segment request now traverses playlist-lambda instead of hitting
-  S3 direct. Lambda cost + latency added to the hot path.
-- Big refactor touching more than the security stack. Needs sign-off
-  from anyone depending on the current behavior split.
-- Doesn't help partners running their own distribution unless they
-  adopt the same pattern.
+## Cache-key composition
 
-**Effort.** ~3–4 weeks. Requires playlist-lambda enhancement (S3
-passthrough), CloudFront restructure, and coordinated rollout so
-segment traffic doesn't lose CloudFront-in-front caching semantics.
+Independent of the routing choice, cache-key policy for the `/cta/*`
+behavior must be set intentionally:
 
-## Recommendation
+- **URI (rewritten):** by the time cache lookup happens, viewer-request
+  has stripped the token. Cache keys naturally use the untokenized URI.
+- **Country/metro headers:** needed for the DMA gate. Two viewers with
+  different metro codes must not share a cache entry — one might be
+  blackout-blocked.
+- **Query strings:** don't include `CAT` — path-segment doesn't use
+  query. Include only what origin needs (nothing today).
+- **Headers:** don't include `Authorization` unless we're mirroring
+  header-transport support.
 
-**Ship Option C.** Deprecate path-segment as unsupported on
-multi-behavior distributions; document `?CAT=` as the supported
-transport for `hls.bcast`. Preserve VID-3492's Phase 1 work
-(relative segment URIs) — that change is worth keeping regardless
-because it also lets future single-behavior deployments use path-segment
-without any further playlist-lambda changes.
+Sanity check during soak: pull cache-hit-rate metrics and confirm
+they match the underlying `/broadcast/*` and default behaviors within
+5 percentage points. Larger deviation means the cache-key policy is
+wrong.
 
-**Revisit trigger.** If any of these becomes true, reopen this design:
+## What we're deliberately not deciding here
 
-- A named client needs path-segment specifically (they've said as much
-  in writing).
-- A partner adopting `terraform-aws-cta-secure-media` runs into
-  path-segment friction on their own multi-behavior distribution and
-  we can offer a supported pattern.
-- The reference-solution meeting (2026-08 window) surfaces an approach
-  we haven't found.
+- **Whether to keep `?CAT=` at all long-term.** Keep it during
+  rollout; deprecate in a follow-up ticket once path-segment adoption
+  is proven.
+- **Header transport support.** Neither this ticket nor VID-3492 does
+  anything for header transport. Same rationale: not required, has real
+  cost (CORS preflight, native-player limits).
 
-The rest of this doc keeps Option A written up for future-us if the
-trigger fires.
+## Open questions for review
 
-## If we do build Option A — implementation sketch
-
-Not the plan, but if we come back to it:
-
-**Client URL shape:** `/cta/<token>/<original-path>`. Example:
-`/cta/eyJhb.../broadcast/bdc123/720p30/live.m3u8`.
-
-**Validator function** (viewer-request, CF Function). New URI-parsing
-branch:
-
-```js
-// Path-segment token transport (VID-3493)
-const CTA_URI_PREFIX = '/cta/';
-if (uri.startsWith(CTA_URI_PREFIX)) {
-  const rest = uri.slice(CTA_URI_PREFIX.length);
-  const slash = rest.indexOf('/');
-  if (slash < 0) return respond(401, 'malformed_cta_uri');
-  const token = rest.slice(0, slash);
-  const stripped = rest.slice(slash); // includes leading '/'
-  const claims = verifyToken(token);
-  if (!claims) return respond(401, 'invalid_token');
-  event.request.uri = stripped;
-  // fall through — same downstream gates (DMA etc.) apply to `stripped`
-}
-```
-
-**Origin-request Lambda@Edge** (new). Reads `event.Records[0].cf.request.uri`,
-selects origin:
-
-```js
-if (request.uri.startsWith('/broadcast/')) {
-  request.origin = { custom: { /* playlist-lambda origin config */ } };
-  request.headers['host'] = [{ key: 'host', value: PLAYLIST_LAMBDA_HOST }];
-} else {
-  request.origin = { s3: { /* S3 origin config */ } };
-  request.headers['host'] = [{ key: 'host', value: S3_HOST }];
-}
-```
-
-**Cache-key policy** for `/cta/*` behavior: same as `/broadcast/*` and
-default. Because `event.request.uri` is rewritten in viewer-request
-*before* the cache lookup, CF's cache key uses the stripped URI —
-tokens don't fragment the cache. Verify this empirically before rollout;
-it's subtle and easy to break.
-
-**Rollback plan.** Feature-flag the `/cta/*` behavior behind
-`enable_path_segment_transport` in TF. Off in prod until soak passes.
-
-## Decisions still open
-
-None — this doc recommends C, which needs no further design. The
-Option A sketch is future work if the trigger fires.
+1. Does the Lambda@Edge cold-start profile matter enough to prefer
+   Option E's playlist-lambda coupling instead? My read is no —
+   cold starts hit <1% of segment requests on a well-cached broadcast
+   and only during deploy churn — but if we can measure this on stage
+   before committing, that's the honest answer.
+2. Is a single `/cta/*` prefix acceptable, or should we scope it
+   further (e.g., `/cta/v1/*`)? Versioning would make future breaking
+   changes easier; adds one path segment to every URL.
+3. Rollout gate: which internal client migrates first? nfhs-player
+   web is the natural pick — hls.js can construct any URL shape
+   trivially. iOS/Android native players second, after we prove
+   URL-cascade behavior on native players.

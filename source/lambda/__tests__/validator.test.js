@@ -188,6 +188,61 @@ describe('CTA validator — VID-3464 token_enforcement_mode', () => {
     expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
   });
 
+  // VID-3493 (phase 2 of VID-3492): path-segment transport works on
+  // hls.bcast only if the token cascades from the playlist URL to
+  // segment requests via VID-3492's relative URIs. The validator has to
+  // strip the token from BOTH playlist URIs (/broadcast/…) AND segment
+  // URIs (/{bkey}/…/segs/…) so cache lookup + origin fetch see the
+  // untokenized shape in either case.
+  //
+  // These tests lock in the segment-URI branch of that guarantee. The
+  // existing tests above cover the playlist-URI branch.
+  test('mode=log strips path token from segment URI before forwarding', async () => {
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'log' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => { throw new Error('bad_signature'); } }
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/bdc123/720p30/segs/bdc123_seg_000000.ts',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBeUndefined();
+    expect(res.uri).toBe('/bdc123/720p30/segs/bdc123_seg_000000.ts');
+  });
+
+  test('mode=enforce strips path token from segment URI on valid token', async () => {
+    const validPayload = {}; // no CATU / CATNIP / EXP claims → validateClaims is a no-op
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'enforce' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => ({ payload: validPayload }) }
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/bdc123/720p30/segs/bdc123_seg_000000.ts',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBeUndefined();
+    expect(res.uri).toBe('/bdc123/720p30/segs/bdc123_seg_000000.ts');
+  });
+
+  test('mode=enforce rejects untokenized segment URI with 401 missing_token', async () => {
+    // Untokenized segment request from a client that skipped the
+    // playlist. Position-1 segment is the bkey (~13 chars) which is
+    // below the extractPathToken length threshold — correctly not
+    // detected as a token, so enforce rejects.
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'enforce' }),
+      { 'key:default': 'signing-key' }
+    );
+    const req = makeRequest({ uri: '/bdc123/720p30/segs/bdc123_seg_000000.ts' });
+    const res = await handler(req);
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toBe('missing_token');
+  });
+
   test('mode=log strips ?CAT= query before forwarding when validation fails', async () => {
     const { handler } = loadValidator(
       render({ token_enforcement_mode: 'log' }),

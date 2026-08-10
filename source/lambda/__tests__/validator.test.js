@@ -243,6 +243,95 @@ describe('CTA validator — VID-3464 token_enforcement_mode', () => {
     expect(res.body).toBe('missing_token');
   });
 
+  test('mode=enforce rejects segment URI with invalid token — 401 bad_signature', async () => {
+    // Security-relevant rejection path: enforce mode, token present
+    // in the position-1 slot, signature check fails, segment URI.
+    // Guarantees a forged token can't reach S3 via the segment
+    // branch.
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'enforce' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => { throw new Error('bad_signature'); } }
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/bdc123/720p30/segs/bdc123_seg_000000.ts',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toBe('bad_signature');
+  });
+
+  // ---------------------------------------------------------------------
+  // CATU path-prefix asymmetry between playlist and segment URI shapes.
+  //
+  // The generator (cta_token_generator.js:108-110) mints CATU.PATH.PREFIX
+  // whenever `policy.paths[0]` is set. The validator (line 95) checks it
+  // against `request.uri` AFTER the token has been spliced out
+  // (validator lines 151-153). That works for the playlist branch —
+  // stripped URI is `/broadcast/{bkey}/…` and matches a claim of
+  // `/broadcast/{bkey}/`. It does NOT work for the segment branch:
+  // stripped URI is `/{bkey}/{variantId}/segs/…`, which never matches
+  // `/broadcast/{bkey}/` and 401s with `uri_not_allowed`.
+  //
+  // The two tests below make the asymmetry explicit in the suite:
+  //   * playlist baseline — passes, locks in the working behavior.
+  //   * segment demonstration — fails today with uri_not_allowed. Held
+  //     as a failing-behavior test (assertions match what the code
+  //     actually does) so it flips to a pass exactly when the design
+  //     fix lands. See VID-3493 follow-up for the design call:
+  //     normalize segment URIs under /broadcast/ for the claim check,
+  //     or dual-prefix CATU, or evaluate against the pre-strip URI.
+  //
+  // Blocks the VID-3493 TF path_pattern swap
+  // (iac-tf-aws-project-video-common#45) — that's the change that
+  // starts routing tokenized traffic through this validator in
+  // earnest, so the segment 401 becomes a live incident there.
+  test('mode=enforce accepts playlist URI when token carries a CATU path prefix', async () => {
+    // CATU: "401", PATH: "2", PREFIX: "1" (see validator constants).
+    const validPayload = {
+      "401": { "2": { "1": "/broadcast/bdc123/" } },
+    };
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'enforce' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => ({ payload: validPayload }) }
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/broadcast/bdc123/720p30/live.m3u8',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBeUndefined();
+    expect(res.uri).toBe('/broadcast/bdc123/720p30/live.m3u8');
+  });
+
+  test('mode=enforce rejects segment URI when token carries a /broadcast/ CATU prefix (demonstrates VID-3493 blocker)', async () => {
+    // The stripped URI is `/bdc123/720p30/segs/…`. The CATU claim
+    // is `/broadcast/bdc123/`. `startsWith` fails → uri_not_allowed
+    // 401. This is the specific case that blocks the VID-3493
+    // rollout: `cta_token_generator.js` mints this claim shape
+    // whenever a policy path is set (which is the common case for
+    // per-broadcast tokens), and after the TF path_pattern swap
+    // every segment request through this validator will be
+    // rejected.
+    const validPayload = {
+      "401": { "2": { "1": "/broadcast/bdc123/" } },
+    };
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'enforce' }),
+      { 'key:default': 'signing-key' },
+      { validateToken: () => ({ payload: validPayload }) }
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/bdc123/720p30/segs/bdc123_seg_000000.ts',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toBe('uri_not_allowed');
+  });
+
   test('mode=log strips ?CAT= query before forwarding when validation fails', async () => {
     const { handler } = loadValidator(
       render({ token_enforcement_mode: 'log' }),

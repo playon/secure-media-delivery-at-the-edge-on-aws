@@ -32,3 +32,21 @@ dma_enforcement_mode = "log"
 # invoke URL). Applies to `/token` only — /revoke and /revoked stay
 # open on the resource policy dimension (they're separately gated).
 drm_api_lambda_role_arn = "arn:aws:iam::676920172489:role/drm-api-lambda-role"
+
+# VID-3505: allowlist patterns seeded from a 1h prod traffic sample on
+# hls.bcast (2026-08-11-13, ~40K requests). Each native entry is
+# TRANSITIONAL and expected to be removed as its app team ships
+# path-segment CTA integration (see VID-3507 tracking).
+#
+# Not active until token_enforcement_mode flips from "off"; safe to
+# seed early because the matcher only runs after the off-mode
+# short-circuit.
+#
+# See stage tfvars for the per-pattern justification + rationale.
+legacy_client_allowlist = [
+  "^AppleCoreMedia/",
+  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^Roku/DVP-",
+  "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
+  "^nfhs-cc-api/",
+]

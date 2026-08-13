@@ -347,6 +347,50 @@ describe('CTA validator — VID-3464 token_enforcement_mode', () => {
     expect(res.querystring.CAT).toBeUndefined();
   });
 
+  // VID-3462: cross-origin JS must be able to read the rejection status
+  // + body. Without Access-Control-Allow-Origin on the validator-generated
+  // response, browsers block JS from seeing the response at all (fetch
+  // rejects opaquely, XHR body is unreadable) — so a client-side
+  // HEAD-then-branch-on-451 check silently fails and falls back to a less
+  // reliable path. The 200-success path already carries CORS from the
+  // origin's response; the validator-generated 401/410/451 paths must
+  // mirror it. Confirmed as a real gap during the VID-3462 client
+  // integration on stage: enforce-mode 451 responses were opaque to the
+  // client because ACAO was missing.
+  test('mode=enforce rejection carries Access-Control-Allow-Origin so cross-origin JS can read it', async () => {
+    const { handler } = loadValidator(render({}), { 'key:default': 'test-signing-key' });
+    const res = await handler(makeRequest());
+    expect(res.statusCode).toBe(401);
+    expect(res.headers['access-control-allow-origin'].value).toBe('*');
+  });
+
+  test('mode=enforce blackout_dma 451 carries Access-Control-Allow-Origin', async () => {
+    // Same CORS invariant applies to the DMA branch — a cross-origin
+    // browser check for "am I blacked out?" reads the 451 status only if
+    // the header is present.
+    const { handler } = loadValidator(
+      render({ token_enforcement_mode: 'off', dma_enforcement_mode: 'enforce' }),
+      { 'blackout:abc': '524' },
+    );
+    const req = makeRequest();
+    req.request.headers['cloudfront-viewer-metro-code'] = { value: '524' };
+    const res = await handler(req);
+    expect(res.statusCode).toBe(451);
+    expect(res.body).toBe('blackout_dma');
+    expect(res.headers['access-control-allow-origin'].value).toBe('*');
+    expect(res.headers['cache-control'].value).toBe('no-store, max-age=0');
+  });
+
+  test('OPTIONS preflight still returns 204 + CORS headers (regression guard)', async () => {
+    // The OPTIONS branch was the only place CORS lived pre-VID-3462; make
+    // sure adding CORS to the reject path didn't inadvertently swap it in.
+    const { handler } = loadValidator(render({}), {});
+    const res = await handler(makeRequest({ method: 'OPTIONS' }));
+    expect(res.statusCode).toBe(204);
+    expect(res.headers['access-control-allow-origin'].value).toBe('*');
+    expect(res.headers['access-control-allow-methods'].value).toBe('GET, HEAD, OPTIONS');
+  });
+
   test('mode=enforce rejects with 401 on missing_token (default)', async () => {
     const { handler } = loadValidator(render({}), { 'key:default': 'test-signing-key' });
     const res = await handler(makeRequest());

@@ -22,11 +22,23 @@ var CatuMatch = { PREFIX: "1" };
 
 // Cache-Control: no-store on every rejection so CF doesn't serve one
 // viewer's per-request decision to another.
+//
+// Access-Control-Allow-Origin: * so cross-origin JS can read the 401/410/451
+// status + body. Without this header the browser blocks JS from seeing the
+// response at all (fetch() rejects opaquely, XHR gets no readable body), so
+// a client-side HEAD-then-branch-on-451 check silently fails and falls back
+// to a less-reliable path. The origin's 200 responses already set CORS
+// upstream; validator-generated rejects have to mirror that. `*` matches
+// the OPTIONS preflight handler below and is safe here because the endpoint
+// is anonymous (no credentials).
 function respond(statusCode, body) {
     return {
         statusCode: statusCode,
         body: body,
-        headers: { 'cache-control': { value: 'no-store, max-age=0' } }
+        headers: {
+            'cache-control': { value: 'no-store, max-age=0' },
+            'access-control-allow-origin': { value: '*' }
+        }
     };
 }
 

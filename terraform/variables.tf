@@ -97,11 +97,20 @@ variable "legacy_client_allowlist" {
   # Guard against a bad regex bricking the edge. new RegExp(...) runs at
   # CloudFront-Function-init on every invocation; an uncompilable pattern
   # throws before we reach the handler and every viewer request 5xxs.
-  # Terraform's `regex` is RE2, which is stricter than JS (no lookaheads,
-  # etc.), so this catches obvious syntax errors at plan time. Patterns
-  # here are anchored literal prefixes — RE2 handles them fine.
+  # Terraform's `regex` / `regexall` are RE2, which is stricter than JS
+  # (no lookaheads, etc.), so this catches obvious syntax errors at plan
+  # time. Patterns here are anchored literal prefixes — RE2 handles them
+  # fine.
+  #
+  # NOTE: use ``regexall`` (not ``regex``) — ``regex`` errors on
+  # NO-MATCH as well as on compilation failure. Anchored patterns like
+  # ``^Roku/DVP-`` never match the empty string, so the old
+  # ``can(regex(p, ""))`` form always returned false and every plan
+  # failed validation regardless of pattern correctness. ``regexall``
+  # returns ``[]`` on no-match (which is fine) and only errors on
+  # compilation failure, which is what we're actually trying to detect.
   validation {
-    condition     = alltrue([for p in var.legacy_client_allowlist : can(regex(p, ""))])
+    condition     = alltrue([for p in var.legacy_client_allowlist : can(regexall(p, ""))])
     error_message = "Each legacy_client_allowlist entry must be a valid RE2 regex (empirically also a valid JS RegExp for the anchored-literal patterns we use)."
   }
 }

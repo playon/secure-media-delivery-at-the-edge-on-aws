@@ -7,22 +7,31 @@ Matches the video-team fleet convention used by `iac-tf-aws-project-video-common
 **On every branch push** (including PR branches):
 
 ```
-static-checks → plan-branch  (PR branches only)
+static-checks ─┐
+               ├─→ plan-branch ─→ approve-stage-from-branch ─→ apply-stage-from-branch
+unit-tests ────┘                       (optional manual click)
 ```
 
 - `static-checks` — `terraform fmt -check` + `terraform init -backend=false` + `terraform validate`. No AWS creds. Halts cleanly on refs where `terraform/` isn't present.
-- `plan-branch` — `terraform init` (with backend) → `terraform plan -out=tfplan.binary`. Uploads the plan as an artifact so reviewers see the exact diff. Read-only from AWS's perspective; doesn't chain into apply.
+- `unit-tests` — jest on the validator CloudFront Function.
+- `plan-branch` — `terraform init` (with backend) → `terraform plan -out=tfplan.binary`. Uploads the plan as an artifact so reviewers see the exact diff. Read-only from AWS's perspective. Persists the plan workspace so a follow-on apply from the branch can consume it without re-planning.
+- `approve-stage-from-branch` — **optional** manual gate. Only click if you want to apply THIS branch's plan to stage. Merges do not fire it. Skipping it costs nothing.
+- `apply-stage-from-branch` — same job as `apply-stage`; attaches the workspace and runs `terraform apply tfplan.binary`. Leaf — no chain to prod from a branch.
+
+**Cross-branch coordination:** there is no lock. Two feature branches can each approve stage-from-branch in parallel; whichever wins the terraform state lock first serializes, the second's plan may include the first's changes on next re-plan. Communicate before applying.
 
 **On `main` push** (typically after PR merge):
 
 ```
-static-checks → plan-main → approve-stage → apply-stage → approve-prod → apply-prod
+static-checks → plan-main → approve-stage → apply-stage → approve-prod-plan → plan-prod → approve-prod-apply → apply-prod
 ```
 
 - `plan-main` — same job as `plan-branch`, persists plan to the workflow workspace for the downstream apply.
 - `approve-stage` — manual gate. Reviewer looks at the plan artifact before clicking.
 - `apply-stage` — attaches the plan workspace and runs `terraform apply tfplan.binary`. Prints outputs.
-- `approve-prod` / `apply-prod` — placeholder for the prod cutover. Currently a no-op.
+- `approve-prod-plan` / `plan-prod` / `approve-prod-apply` / `apply-prod` — two approval gates around the prod plan itself so operators review the exact prod diff before anything mutates prod.
+
+Prod is main-only. Branches cannot deploy to prod, regardless of approval clicks.
 
 ## AWS auth
 

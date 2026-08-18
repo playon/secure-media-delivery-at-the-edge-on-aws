@@ -51,12 +51,6 @@ function extractBroadcastId(uri) {
     return m ? m[1] : null;
 }
 
-function extractPathToken(request) {
-    var segments = request.uri.split('/');
-    if (segments[1] && segments[1].length > 50) return segments[1];
-    return null;
-}
-
 function isMetroBlocked(metroValue, blocklistCsv) {
     if (!metroValue || !blocklistCsv) return false;
     var list = blocklistCsv.split(',');
@@ -154,6 +148,19 @@ async function handler(event) {
 
         var kvs = cf.kvs();
 
+        // Strip path-segment token from URI upfront so every downstream
+        // branch (DMA extractBroadcastId, allowlist-bypass forward, token
+        // check, origin fetch) sees the same clean `/broadcast/…` URI.
+        // Without this, allowlist-bypassed UAs on path-token transport
+        // forwarded `/<token>/broadcast/…` to origin and got 403.
+        var pathToken = null;
+        var segments = request.uri.split('/');
+        if (segments[1] && segments[1].length > 50) {
+            pathToken = segments[1];
+            segments.splice(1, 1);
+            request.uri = segments.join('/') || '/';
+        }
+
         // DMA runs before token bypass — enforced even when token=off.
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
@@ -170,18 +177,15 @@ async function handler(event) {
         var token = null;
         var payload = null;
 
-        // Strip token from URI/query BEFORE validation so log-mode forwards clean.
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
         } else if (request.querystring["CAT"]) {
             token = request.querystring["CAT"].value;
             delete request.querystring["CAT"];
+        } else if (pathToken) {
+            token = pathToken;
         } else {
-            token = extractPathToken(request);
-            if (!token) return tokenReject(request, 401, "missing_token");
-            var segments = request.uri.split('/');
-            segments.splice(1, 1);
-            request.uri = segments.join('/') || '/';
+            return tokenReject(request, 401, "missing_token");
         }
 
         var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });

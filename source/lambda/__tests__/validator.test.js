@@ -617,4 +617,29 @@ describe('CTA validator — path-token DMA-check regression (extractBroadcastId 
     // Token validation still runs (and fails because we're using stub cwt), so we expect 401 — key point is we didn't hit 451.
     expect(res.statusCode).not.toBe(451);
   });
+
+  test('legacy_client_allowlist bypass forwards a STRIPPED URI (regression: was forwarding `/<token>/broadcast/…` → origin 403)', async () => {
+    // Discovered on stage: AppleCoreMedia + path token + blocked
+    // broadcast bypassed DMA correctly but the allowlist bypass path
+    // then forwarded the unstripped URI to origin, which 403'd because
+    // MediaPackage can't route `/<50+char token>/broadcast/…`. Path
+    // token strip has to happen upfront, before any bypass returns.
+    const { handler } = loadValidator(
+      render({
+        dma_enforcement_mode: 'off',
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      {},
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/broadcast/abc/720p30/live.m3u8',
+      userAgent: 'AppleCoreMedia/1.0.0.23L471',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBeUndefined();
+    // Origin should see the clean URI, no token prefix.
+    expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
+  });
 });

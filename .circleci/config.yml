@@ -6,9 +6,19 @@ version: 2.1
 # See VID-3417 (original CDK deploy) and VID-3439 (Terraform port) for context.
 #
 # Trigger: every push runs static-checks (fmt + validate, no AWS).
-# Branches run plan-only (read state, no apply). main runs plan → approve →
-# apply. Prod is a placeholder no-op until CTA rollout gets past the
-# initial stage-only phase.
+#
+# Branches run plan-branch by default (read state, no apply). Branches
+# can OPTIONALLY apply to stage via an explicit manual approval gate
+# (`approve-stage-from-branch` → `apply-stage-from-branch`) — same
+# apply job as main, just gated separately so it's opt-in per-push.
+# Enables engineers to test feature branches against stage without
+# merging to main first. There is NO cross-branch lock: two feature
+# branches applying to stage will race for the terraform state lock;
+# whichever wins first serializes, the second will see the first's
+# changes in its plan. Coordinate manually.
+#
+# main runs plan → approve → apply for stage, then plan → approve →
+# apply for prod. Prod path is main-only.
 #
 # AWS auth: video-team convention (per Ion, DO-1833). CircleCI GOFAN_OPS
 # context supplies runner AWS creds; the aws provider in
@@ -225,9 +235,8 @@ workflows:
       # Runs on every branch so PRs surface regressions before plan.
       - unit-tests
 
-      # PR branches: plan-only. Reviewers get the actual tfplan diff
-      # as an artifact when looking at the PR. Read-only from AWS's
-      # perspective; workflow filters prevent chaining to apply.
+      # PR branches: plan-only by default. Reviewers get the actual
+      # tfplan diff as an artifact when looking at the PR.
       - plan-stage:
           name: plan-branch
           context:
@@ -239,8 +248,33 @@ workflows:
             - static-checks
             - unit-tests
 
-      # main: plan → approve → apply. Only branch that can actually
-      # mutate AWS beyond read-only plan operations.
+      # Optional stage-deploy from a branch. Distinct approval gate
+      # from main's so it can't fire accidentally on a merge — clicking
+      # here means "I want to deploy THIS branch's plan to stage
+      # right now." Coordinate cross-branch manually; there is no lock
+      # that prevents two branches from taking turns clobbering stage.
+      #
+      # No prod path from branches — apply-stage-from-branch is a leaf.
+      - approve-stage-from-branch:
+          type: approval
+          filters:
+            branches:
+              ignore: main
+          requires:
+            - plan-branch
+
+      - apply-stage:
+          name: apply-stage-from-branch
+          context:
+            - GOFAN_OPS
+          filters:
+            branches:
+              ignore: main
+          requires:
+            - approve-stage-from-branch
+
+      # main: plan → approve → apply. Also mutates AWS beyond read-only
+      # plan operations, plus is the only path that can flow into prod.
       - plan-stage:
           name: plan-main
           context:

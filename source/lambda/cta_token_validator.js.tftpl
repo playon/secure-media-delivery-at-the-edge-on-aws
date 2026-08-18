@@ -1,26 +1,16 @@
-// CTA-5007-B validator. See docs/plans/vid-3457-ua-allowlist.md and
-// AGENTS.md for design context. Feature flags baked at deploy via
-// Terraform templatefile: token_enforcement_mode (off|log|enforce),
-// dma_enforcement_mode (off|log|enforce), legacy_client_allowlist_json,
-// dma_bypass_allowlist_json.
-
+// CTA-5007-B validator. Flags baked via templatefile.
 import cf from 'cloudfront';
 
 var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}";
 var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}";
 
-// VID-3464: pre-compile UA allowlist at init.
+// Pre-compile UA allowlists at init (cheap-per-request linear scan).
 var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
     var raw = ${legacy_client_allowlist_json};
     var out = [];
     for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
     return out;
 })();
-
-// VID-3581: pre-compile DMA-bypass UA allowlist at init. Same
-// pattern shape as LEGACY_CLIENT_ALLOWLIST_PATTERNS. Matches short-
-// circuit the DMA gate specifically (not the token check) — see
-// checkDmaBlackout below for the pre-check invocation.
 var DMA_BYPASS_ALLOWLIST_PATTERNS = (function () {
     var raw = ${dma_bypass_allowlist_json};
     var out = [];
@@ -32,17 +22,9 @@ var CTA = { EXP: "4", NBF: "5", CTI: "7", CATNIP: "402", CATU: "401" };
 var Catu = { PATH: "2" };
 var CatuMatch = { PREFIX: "1" };
 
-// Cache-Control: no-store on every rejection so CF doesn't serve one
-// viewer's per-request decision to another.
-//
-// Access-Control-Allow-Origin: * so cross-origin JS can read the 401/410/451
-// status + body. Without this header the browser blocks JS from seeing the
-// response at all (fetch() rejects opaquely, XHR gets no readable body), so
-// a client-side HEAD-then-branch-on-451 check silently fails and falls back
-// to a less-reliable path. The origin's 200 responses already set CORS
-// upstream; validator-generated rejects have to mirror that. `*` matches
-// the OPTIONS preflight handler below and is safe here because the endpoint
-// is anonymous (no credentials).
+// Cache-Control: no-store so CF doesn't serve one viewer's per-request
+// decision to another. CORS `*` so cross-origin JS can read the reject
+// status + body (anonymous endpoint, no credentials).
 function respond(statusCode, body) {
     return {
         statusCode: statusCode,
@@ -54,20 +36,16 @@ function respond(statusCode, body) {
     };
 }
 
-// VID-3464: enforce → reject; log → log+forward; off handled upstream.
+// enforce → reject; log → log+forward; off handled by handler upstream.
 function tokenReject(request, statusCode, reason) {
     console.log("token_reject reason=" + reason + " mode=" + TOKEN_ENFORCEMENT_MODE);
     if (TOKEN_ENFORCEMENT_MODE === "enforce") return respond(statusCode, reason);
     return request;
 }
 
-// Unanchored match so path-token URIs (`/<50+char token>/broadcast/<id>/…`)
-// still surface the broadcast id. The DMA check runs BEFORE the path token
-// is stripped from the URI — if this regex were `^/broadcast/`, every
-// path-token request would return null here and silently skip the
-// blackout gate. CTA tokens are base64url (no slashes), so a token can
-// never contain `/broadcast/` as a substring; the CF Function `request.uri`
-// is path-only (query strings live on request.querystring); no ambiguity.
+// Unanchored — DMA check runs before the path token is stripped, so
+// `^/broadcast/` would return null on path-token URIs and silently skip
+// the blackout gate. Tokens are base64url (no `/`), so no false match.
 function extractBroadcastId(uri) {
     var m = /\/broadcast\/([^\/]+)/.exec(uri);
     return m ? m[1] : null;
@@ -90,19 +68,9 @@ function isMetroBlocked(metroValue, blocklistCsv) {
 }
 
 // Returns a response to short-circuit, or null to continue. Log mode
-// always returns null after emitting the log line.
-//
-// VID-3581: DMA-bypass allowlist is checked AFTER the metro-block
-// decision, not before. Rights-compliance cares about "how many
-// blocks did the bypass let through" — a metric that's meaningful
-// only when we know the block WOULD have fired. Checking bypass
-// before the KVS lookup would save a per-request lookup but would
-// also log every bypass-allowlisted request regardless of whether
-// it was ever going to be blocked (80% of prod traffic if
-// AppleCoreMedia is on the list); that noise is useless to
-// compliance and dilutes the audit signal. Trade the per-request
-// KVS lookup on bypass-allowlisted UAs for a precise
-// `dma_bypass_allowlist_hit` count = actual blackout leak.
+// always returns null after emitting the log line. DMA-bypass allowlist
+// is checked AFTER the metro-block decision so the log line only fires
+// on actual leaks — the metric rights-compliance cares about.
 async function checkDmaBlackout(request, kvs) {
     if (DMA_ENFORCEMENT_MODE === "off") return null;
     var broadcastId = extractBroadcastId(request.uri);
@@ -114,9 +82,7 @@ async function checkDmaBlackout(request, kvs) {
     if (!metroHeader) return null;
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
 
-    // At this point the viewer WOULD be blocked. If their UA is on
-    // the bypass allowlist, log the leak and let them through
-    // instead of returning 451.
+    // Viewer WOULD be blocked. Bypass allowlist → log the leak, forward.
     var bypassPattern = matchesDmaBypassAllowlist(request);
     if (bypassPattern) {
         console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
@@ -128,7 +94,7 @@ async function checkDmaBlackout(request, kvs) {
     return null;
 }
 
-// VID-3464: transitional UA allowlist. Linear scan; keep list < 20.
+// Transitional UA allowlist — bypasses TOKEN check. Keep list < 20.
 function matchesLegacyAllowlist(request) {
     if (LEGACY_CLIENT_ALLOWLIST_PATTERNS.length === 0) return null;
     var uaHeader = request.headers["user-agent"];
@@ -140,12 +106,9 @@ function matchesLegacyAllowlist(request) {
     return null;
 }
 
-// VID-3581: transitional DMA-bypass UA allowlist. Same linear-scan
-// shape as matchesLegacyAllowlist. Distinct list because bypassing
-// blackout enforcement has different policy semantics from bypassing
-// token validation (rights-compliance sign-off required per VID-3581)
-// and a distinct retirement condition — each entry sunsets when its
-// app team ships blackout-message UI (VID-3507 tracking).
+// Transitional UA allowlist — bypasses DMA gate. Distinct from
+// matchesLegacyAllowlist: bypassing blackout has rights-compliance
+// implications and a different sunset condition (app ships 451 UI).
 function matchesDmaBypassAllowlist(request) {
     if (DMA_BYPASS_ALLOWLIST_PATTERNS.length === 0) return null;
     var uaHeader = request.headers["user-agent"];
@@ -191,8 +154,7 @@ async function handler(event) {
 
         var kvs = cf.kvs();
 
-        // DMA runs before token bypass — regional blackouts enforce
-        // even when tokens are off.
+        // DMA runs before token bypass — enforced even when token=off.
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
 
@@ -208,8 +170,7 @@ async function handler(event) {
         var token = null;
         var payload = null;
 
-        // Strip token from URI/query BEFORE validation so log-mode
-        // failure paths forward a clean request to origin.
+        // Strip token from URI/query BEFORE validation so log-mode forwards clean.
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
         } else if (request.querystring["CAT"]) {
@@ -226,8 +187,7 @@ async function handler(event) {
         var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
         payload = cwt.payload;
 
-        // 410 Gone (revoked) is distinct from generic 401 so clients
-        // can tell a revoked token apart from a plain-invalid one.
+        // 410 Gone (revoked) is distinct from 401 for client differentiation.
         if (payload[CTA.CTI]) {
             try {
                 var revoked = await kvs.get("revoked:" + String(payload[CTA.CTI]));

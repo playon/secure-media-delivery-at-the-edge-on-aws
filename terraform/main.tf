@@ -82,6 +82,7 @@ resource "aws_cloudfront_function" "validator" {
     dma_enforcement_mode         = var.dma_enforcement_mode
     token_enforcement_mode       = var.token_enforcement_mode
     legacy_client_allowlist_json = jsonencode(var.legacy_client_allowlist)
+    dma_bypass_allowlist_json    = jsonencode(var.dma_bypass_allowlist)
   })
 
   key_value_store_associations = [aws_cloudfront_key_value_store.this.arn]

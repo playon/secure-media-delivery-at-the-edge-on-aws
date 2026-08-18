@@ -22,6 +22,7 @@ function render(overrides) {
     token_enforcement_mode: 'enforce',
     dma_enforcement_mode: 'off',
     legacy_client_allowlist_json: '[]',
+    dma_bypass_allowlist_json: '[]',
   };
   const values = Object.assign({}, defaults, overrides || {});
   let src = fs.readFileSync(TEMPLATE_PATH, 'utf8');
@@ -75,10 +76,13 @@ function loadValidator(rendered, kvsMap, opts) {
   return { handler: module.exports.handler, logs };
 }
 
-function makeRequest({ uri = '/broadcast/abc/720p30/live.m3u8', userAgent = 'Mozilla/5.0', method = 'GET', pathToken } = {}) {
+function makeRequest({ uri = '/broadcast/abc/720p30/live.m3u8', userAgent = 'Mozilla/5.0', method = 'GET', pathToken, metroCode } = {}) {
   const headers = {};
   if (userAgent !== null) {
     headers['user-agent'] = { value: userAgent };
+  }
+  if (metroCode !== undefined) {
+    headers['cloudfront-viewer-metro-code'] = { value: String(metroCode) };
   }
   const finalUri = pathToken ? `/${pathToken}${uri}` : uri;
   return {
@@ -398,4 +402,149 @@ describe('CTA validator — VID-3464 token_enforcement_mode', () => {
     expect(res.headers['cache-control'].value).toBe('no-store, max-age=0');
   });
 
+});
+
+describe('CTA validator — VID-3581 DMA-bypass allowlist', () => {
+  const BLOCKED_METRO = 602; // Chicago in Nielsen DMAs
+  const BLOCKED_KVS = { 'blackout:abc': '602,524' }; // abc is blacked out in Chicago and Atlanta
+
+  test('empty dma_bypass_allowlist → matching viewer still gets 451', async () => {
+    const { handler } = loadValidator(
+      render({ dma_enforcement_mode: 'enforce', token_enforcement_mode: 'off' }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'AppleCoreMedia/1.0.0.23L471' }));
+    expect(res.statusCode).toBe(451);
+    expect(res.body).toBe('blackout_dma');
+  });
+
+  test('bypass-allowlisted UA in blocked metro forwards (skips DMA gate)', async () => {
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/", "^Roku/DVP-"]',
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'AppleCoreMedia/1.0.0.23L471 (Apple TV; U; CPU OS 26_5)' }));
+    expect(res.statusCode).toBeUndefined();
+    expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
+    // RegExp.source escapes '/' to '\/', so the pattern in the log line is the escaped form.
+    expect(logs.some(l => l.includes('dma_bypass_allowlist_hit') && l.includes('broadcast=abc') && l.includes('pattern=^AppleCoreMedia\\/'))).toBe(true);
+  });
+
+  test('bypass-allowlisted UA in NON-blocked metro forwards, but bypass log is NOT emitted', async () => {
+    // Log fires only when the bypass actually prevented a block —
+    // rights-compliance wants "how many blocks did the bypass let
+    // through", not "how many bypass-allowlisted requests happened."
+    // A viewer in a non-blocked metro would have forwarded anyway;
+    // no bypass audit event to record.
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: 501, userAgent: 'AppleCoreMedia/1.0.0.23L471' }));
+    expect(res.statusCode).toBeUndefined();
+    expect(logs.some(l => l.includes('dma_bypass_allowlist_hit'))).toBe(false);
+  });
+
+  test('non-bypass-allowlisted UA in blocked metro still gets 451', async () => {
+    const { handler } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^Roku/DVP-"]', // only Roku bypasses; Apple does not
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'AppleCoreMedia/1.0.0.23L471' }));
+    expect(res.statusCode).toBe(451);
+  });
+
+  test('dma_enforcement_mode=off short-circuits BEFORE bypass check (no bypass log)', async () => {
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'off',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'AppleCoreMedia/1.0.0.23L471' }));
+    expect(res.statusCode).toBeUndefined();
+    // No bypass hit log when DMA is entirely off — bypass check is nested inside checkDmaBlackout.
+    expect(logs.some(l => l.includes('dma_bypass_allowlist_hit'))).toBe(false);
+  });
+
+  test('log mode + bypass allowlisted UA + blocked metro → forwards, blackout_dma log NOT emitted', async () => {
+    // Bypass short-circuits before the metro comparison, so the
+    // per-request "would-have-been-blocked" log line doesn't fire for
+    // this UA. The `dma_bypass_allowlist_hit` line replaces it as the
+    // audit signal.
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'log',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'AppleCoreMedia/1.0.0.23L471' }));
+    expect(res.statusCode).toBeUndefined();
+    expect(logs.some(l => l.includes('dma_bypass_allowlist_hit'))).toBe(true);
+    expect(logs.some(l => l.includes('blackout_dma broadcast='))).toBe(false);
+  });
+
+  test('missing user-agent → does not match bypass allowlist (still 451)', async () => {
+    const { handler } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^.*"]', // matches everything if UA present
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: null }));
+    expect(res.statusCode).toBe(451);
+  });
+
+  test('bypass allowlist and legacy allowlist are independent — UA on legacy only still gets DMA', async () => {
+    // Category: Roku bypasses TOKEN check (legacy) but is expected to
+    // display blackout UI, so does NOT bypass DMA. Result: Roku in
+    // blocked metro gets 451, not the token 401.
+    const { handler } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: '["^Roku/DVP-"]',
+        dma_bypass_allowlist_json: '[]',
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'Roku/DVP-15.2 (15.2.4.3449-H0)' }));
+    expect(res.statusCode).toBe(451);
+    expect(res.body).toBe('blackout_dma');
+  });
+
+  test('bypass allowlist and legacy allowlist are independent — UA on both bypasses both', async () => {
+    // Category: Apple TV bypasses BOTH — no token minter yet AND no
+    // blackout UI yet. Forwards through everything.
+    const { handler } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: '["^AppleCoreMedia/"]',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS
+    );
+    const res = await handler(makeRequest({ metroCode: BLOCKED_METRO, userAgent: 'AppleCoreMedia/1.0.0.23L471' }));
+    expect(res.statusCode).toBeUndefined();
+    expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
+  });
 });

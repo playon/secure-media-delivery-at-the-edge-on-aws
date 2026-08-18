@@ -1,7 +1,8 @@
 // CTA-5007-B validator. See docs/plans/vid-3457-ua-allowlist.md and
 // AGENTS.md for design context. Feature flags baked at deploy via
 // Terraform templatefile: token_enforcement_mode (off|log|enforce),
-// dma_enforcement_mode (off|log|enforce), legacy_client_allowlist_json.
+// dma_enforcement_mode (off|log|enforce), legacy_client_allowlist_json,
+// dma_bypass_allowlist_json.
 
 import cf from 'cloudfront';
 
@@ -11,6 +12,17 @@ var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}";
 // VID-3464: pre-compile UA allowlist at init.
 var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
     var raw = ${legacy_client_allowlist_json};
+    var out = [];
+    for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
+    return out;
+})();
+
+// VID-3581: pre-compile DMA-bypass UA allowlist at init. Same
+// pattern shape as LEGACY_CLIENT_ALLOWLIST_PATTERNS. Matches short-
+// circuit the DMA gate specifically (not the token check) — see
+// checkDmaBlackout below for the pre-check invocation.
+var DMA_BYPASS_ALLOWLIST_PATTERNS = (function () {
+    var raw = ${dma_bypass_allowlist_json};
     var out = [];
     for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
     return out;
@@ -72,6 +84,18 @@ function isMetroBlocked(metroValue, blocklistCsv) {
 
 // Returns a response to short-circuit, or null to continue. Log mode
 // always returns null after emitting the log line.
+//
+// VID-3581: DMA-bypass allowlist is checked AFTER the metro-block
+// decision, not before. Rights-compliance cares about "how many
+// blocks did the bypass let through" — a metric that's meaningful
+// only when we know the block WOULD have fired. Checking bypass
+// before the KVS lookup would save a per-request lookup but would
+// also log every bypass-allowlisted request regardless of whether
+// it was ever going to be blocked (80% of prod traffic if
+// AppleCoreMedia is on the list); that noise is useless to
+// compliance and dilutes the audit signal. Trade the per-request
+// KVS lookup on bypass-allowlisted UAs for a precise
+// `dma_bypass_allowlist_hit` count = actual blackout leak.
 async function checkDmaBlackout(request, kvs) {
     if (DMA_ENFORCEMENT_MODE === "off") return null;
     var broadcastId = extractBroadcastId(request.uri);
@@ -82,6 +106,16 @@ async function checkDmaBlackout(request, kvs) {
     var metroHeader = request.headers["cloudfront-viewer-metro-code"];
     if (!metroHeader) return null;
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
+
+    // At this point the viewer WOULD be blocked. If their UA is on
+    // the bypass allowlist, log the leak and let them through
+    // instead of returning 451.
+    var bypassPattern = matchesDmaBypassAllowlist(request);
+    if (bypassPattern) {
+        console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
+        return null;
+    }
+
     console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
     if (DMA_ENFORCEMENT_MODE === "enforce") return respond(451, "blackout_dma");
     return null;
@@ -95,6 +129,23 @@ function matchesLegacyAllowlist(request) {
     var ua = uaHeader.value;
     for (var i = 0; i < LEGACY_CLIENT_ALLOWLIST_PATTERNS.length; i++) {
         if (LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].test(ua)) return LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].source;
+    }
+    return null;
+}
+
+// VID-3581: transitional DMA-bypass UA allowlist. Same linear-scan
+// shape as matchesLegacyAllowlist. Distinct list because bypassing
+// blackout enforcement has different policy semantics from bypassing
+// token validation (rights-compliance sign-off required per VID-3581)
+// and a distinct retirement condition — each entry sunsets when its
+// app team ships blackout-message UI (VID-3507 tracking).
+function matchesDmaBypassAllowlist(request) {
+    if (DMA_BYPASS_ALLOWLIST_PATTERNS.length === 0) return null;
+    var uaHeader = request.headers["user-agent"];
+    if (!uaHeader || !uaHeader.value) return null;
+    var ua = uaHeader.value;
+    for (var i = 0; i < DMA_BYPASS_ALLOWLIST_PATTERNS.length; i++) {
+        if (DMA_BYPASS_ALLOWLIST_PATTERNS[i].test(ua)) return DMA_BYPASS_ALLOWLIST_PATTERNS[i].source;
     }
     return null;
 }

@@ -548,3 +548,73 @@ describe('CTA validator — VID-3581 DMA-bypass allowlist', () => {
     expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
   });
 });
+
+describe('CTA validator — path-token DMA-check regression (extractBroadcastId anchor)', () => {
+  // VID-3581 follow-up: the DMA check runs BEFORE the path token is
+  // stripped from the URI. `extractBroadcastId` used to require the URI
+  // to START with `/broadcast/` — a path-token URI (`/<token>/broadcast/…`)
+  // returned null there, and every path-token request silently skipped
+  // the blackout gate. Verified against stage bdc2959b2cd02: header-token
+  // requests logged blackout_dma correctly; a path-token curl to the same
+  // broadcast in a blocked metro sailed through with 200.
+  //
+  // Fix: drop the ^ anchor on the extractBroadcastId regex so `/broadcast/`
+  // matches anywhere in the URI. CTA tokens are base64url (no slashes),
+  // so a token can never contain `/broadcast/` as a substring; safe.
+  const BLOCKED_METRO = 602;
+  const BLOCKED_KVS = { 'blackout:abc': '602,524' };
+
+  test('path-token URI + blocked metro + non-bypass UA → 451 (regression: was 200)', async () => {
+    const { handler } = loadValidator(
+      render({ dma_enforcement_mode: 'enforce', token_enforcement_mode: 'enforce' }),
+      { ...BLOCKED_KVS, 'key:default': 'signing-key' },
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/broadcast/abc/720p30/live.m3u8',
+      metroCode: BLOCKED_METRO,
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBe(451);
+    expect(res.body).toBe('blackout_dma');
+  });
+
+  test('path-token URI + blocked metro + bypass-allowlisted UA → forwards (bypass fires on the same path shape)', async () => {
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: '["^AppleCoreMedia/"]',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS,
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/broadcast/abc/720p30/live.m3u8',
+      metroCode: BLOCKED_METRO,
+      userAgent: 'AppleCoreMedia/1.0.0.23L471',
+    });
+    const res = await handler(req);
+    expect(res.statusCode).toBeUndefined();
+    expect(logs.some(l => l.includes('dma_bypass_allowlist_hit') && l.includes('broadcast=abc'))).toBe(true);
+  });
+
+  test('path-token URI + broadcast NOT in blocklist → still forwards (extractBroadcastId returns id but KVS is empty)', async () => {
+    // Sanity: the relaxed regex shouldn't produce false positives — a
+    // path-token URL for a broadcast that isn't blacked out anywhere
+    // should still forward normally.
+    const { handler } = loadValidator(
+      render({ dma_enforcement_mode: 'enforce', token_enforcement_mode: 'enforce' }),
+      { 'key:default': 'signing-key' }, // no blackout: entries
+    );
+    const req = makeRequest({
+      pathToken: 'x'.repeat(60),
+      uri: '/broadcast/xyz/720p30/live.m3u8',
+      metroCode: BLOCKED_METRO,
+    });
+    const res = await handler(req);
+    // Token validation still runs (and fails because we're using stub cwt), so we expect 401 — key point is we didn't hit 451.
+    expect(res.statusCode).not.toBe(451);
+  });
+});

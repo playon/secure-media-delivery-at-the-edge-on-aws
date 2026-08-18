@@ -61,8 +61,15 @@ function tokenReject(request, statusCode, reason) {
     return request;
 }
 
+// Unanchored match so path-token URIs (`/<50+char token>/broadcast/<id>/…`)
+// still surface the broadcast id. The DMA check runs BEFORE the path token
+// is stripped from the URI — if this regex were `^/broadcast/`, every
+// path-token request would return null here and silently skip the
+// blackout gate. CTA tokens are base64url (no slashes), so a token can
+// never contain `/broadcast/` as a substring; the CF Function `request.uri`
+// is path-only (query strings live on request.querystring); no ambiguity.
 function extractBroadcastId(uri) {
-    var m = /^\/broadcast\/([^\/]+)/.exec(uri);
+    var m = /\/broadcast\/([^\/]+)/.exec(uri);
     return m ? m[1] : null;
 }
 

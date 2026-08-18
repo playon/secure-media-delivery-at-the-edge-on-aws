@@ -148,6 +148,23 @@ describe('CTA validator — VID-3464 UA allowlist', () => {
     const bad = await handler(makeRequest({ userAgent: 'comXplayonXnfhslive/3.6.4' }));
     expect(bad.statusCode).toBe(401);
   });
+
+  test('bad regex in allowlist is skipped at compile — handler still serves (no init crash)', async () => {
+    // Terraform's regexall is RE2 (plan-time). JS RegExp differs; a
+    // pattern that passes plan can still throw at CF Function init. If
+    // we didn't guard, the throw would take out the whole handler and
+    // every viewer request 5xxs. Test both: bad pattern doesn't crash,
+    // and the good sibling still matches.
+    const { handler, logs } = loadValidator(
+      render({ legacy_client_allowlist_json: '["[unclosed-bracket", "^Roku/DVP-"]' }),
+      {},
+    );
+    // Bad pattern was skipped at compile-time, log line emitted.
+    expect(logs.some(l => l.includes('allowlist_pattern_compile_error') && l.includes('[unclosed-bracket'))).toBe(true);
+    // Good sibling still works — handler didn't crash on init.
+    const res = await handler(makeRequest({ userAgent: 'Roku/DVP-15.2' }));
+    expect(res.statusCode).toBeUndefined();
+  });
 });
 
 describe('CTA validator — VID-3464 token_enforcement_mode', () => {

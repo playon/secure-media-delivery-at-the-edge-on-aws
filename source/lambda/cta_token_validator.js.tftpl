@@ -5,18 +5,21 @@ var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}";
 var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}";
 
 // Pre-compile UA allowlists at init (cheap-per-request linear scan).
-var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
-    var raw = ${legacy_client_allowlist_json};
+// Wrapped in try/catch per entry — Terraform's plan-time regexall is
+// RE2, which differs from JS RegExp; a pattern that passes plan can
+// still throw at init here. Without guarding, an init throw takes
+// down the whole handler and every viewer request 5xxs. Skip + log
+// instead, so a bad pattern only disables its own bypass line.
+function compilePatterns(raw, listName) {
     var out = [];
-    for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
+    for (var i = 0; i < raw.length; i++) {
+        try { out.push(new RegExp(raw[i])); }
+        catch (e) { console.log("allowlist_pattern_compile_error list=" + listName + " pattern=" + raw[i] + " err=" + e.message); }
+    }
     return out;
-})();
-var DMA_BYPASS_ALLOWLIST_PATTERNS = (function () {
-    var raw = ${dma_bypass_allowlist_json};
-    var out = [];
-    for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
-    return out;
-})();
+}
+var LEGACY_CLIENT_ALLOWLIST_PATTERNS = compilePatterns(${legacy_client_allowlist_json}, "legacy_client_allowlist");
+var DMA_BYPASS_ALLOWLIST_PATTERNS = compilePatterns(${dma_bypass_allowlist_json}, "dma_bypass_allowlist");
 
 var CTA = { EXP: "4", NBF: "5", CTI: "7", CATNIP: "402", CATU: "401" };
 var Catu = { PATH: "2" };
@@ -77,7 +80,7 @@ async function checkDmaBlackout(request, kvs) {
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
 
     // Viewer WOULD be blocked. Bypass allowlist → log the leak, forward.
-    var bypassPattern = matchesDmaBypassAllowlist(request);
+    var bypassPattern = matchesUaAllowlist(request, DMA_BYPASS_ALLOWLIST_PATTERNS);
     if (bypassPattern) {
         console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
         return null;
@@ -88,28 +91,18 @@ async function checkDmaBlackout(request, kvs) {
     return null;
 }
 
-// Transitional UA allowlist — bypasses TOKEN check. Keep list < 20.
-function matchesLegacyAllowlist(request) {
-    if (LEGACY_CLIENT_ALLOWLIST_PATTERNS.length === 0) return null;
+// Shared UA-vs-patterns matcher. `patterns` is a pre-compiled RegExp
+// array from compilePatterns(). Returns the matched RegExp.source
+// string or null. Two separate allowlists (token check, DMA gate) call
+// this against their own array — kept unified so a fix to header
+// casing/multi-value/trimming lands in both places.
+function matchesUaAllowlist(request, patterns) {
+    if (patterns.length === 0) return null;
     var uaHeader = request.headers["user-agent"];
     if (!uaHeader || !uaHeader.value) return null;
     var ua = uaHeader.value;
-    for (var i = 0; i < LEGACY_CLIENT_ALLOWLIST_PATTERNS.length; i++) {
-        if (LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].test(ua)) return LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].source;
-    }
-    return null;
-}
-
-// Transitional UA allowlist — bypasses DMA gate. Distinct from
-// matchesLegacyAllowlist: bypassing blackout has rights-compliance
-// implications and a different sunset condition (app ships 451 UI).
-function matchesDmaBypassAllowlist(request) {
-    if (DMA_BYPASS_ALLOWLIST_PATTERNS.length === 0) return null;
-    var uaHeader = request.headers["user-agent"];
-    if (!uaHeader || !uaHeader.value) return null;
-    var ua = uaHeader.value;
-    for (var i = 0; i < DMA_BYPASS_ALLOWLIST_PATTERNS.length; i++) {
-        if (DMA_BYPASS_ALLOWLIST_PATTERNS[i].test(ua)) return DMA_BYPASS_ALLOWLIST_PATTERNS[i].source;
+    for (var i = 0; i < patterns.length; i++) {
+        if (patterns[i].test(ua)) return patterns[i].source;
     }
     return null;
 }
@@ -167,7 +160,7 @@ async function handler(event) {
 
         if (TOKEN_ENFORCEMENT_MODE === "off") return request;
 
-        var allowlistedPattern = matchesLegacyAllowlist(request);
+        var allowlistedPattern = matchesUaAllowlist(request, LEGACY_CLIENT_ALLOWLIST_PATTERNS);
         if (allowlistedPattern) {
             console.log("allowlist_bypass pattern=" + allowlistedPattern);
             return request;

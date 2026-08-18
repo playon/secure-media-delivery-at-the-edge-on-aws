@@ -120,11 +120,12 @@ variable "legacy_client_allowlist" {
 # bypassing blackout enforcement is a rights-compliance decision, not
 # a UX/compat one, and each entry has a distinct retirement condition
 # (app team ships blackout-message UI → pattern pruned, tracked by
-# VID-3507). Patterns matched against the viewer User-Agent BEFORE the
-# KVS blocklist lookup, so bypassed viewers pay zero KVS cost per
-# request. Match emits a `dma_bypass_allowlist_hit` CloudWatch log
-# line pairing with `blackout_dma` counts so blackout-leak volume is
-# auditable by UA.
+# VID-3507). Patterns matched against the viewer User-Agent AFTER the
+# metro-block decision (KVS lookup + metro comparison have already
+# happened) so the `dma_bypass_allowlist_hit` CloudWatch log line
+# fires only when the bypass actually prevented a block — the audit
+# signal rights-compliance cares about (blackout-leak volume by UA),
+# not "how many bypass-allowlisted requests happened."
 #
 # **Requires rights-compliance sign-off before use in prod tfvars.**
 # See VID-3581 for the review gate.

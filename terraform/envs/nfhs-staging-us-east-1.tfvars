@@ -119,6 +119,14 @@ legacy_client_allowlist = [
 # metro, we don't want it to 451 on the fetch — that's not a viewer
 # play, so the blackout doesn't apply.
 #
+# Chromecast (`CrKey/[0-9]`) is deliberately NOT on this list per
+# Cody Meincke's PR #33 review: Chromecast receivers run a Chrome-based
+# stack that can display arbitrary web UI, so blackout-message
+# rendering is possible in principle. Until someone confirms whether
+# our Cast receiver actually handles a 451 gracefully today, default
+# to the tighter policy (DMA gate enforces on Chromecast). Add back
+# only with a stated capability answer.
+#
 # Rights-compliance status: product direction captured above. If a
 # formal sign-off is required, capture as a comment on VID-3581.
 #
@@ -132,7 +140,6 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
-  " CrKey/[0-9]",
 ]
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after

@@ -56,12 +56,14 @@ legacy_client_allowlist = [
   " CrKey/[0-9]",
 ]
 
-# VID-3581: DMA-blackout bypass allowlist. Same six patterns as
-# legacy_client_allowlist to start — product direction (Robb Schuneman,
-# 2026-08-18) is that any client on the token allowlist should also
-# skip the 451 blackout gate during the transitional window, because
-# none of them render a blackout-message UI to the viewer yet
-# (VID-3507 tracks the per-app retirement of these entries).
+# VID-3581: DMA-blackout bypass allowlist. Five patterns to start —
+# product direction (Robb Schuneman, 2026-08-18) is that any client on
+# the token allowlist should also skip the 451 blackout gate during
+# the transitional window, because none of them render a
+# blackout-message UI to the viewer yet (VID-3507 tracks the per-app
+# retirement of these entries). Chromecast (`CrKey/[0-9]`) is
+# deliberately not included — see stage tfvars for the per-Cody
+# rationale.
 #
 # Not active until dma_enforcement_mode flips from "log" to "enforce"
 # on prod — this list is inert during log mode (validator still
@@ -75,5 +77,4 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
-  " CrKey/[0-9]",
 ]

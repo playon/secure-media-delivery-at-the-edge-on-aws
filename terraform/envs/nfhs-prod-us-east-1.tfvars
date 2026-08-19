@@ -42,8 +42,36 @@ drm_api_lambda_role_arn = "arn:aws:iam::676920172489:role/drm-api-lambda-role"
 # seed early because the matcher only runs after the off-mode
 # short-circuit.
 #
+# VID-3581: Chromecast (` CrKey/[0-9]`) added per Andy's client-UA
+# survey (Cody on VID-3505). Unanchored substring match — Chromecast
+# sends a full Chrome/Safari UA with ` CrKey/…` at the tail.
+#
 # See stage tfvars for the per-pattern justification + rationale.
 legacy_client_allowlist = [
+  "^AppleCoreMedia/",
+  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^Roku/DVP-",
+  "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
+  "^nfhs-cc-api/",
+  " CrKey/[0-9]",
+]
+
+# VID-3581: DMA-blackout bypass allowlist. Five patterns to start —
+# product direction (Robb Schuneman, 2026-08-18) is that any client on
+# the token allowlist should also skip the 451 blackout gate during
+# the transitional window, because none of them render a
+# blackout-message UI to the viewer yet (VID-3507 tracks the per-app
+# retirement of these entries). Chromecast (`CrKey/[0-9]`) is
+# deliberately not included — see stage tfvars for the per-Cody
+# rationale.
+#
+# Not active until dma_enforcement_mode flips from "log" to "enforce"
+# on prod — this list is inert during log mode (validator still
+# forwards on log, no 451 is ever returned regardless of list content).
+# Safe to seed early.
+#
+# See stage tfvars for the per-pattern justification + rationale.
+dma_bypass_allowlist = [
   "^AppleCoreMedia/",
   "^NFHS Network/[0-9.]+ \\(Linux;Android",
   "^Roku/DVP-",

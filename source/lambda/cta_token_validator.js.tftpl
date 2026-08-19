@@ -1,36 +1,33 @@
-// CTA-5007-B validator. See docs/plans/vid-3457-ua-allowlist.md and
-// AGENTS.md for design context. Feature flags baked at deploy via
-// Terraform templatefile: token_enforcement_mode (off|log|enforce),
-// dma_enforcement_mode (off|log|enforce), legacy_client_allowlist_json.
-
+// CTA-5007-B validator. Flags baked via templatefile.
 import cf from 'cloudfront';
 
 var TOKEN_ENFORCEMENT_MODE = "${token_enforcement_mode}";
 var DMA_ENFORCEMENT_MODE = "${dma_enforcement_mode}";
 
-// VID-3464: pre-compile UA allowlist at init.
-var LEGACY_CLIENT_ALLOWLIST_PATTERNS = (function () {
-    var raw = ${legacy_client_allowlist_json};
+// Pre-compile UA allowlists at init (cheap-per-request linear scan).
+// Wrapped in try/catch per entry — Terraform's plan-time regexall is
+// RE2, which differs from JS RegExp; a pattern that passes plan can
+// still throw at init here. Without guarding, an init throw takes
+// down the whole handler and every viewer request 5xxs. Skip + log
+// instead, so a bad pattern only disables its own bypass line.
+function compilePatterns(raw, listName) {
     var out = [];
-    for (var i = 0; i < raw.length; i++) out.push(new RegExp(raw[i]));
+    for (var i = 0; i < raw.length; i++) {
+        try { out.push(new RegExp(raw[i])); }
+        catch (e) { console.log("allowlist_pattern_compile_error list=" + listName + " pattern=" + raw[i] + " err=" + e.message); }
+    }
     return out;
-})();
+}
+var LEGACY_CLIENT_ALLOWLIST_PATTERNS = compilePatterns(${legacy_client_allowlist_json}, "legacy_client_allowlist");
+var DMA_BYPASS_ALLOWLIST_PATTERNS = compilePatterns(${dma_bypass_allowlist_json}, "dma_bypass_allowlist");
 
 var CTA = { EXP: "4", NBF: "5", CTI: "7", CATNIP: "402", CATU: "401" };
 var Catu = { PATH: "2" };
 var CatuMatch = { PREFIX: "1" };
 
-// Cache-Control: no-store on every rejection so CF doesn't serve one
-// viewer's per-request decision to another.
-//
-// Access-Control-Allow-Origin: * so cross-origin JS can read the 401/410/451
-// status + body. Without this header the browser blocks JS from seeing the
-// response at all (fetch() rejects opaquely, XHR gets no readable body), so
-// a client-side HEAD-then-branch-on-451 check silently fails and falls back
-// to a less-reliable path. The origin's 200 responses already set CORS
-// upstream; validator-generated rejects have to mirror that. `*` matches
-// the OPTIONS preflight handler below and is safe here because the endpoint
-// is anonymous (no credentials).
+// Cache-Control: no-store so CF doesn't serve one viewer's per-request
+// decision to another. CORS `*` so cross-origin JS can read the reject
+// status + body (anonymous endpoint, no credentials).
 function respond(statusCode, body) {
     return {
         statusCode: statusCode,
@@ -42,22 +39,19 @@ function respond(statusCode, body) {
     };
 }
 
-// VID-3464: enforce → reject; log → log+forward; off handled upstream.
+// enforce → reject; log → log+forward; off handled by handler upstream.
 function tokenReject(request, statusCode, reason) {
     console.log("token_reject reason=" + reason + " mode=" + TOKEN_ENFORCEMENT_MODE);
     if (TOKEN_ENFORCEMENT_MODE === "enforce") return respond(statusCode, reason);
     return request;
 }
 
+// Unanchored — DMA check runs before the path token is stripped, so
+// `^/broadcast/` would return null on path-token URIs and silently skip
+// the blackout gate. Tokens are base64url (no `/`), so no false match.
 function extractBroadcastId(uri) {
-    var m = /^\/broadcast\/([^\/]+)/.exec(uri);
+    var m = /\/broadcast\/([^\/]+)/.exec(uri);
     return m ? m[1] : null;
-}
-
-function extractPathToken(request) {
-    var segments = request.uri.split('/');
-    if (segments[1] && segments[1].length > 50) return segments[1];
-    return null;
 }
 
 function isMetroBlocked(metroValue, blocklistCsv) {
@@ -71,7 +65,9 @@ function isMetroBlocked(metroValue, blocklistCsv) {
 }
 
 // Returns a response to short-circuit, or null to continue. Log mode
-// always returns null after emitting the log line.
+// always returns null after emitting the log line. DMA-bypass allowlist
+// is checked AFTER the metro-block decision so the log line only fires
+// on actual leaks — the metric rights-compliance cares about.
 async function checkDmaBlackout(request, kvs) {
     if (DMA_ENFORCEMENT_MODE === "off") return null;
     var broadcastId = extractBroadcastId(request.uri);
@@ -82,19 +78,31 @@ async function checkDmaBlackout(request, kvs) {
     var metroHeader = request.headers["cloudfront-viewer-metro-code"];
     if (!metroHeader) return null;
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
+
+    // Viewer WOULD be blocked. Bypass allowlist → log the leak, forward.
+    var bypassPattern = matchesUaAllowlist(request, DMA_BYPASS_ALLOWLIST_PATTERNS);
+    if (bypassPattern) {
+        console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
+        return null;
+    }
+
     console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
     if (DMA_ENFORCEMENT_MODE === "enforce") return respond(451, "blackout_dma");
     return null;
 }
 
-// VID-3464: transitional UA allowlist. Linear scan; keep list < 20.
-function matchesLegacyAllowlist(request) {
-    if (LEGACY_CLIENT_ALLOWLIST_PATTERNS.length === 0) return null;
+// Shared UA-vs-patterns matcher. `patterns` is a pre-compiled RegExp
+// array from compilePatterns(). Returns the matched RegExp.source
+// string or null. Two separate allowlists (token check, DMA gate) call
+// this against their own array — kept unified so a fix to header
+// casing/multi-value/trimming lands in both places.
+function matchesUaAllowlist(request, patterns) {
+    if (patterns.length === 0) return null;
     var uaHeader = request.headers["user-agent"];
     if (!uaHeader || !uaHeader.value) return null;
     var ua = uaHeader.value;
-    for (var i = 0; i < LEGACY_CLIENT_ALLOWLIST_PATTERNS.length; i++) {
-        if (LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].test(ua)) return LEGACY_CLIENT_ALLOWLIST_PATTERNS[i].source;
+    for (var i = 0; i < patterns.length; i++) {
+        if (patterns[i].test(ua)) return patterns[i].source;
     }
     return null;
 }
@@ -133,14 +141,26 @@ async function handler(event) {
 
         var kvs = cf.kvs();
 
-        // DMA runs before token bypass — regional blackouts enforce
-        // even when tokens are off.
+        // Strip path-segment token from URI upfront so every downstream
+        // branch (DMA extractBroadcastId, allowlist-bypass forward, token
+        // check, origin fetch) sees the same clean `/broadcast/…` URI.
+        // Without this, allowlist-bypassed UAs on path-token transport
+        // forwarded `/<token>/broadcast/…` to origin and got 403.
+        var pathToken = null;
+        var segments = request.uri.split('/');
+        if (segments[1] && segments[1].length > 50) {
+            pathToken = segments[1];
+            segments.splice(1, 1);
+            request.uri = segments.join('/') || '/';
+        }
+
+        // DMA runs before token bypass — enforced even when token=off.
         var dmaResponse = await checkDmaBlackout(request, kvs);
         if (dmaResponse) return dmaResponse;
 
         if (TOKEN_ENFORCEMENT_MODE === "off") return request;
 
-        var allowlistedPattern = matchesLegacyAllowlist(request);
+        var allowlistedPattern = matchesUaAllowlist(request, LEGACY_CLIENT_ALLOWLIST_PATTERNS);
         if (allowlistedPattern) {
             console.log("allowlist_bypass pattern=" + allowlistedPattern);
             return request;
@@ -150,26 +170,21 @@ async function handler(event) {
         var token = null;
         var payload = null;
 
-        // Strip token from URI/query BEFORE validation so log-mode
-        // failure paths forward a clean request to origin.
         if (request.headers["cta-common-access-token"]) {
             token = request.headers["cta-common-access-token"].value;
         } else if (request.querystring["CAT"]) {
             token = request.querystring["CAT"].value;
             delete request.querystring["CAT"];
+        } else if (pathToken) {
+            token = pathToken;
         } else {
-            token = extractPathToken(request);
-            if (!token) return tokenReject(request, 401, "missing_token");
-            var segments = request.uri.split('/');
-            segments.splice(1, 1);
-            request.uri = segments.join('/') || '/';
+            return tokenReject(request, 401, "missing_token");
         }
 
         var cwt = cf.cwt.validateToken(Buffer.from(token, 'base64url'), { key: signingKey });
         payload = cwt.payload;
 
-        // 410 Gone (revoked) is distinct from generic 401 so clients
-        // can tell a revoked token apart from a plain-invalid one.
+        // 410 Gone (revoked) is distinct from 401 for client differentiation.
         if (payload[CTA.CTI]) {
             try {
                 var revoked = await kvs.get("revoked:" + String(payload[CTA.CTI]));

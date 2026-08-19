@@ -80,12 +80,61 @@ token_enforcement_mode = "enforce"
 #                                                  the monitor above —
 #                                                  internal service.
 #
+#    CrKey/[0-9]                                  — Chromecast receiver
+#                                                  (VID-3581). Unanchored
+#                                                  substring match — the
+#                                                  Chromecast UA is a
+#                                                  full Chrome/Safari UA
+#                                                  with ` CrKey/…` at the
+#                                                  tail (`Chrome/… Safari/…
+#                                                  CrKey/1.56.500000`).
+#                                                  Per Andy via Cody on
+#                                                  VID-3505.
+#
 # See VID-3507 for the tracking ticket that gates the native-entry
 # removal on each app team's path-segment integration.
 #
 # Regex escaping notes: `\.` and `\(` must be double-backslashed in JSON
 # to survive the jsonencode() → CF Function template hop.
 legacy_client_allowlist = [
+  "^AppleCoreMedia/",
+  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^Roku/DVP-",
+  "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
+  "^nfhs-cc-api/",
+  " CrKey/[0-9]",
+]
+
+# VID-3581: DMA-blackout bypass allowlist. Same six patterns as
+# legacy_client_allowlist to start — product direction (Robb Schuneman,
+# 2026-08-18) is that any client on the token allowlist should also
+# skip the 451 blackout gate during the transitional window, because
+# none of them render a blackout-message UI to the viewer yet
+# (VID-3507 tracks the per-app retirement of these entries).
+#
+# Rationale for including the internal-service entries (StreamMonitor,
+# nfhs-cc-api) despite not being end-user surfaces: internal server-to-
+# server probes shouldn't be subject to end-user regional restrictions.
+# If cc-api's variant-fetch Lambda happens to land in a blacked-out
+# metro, we don't want it to 451 on the fetch — that's not a viewer
+# play, so the blackout doesn't apply.
+#
+# Chromecast (`CrKey/[0-9]`) is deliberately NOT on this list per
+# Cody Meincke's PR #33 review: Chromecast receivers run a Chrome-based
+# stack that can display arbitrary web UI, so blackout-message
+# rendering is possible in principle. Until someone confirms whether
+# our Cast receiver actually handles a 451 gracefully today, default
+# to the tighter policy (DMA gate enforces on Chromecast). Add back
+# only with a stated capability answer.
+#
+# Rights-compliance status: product direction captured above. If a
+# formal sign-off is required, capture as a comment on VID-3581.
+#
+# Retirement: each entry sunsets when its app ships blackout-message
+# UI. Prune from this list independently of the corresponding
+# legacy_client_allowlist entry — the two lists have different exit
+# criteria (token integration vs blackout UI shipping).
+dma_bypass_allowlist = [
   "^AppleCoreMedia/",
   "^NFHS Network/[0-9.]+ \\(Linux;Android",
   "^Roku/DVP-",

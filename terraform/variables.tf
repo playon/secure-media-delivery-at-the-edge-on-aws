@@ -115,6 +115,32 @@ variable "legacy_client_allowlist" {
   }
 }
 
+# VID-3581: transitional UA allowlist that bypasses the DMA blackout
+# gate (returns 451). Distinct from legacy_client_allowlist because
+# bypassing blackout enforcement is a rights-compliance decision, not
+# a UX/compat one, and each entry has a distinct retirement condition
+# (app team ships blackout-message UI → pattern pruned, tracked by
+# VID-3507). Patterns matched against the viewer User-Agent AFTER the
+# metro-block decision (KVS lookup + metro comparison have already
+# happened) so the `dma_bypass_allowlist_hit` CloudWatch log line
+# fires only when the bypass actually prevented a block — the audit
+# signal rights-compliance cares about (blackout-leak volume by UA),
+# not "how many bypass-allowlisted requests happened."
+#
+# **Requires rights-compliance sign-off before use in prod tfvars.**
+# See VID-3581 for the review gate.
+variable "dma_bypass_allowlist" {
+  type        = list(string)
+  description = "Regex patterns matched against the viewer User-Agent. Requests whose UA matches ANY pattern bypass the DMA blackout gate (not the token check). Independent of legacy_client_allowlist — a UA can be on both, one, or neither. Empty list disables the bypass. Keep list small (< 20 entries) — matcher is linear per request."
+  default     = []
+  nullable    = false
+
+  validation {
+    condition     = alltrue([for p in var.dma_bypass_allowlist : can(regexall(p, ""))])
+    error_message = "Each dma_bypass_allowlist entry must be a valid RE2 regex (empirically also a valid JS RegExp for the anchored-literal patterns we use)."
+  }
+}
+
 # VID-3464: token-check enforcement mode. Parallel shape to
 # dma_enforcement_mode. Single knob covers what was previously split
 # between token_validation_enabled (bool) and enforcement mode.

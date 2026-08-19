@@ -660,3 +660,81 @@ describe('CTA validator — path-token DMA-check regression (extractBroadcastId 
     expect(res.uri).toBe('/broadcast/abc/720p30/live.m3u8');
   });
 });
+
+describe('CTA validator — VID-3587 Android version-scoped allowlist (< 3.6.6)', () => {
+  // Per VID-3587: NFHS Android 3.6.6+ ships CTA integration + blackout
+  // UI, so it retires from both allowlists. RE2 (Terraform plan-time
+  // regexall) doesn't do numeric comparisons, so the pattern enumerates
+  // the pre-3.6.6 version space:
+  //
+  //   ^NFHS Network/([0-2]\.[0-9]+\.[0-9]+|3\.[0-5]\.[0-9]+|3\.6\.[0-5]) \(Linux;Android
+  //
+  // This suite pins:
+  //   - Versions < 3.6.6 still match (bypass both gates) — including
+  //     the 1.x builds currently in the field and any hypothetical 2.x
+  //     or 3.0-3.5 build.
+  //   - Version 3.6.6 does NOT match (falls through to token/DMA check).
+  //   - Versions > 3.6.6 (3.6.7, 3.7.x, 4.x) do NOT match.
+  //   - Non-Android UAs pass through unchanged (Roku still bypasses on
+  //     its own pattern, unrelated).
+  const PATTERN = '^NFHS Network/([0-2]\\\\.[0-9]+\\\\.[0-9]+|3\\\\.[0-5]\\\\.[0-9]+|3\\\\.6\\\\.[0-5]) \\\\(Linux;Android';
+
+  function androidUA(version) {
+    return `NFHS Network/${version} (Linux;Android 14) AndroidXMedia3/1.7.1`;
+  }
+
+  test.each([
+    ['1.11.7', true],  // current Android build in the field
+    ['1.8.1',  true],
+    ['2.0.0',  true],  // hypothetical 2.x
+    ['3.0.0',  true],
+    ['3.5.9',  true],
+    ['3.6.0',  true],
+    ['3.6.5',  true],  // last version to still bypass
+    ['3.6.6',  false], // ← retirement threshold
+    ['3.6.7',  false],
+    ['3.7.0',  false],
+    ['4.0.0',  false],
+    ['10.0.0', false],
+  ])('Android %s: bypass = %s', async (version, shouldBypass) => {
+    // Test against legacy_client_allowlist. dma_bypass_allowlist uses
+    // the identical pattern, so this covers both.
+    const { handler } = loadValidator(
+      render({
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: `["${PATTERN}"]`,
+      }),
+      { 'key:default': 'signing-key' },
+    );
+    const res = await handler(makeRequest({ userAgent: androidUA(version) }));
+    if (shouldBypass) {
+      // Bypass fired — forwarded to origin, no validator-generated response.
+      expect(res.statusCode).toBeUndefined();
+    } else {
+      // Fell through to token check → missing_token → 401.
+      expect(res.statusCode).toBe(401);
+      expect(res.body).toBe('missing_token');
+    }
+  });
+
+  test('other bypass patterns still work alongside the version-scoped Android pattern', async () => {
+    // Sanity: adding an Android version scope shouldn't accidentally
+    // narrow other patterns' behavior.
+    const { handler } = loadValidator(
+      render({
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: `["${PATTERN}", "^Roku/DVP-", "^AppleCoreMedia/"]`,
+      }),
+      { 'key:default': 'signing-key' },
+    );
+    // Roku still bypasses.
+    const roku = await handler(makeRequest({ userAgent: 'Roku/DVP-15.2 (15.2.4.3449-H0)' }));
+    expect(roku.statusCode).toBeUndefined();
+    // AppleCoreMedia still bypasses.
+    const apple = await handler(makeRequest({ userAgent: 'AppleCoreMedia/1.0.0.23L471 (iPhone; U; CPU OS 26_5_2)' }));
+    expect(apple.statusCode).toBeUndefined();
+    // Android 3.6.7 does NOT bypass despite being alongside those other patterns.
+    const android367 = await handler(makeRequest({ userAgent: androidUA('3.6.7') }));
+    expect(android367.statusCode).toBe(401);
+  });
+});

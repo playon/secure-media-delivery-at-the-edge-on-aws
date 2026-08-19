@@ -75,7 +75,7 @@ drm_api_lambda_role_arn = "arn:aws:iam::676920172489:role/drm-api-lambda-role"
 # See stage tfvars for the per-pattern justification + rationale.
 legacy_client_allowlist = [
   "^AppleCoreMedia/",
-  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^NFHS Network/([0-2]\\.[0-9]+\\.[0-9]+|3\\.[0-5]\\.[0-9]+|3\\.6\\.[0-5]) \\(Linux;Android",
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
@@ -99,7 +99,7 @@ legacy_client_allowlist = [
 # See stage tfvars for the per-pattern justification + rationale.
 dma_bypass_allowlist = [
   "^AppleCoreMedia/",
-  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^NFHS Network/([0-2]\\.[0-9]+\\.[0-9]+|3\\.[0-5]\\.[0-9]+|3\\.6\\.[0-5]) \\(Linux;Android",
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",

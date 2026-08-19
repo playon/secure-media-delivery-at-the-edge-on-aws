@@ -46,11 +46,22 @@ token_enforcement_mode = "enforce"
 #                                                  path-segment token
 #                                                  construction.
 #
-#   ^NFHS Network/[0-9.]+ \(Linux;Android        — legacy NFHS Android
-#                                                  app (AndroidXMedia3).
-#                                                  TRANSITIONAL: remove
-#                                                  once the Android app
-#                                                  ships CTA integration.
+#   ^NFHS Network/(<3.6.6) \(Linux;Android       — legacy NFHS Android
+#                                                  app (AndroidXMedia3),
+#                                                  VERSIONS BEFORE 3.6.6.
+#                                                  Per VID-3587: 3.6.6+
+#                                                  ships CTA token
+#                                                  integration + blackout
+#                                                  UI, so it retires from
+#                                                  both allowlists. The
+#                                                  regex enumerates the
+#                                                  pre-3.6.6 version space
+#                                                  because RE2 (Terraform
+#                                                  plan-time) doesn't do
+#                                                  numeric comparisons.
+#                                                  Fully retire the entry
+#                                                  once fleet is entirely
+#                                                  on 3.6.6+.
 #
 #   ^Roku/DVP-                                   — Roku native HLS player.
 #                                                  TRANSITIONAL: remove
@@ -98,7 +109,7 @@ token_enforcement_mode = "enforce"
 # to survive the jsonencode() → CF Function template hop.
 legacy_client_allowlist = [
   "^AppleCoreMedia/",
-  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^NFHS Network/([0-2]\\.[0-9]+\\.[0-9]+|3\\.[0-5]\\.[0-9]+|3\\.6\\.[0-5]) \\(Linux;Android",
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
@@ -136,7 +147,7 @@ legacy_client_allowlist = [
 # criteria (token integration vs blackout UI shipping).
 dma_bypass_allowlist = [
   "^AppleCoreMedia/",
-  "^NFHS Network/[0-9.]+ \\(Linux;Android",
+  "^NFHS Network/([0-2]\\.[0-9]+\\.[0-9]+|3\\.[0-5]\\.[0-9]+|3\\.6\\.[0-5]) \\(Linux;Android",
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",

@@ -15,12 +15,38 @@ unity_api_base = "https://unity.nfhsnetwork.com"
 # allowlist is seeded (VID-3464).
 token_enforcement_mode = "off"
 
-# VID-3458: DMA blackout enforcement mode. Starts in "log" — validator
-# computes the block decision and emits CloudWatch lines against real
-# prod traffic without blocking anyone. Flip to "enforce" after the
-# log-mode signal is clean and the hls.bcast prod distribution has the
-# validator attached.
-dma_enforcement_mode = "log"
+# VID-3458: DMA blackout enforcement mode. Flipped from "log" to
+# "enforce" after log-mode soak confirmed the sync-writer + KVS
+# blocklist + validator + Metro-Code header pipeline wires up
+# correctly on real prod traffic, and after VID-3581 shipped the
+# blackout-UI-less-client bypass (dma_bypass_allowlist) + closed the
+# path-token DMA regression + landed the allowlist-strip upfront fix.
+#
+# In enforce, blocked viewers get HTTP 451 "blackout_dma" with
+# `Cache-Control: no-store` + `Access-Control-Allow-Origin: *`. UAs
+# on dma_bypass_allowlist (Apple TV / iOS / iPad / Android / Roku /
+# internal probes — see the dma_bypass_allowlist block below) forward
+# instead, with a `dma_bypass_allowlist_hit` audit log line pairing
+# 1:1 with what would have been `blackout_dma`.
+#
+# Rollback: set back to "log" and re-apply. Validator function code
+# is otherwise unchanged; only the templatefile-baked constant flips.
+# Propagation to the CloudFront edge is typically < 5 min per AWS.
+#
+# Scope-of-enforcement note: DMA gate fires when the validator sees
+# a `CloudFront-Viewer-Metro-Code` header. Prod hls.bcast's
+# `broadcast/*` behavior forwards it, so playlists 451 correctly.
+# The default `*` (segment) behavior does NOT forward it — the
+# validator takes the `blackout_dma_missing_metro` fail-open branch
+# on segment requests. Practical effect: enforcement is
+# playlist-level. Viewers already playing get cut off on their next
+# manifest refresh (~2-8s for live). If instant segment-level
+# enforcement is required, follow-up against
+# iac-tf-aws-project-video-common/stacks/hls-cloudfront/envs/nfhs-
+# prod-us-east-1.tfvars to add CloudFront-Viewer-Metro-Code to the
+# default behavior's forward_headers (cache-fragmentation trade-off:
+# up to ~210 DMA values × segment URI space).
+dma_enforcement_mode = "enforce"
 
 # VID-3449: lock POST /token to AWS_IAM auth, permitting only the
 # drm-api-lambda execution role to mint. Anonymous callers get 403 at

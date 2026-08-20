@@ -80,10 +80,26 @@ async function checkDmaBlackout(request, kvs) {
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
 
     // Viewer WOULD be blocked. Bypass allowlist → log the leak, forward.
+    // A UA match here means "this client family does not render a
+    // blackout-message UI, so let the stream continue rather than
+    // dropping the viewer into an unhelpful 451." Header-presence
+    // override below revokes the bypass for clients that have signaled
+    // they DO render the UI (VID-3587 — nfhs-mobile 3.6.6+ ships the
+    // header via react-native-video source.headers). Presence-only
+    // match: value is logged for context but not parsed, so future app
+    // versions inherit the revoke without a CTA-side change. Header is
+    // NOT consulted on the legacy_client_allowlist path because token
+    // minting is a separate capability that native clients haven't
+    // shipped yet.
     var bypassPattern = matchesUaAllowlist(request, DMA_BYPASS_ALLOWLIST_PATTERNS);
     if (bypassPattern) {
-        console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
-        return null;
+        var capableHeader = request.headers["x-nfhs-client-version"];
+        if (capableHeader && capableHeader.value) {
+            console.log("dma_bypass_revoked broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua_pattern=" + bypassPattern + " client_version=" + capableHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
+        } else {
+            console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
+            return null;
+        }
     }
 
     console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);

@@ -15,16 +15,24 @@ drm_api_lambda_role_arn = "arn:aws:iam::877726356953:role/drm-api-lambda-role"
 # anonymous.
 unity_api_base = "https://unity.stage.nfhsnetwork.com"
 
-# VID-3464: stage stepping up to "enforce". Log-mode signal on stage
-# was clean — 60 min of traffic showed ~30 validator invocations with
-# only `reason=missing_token` reject entries (no invalid / expired /
-# revoked). Stage is a controlled test environment; any tokenless
-# viewer that starts 401'ing here is the intended signal for their
-# client to integrate CTA minting.
+# VID-3464 / VID-3458 test-isolation: rolled back from "enforce" to
+# "log" so DMA-gate behavior can be observed in isolation from the
+# token check. In enforce, any tokenless request 401s at the token
+# gate before the DMA gate has anything to compare against — the
+# blackout_dma / dma_bypass_allowlist_hit code paths never fire for
+# unauthed traffic. In log, token check runs and logs failures via
+# `token_reject reason=… mode=log` but forwards the request, so the
+# DMA gate is the only thing that can actually block a viewer on
+# stage.
 #
-# Rollback: set back to "log" (or "off") and re-apply. Function code
-# is unchanged, only the templatefile-baked constant flips.
-token_enforcement_mode = "enforce"
+# Concretely: this lets us curl a blocked broadcast without minting
+# a real token and still hit the 451 path, and lets browser probes
+# from any UA reach the DMA decision instead of getting stopped at
+# `missing_token`.
+#
+# Restore to "enforce" once DMA-gate testing is done. Function code
+# unchanged; only the templatefile-baked constant flips.
+token_enforcement_mode = "log"
 
 # VID-3505: allowlist patterns seeded from a 1h prod traffic sample on
 # hls.bcast (2026-08-11-13, ~40K requests). Each covers a client

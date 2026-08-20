@@ -88,6 +88,17 @@ token_enforcement_mode = "log"
 #                                                  the monitor above —
 #                                                  internal service.
 #
+#   ^nfhs-postprocessor/                         — postprocessor-v2
+#                                                  fetches vod.m3u8 +
+#                                                  segments off hls.bcast
+#                                                  during VOD processing.
+#                                                  Internal service —
+#                                                  no viewer, no
+#                                                  regional restriction
+#                                                  applies. Same
+#                                                  category as cc-api /
+#                                                  StreamMonitor.
+#
 #    CrKey/[0-9]                                  — Chromecast receiver
 #                                                  (VID-3581). Unanchored
 #                                                  substring match — the
@@ -110,6 +121,7 @@ legacy_client_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor/",
   " CrKey/[0-9]",
 ]
 
@@ -159,6 +171,7 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor/",
 ]
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after

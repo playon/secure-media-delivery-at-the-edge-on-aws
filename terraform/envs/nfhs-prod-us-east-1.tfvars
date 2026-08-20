@@ -79,6 +79,7 @@ legacy_client_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor/",
   " CrKey/[0-9]",
 ]
 
@@ -105,4 +106,5 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor/",
 ]

@@ -796,6 +796,70 @@ describe('CTA validator — VID-3587 capable-client header revokes DMA bypass', 
     expect(logs.some(l => l.includes('dma_bypass_revoked'))).toBe(false);
   });
 
+  test('header value with control chars is sanitized before logging (log-injection guard)', async () => {
+    // Cody's PR #38 blocker: capableHeader.value is fully
+    // attacker-controlled and lands in the audit stream that
+    // rights-compliance uses to measure blackout leakage. A CR/LF in
+    // the value would forge fake dma_bypass_allowlist_hit /
+    // blackout_dma entries and corrupt the audit trail. Sanitizer
+    // replaces ASCII control chars (0x00-0x1F + DEL) with `_` and
+    // caps at 64 chars.
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS,
+    );
+    const res = await handler(makeRequest({
+      metroCode: BLOCKED_METRO,
+      userAgent: 'AppleCoreMedia/1.0.0.23L471',
+      extraHeaders: {
+        'X-NFHS-Client-Version': '3.6.6\r\ndma_bypass_allowlist_hit broadcast=fake metro=999 pattern=x mode=enforce',
+      },
+    }));
+    expect(res.statusCode).toBe(451);
+    // Sanitized value replaces \r\n with underscores.
+    const revokeLine = logs.find(l => l.includes('dma_bypass_revoked'));
+    expect(revokeLine).toBeDefined();
+    expect(revokeLine).not.toContain('\r');
+    expect(revokeLine).not.toContain('\n');
+    // The forged suffix survives as literal text (underscored) — not as a separate log line.
+    expect(revokeLine).toContain('client_version=3.6.6__dma_bypass_allowlist_hit');
+    // Test harness stores one console.log call per array entry — so a
+    // successful injection would produce a second log entry that
+    // *starts* with the forged text. startsWith bounds the check to
+    // the log-line level, whereas .includes matches the sanitized
+    // substring inside the revoke line's client_version=… segment.
+    expect(logs.filter(l => l.startsWith('dma_bypass_allowlist_hit')).length).toBe(0);
+  });
+
+  test('header value longer than 64 chars is truncated', async () => {
+    // Defensive cap so an outsize header value can't dominate the
+    // log line and push useful fields out of view.
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS,
+    );
+    const oversized = '3.6.6-' + 'x'.repeat(200);
+    await handler(makeRequest({
+      metroCode: BLOCKED_METRO,
+      userAgent: 'AppleCoreMedia/1.0.0.23L471',
+      extraHeaders: { 'X-NFHS-Client-Version': oversized },
+    }));
+    const revokeLine = logs.find(l => l.includes('dma_bypass_revoked'));
+    // client_version segment carries only the first 64 chars of the value.
+    const m = revokeLine.match(/client_version=([^ ]*)/);
+    expect(m).not.toBeNull();
+    expect(m[1].length).toBe(64);
+    expect(m[1]).toBe(oversized.slice(0, 64));
+  });
+
   test('log mode + header present → forwards but revoke line + would-have-blocked line both fire', async () => {
     // Log-mode audit surface: the revoke line documents "we tightened
     // this UA's bypass because it signaled capability", and the

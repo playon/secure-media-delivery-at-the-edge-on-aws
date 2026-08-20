@@ -95,7 +95,16 @@ async function checkDmaBlackout(request, kvs) {
     if (bypassPattern) {
         var capableHeader = request.headers["x-nfhs-client-version"];
         if (capableHeader && capableHeader.value) {
-            console.log("dma_bypass_revoked broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua_pattern=" + bypassPattern + " client_version=" + capableHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
+            // Sanitize before logging: client_version is fully
+            // attacker-controlled and this line lands in the audit
+            // stream rights-compliance uses to measure blackout
+            // leakage. A CR/LF in the header could forge fake
+            // dma_bypass_allowlist_hit / blackout_dma entries and
+            // corrupt that audit trail. Strip ASCII control chars
+            // (0x00-0x1F + DEL) and cap length so an outsize value
+            // can't dominate the log line either.
+            var safeVersion = String(capableHeader.value).replace(/[\x00-\x1F\x7F]/g, "_").slice(0, 64);
+            console.log("dma_bypass_revoked broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua_pattern=" + bypassPattern + " client_version=" + safeVersion + " mode=" + DMA_ENFORCEMENT_MODE);
         } else {
             console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
             return null;

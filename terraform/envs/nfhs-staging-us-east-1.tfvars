@@ -88,7 +88,7 @@ token_enforcement_mode = "log"
 #                                                  the monitor above —
 #                                                  internal service.
 #
-#   ^nfhs-postprocessor/                         — postprocessor-v2
+#   ^nfhs-postprocessor                          — postprocessor-v2
 #                                                  fetches vod.m3u8 +
 #                                                  segments off hls.bcast
 #                                                  during VOD processing.
@@ -97,7 +97,14 @@ token_enforcement_mode = "log"
 #                                                  regional restriction
 #                                                  applies. Same
 #                                                  category as cc-api /
-#                                                  StreamMonitor.
+#                                                  StreamMonitor. UA is
+#                                                  the bare
+#                                                  `nfhs-postprocessor`
+#                                                  (no version suffix),
+#                                                  so the pattern is a
+#                                                  prefix without the
+#                                                  trailing `/` that the
+#                                                  other entries carry.
 #
 #    CrKey/[0-9]                                  — Chromecast receiver
 #                                                  (VID-3581). Unanchored
@@ -121,7 +128,7 @@ legacy_client_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
-  "^nfhs-postprocessor/",
+  "^nfhs-postprocessor",
   " CrKey/[0-9]",
 ]
 
@@ -171,7 +178,7 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
-  "^nfhs-postprocessor/",
+  "^nfhs-postprocessor",
 ]
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after

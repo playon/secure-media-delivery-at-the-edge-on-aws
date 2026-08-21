@@ -39,9 +39,13 @@ function respond(statusCode, body) {
     };
 }
 
+// Sanitize any client-controlled string before log-line concat:
+// strip ASCII controls (CR/LF forgery guard) and cap at 64 chars.
+function hdr(request, name) { var h = request.headers[name]; return h && h.value ? String(h.value).replace(/[\x00-\x1F\x7F]/g, "_").slice(0, 64) : "-"; }
+
 // enforce → reject; log → log+forward; off handled by handler upstream.
 function tokenReject(request, statusCode, reason) {
-    console.log("token_reject reason=" + reason + " mode=" + TOKEN_ENFORCEMENT_MODE);
+    console.log("token_reject reason=" + reason + " ua=" + hdr(request, "user-agent") + " client_version=" + hdr(request, "x-nfhs-client-version") + " mode=" + TOKEN_ENFORCEMENT_MODE);
     if (TOKEN_ENFORCEMENT_MODE === "enforce") return respond(statusCode, reason);
     return request;
 }
@@ -87,18 +91,17 @@ async function checkDmaBlackout(request, kvs) {
     // feeds the rights-compliance audit stream — CR/LF could forge
     // entries.
     var bypassPattern = matchesUaAllowlist(request, DMA_BYPASS_ALLOWLIST_PATTERNS);
+    var capable = hdr(request, "x-nfhs-client-version");
     if (bypassPattern) {
-        var capableHeader = request.headers["x-nfhs-client-version"];
-        if (capableHeader && capableHeader.value) {
-            var safeVersion = String(capableHeader.value).replace(/[\x00-\x1F\x7F]/g, "_").slice(0, 64);
-            console.log("dma_bypass_revoked broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua_pattern=" + bypassPattern + " client_version=" + safeVersion + " mode=" + DMA_ENFORCEMENT_MODE);
+        if (capable !== "-") {
+            console.log("dma_bypass_revoked broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua_pattern=" + bypassPattern + " client_version=" + capable + " mode=" + DMA_ENFORCEMENT_MODE);
         } else {
-            console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " mode=" + DMA_ENFORCEMENT_MODE);
+            console.log("dma_bypass_allowlist_hit broadcast=" + broadcastId + " metro=" + metroHeader.value + " pattern=" + bypassPattern + " client_version=- mode=" + DMA_ENFORCEMENT_MODE);
             return null;
         }
     }
 
-    console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " mode=" + DMA_ENFORCEMENT_MODE);
+    console.log("blackout_dma broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua=" + hdr(request, "user-agent") + " client_version=" + capable + " mode=" + DMA_ENFORCEMENT_MODE);
     if (DMA_ENFORCEMENT_MODE === "enforce") return respond(451, "blackout_dma");
     return null;
 }
@@ -174,7 +177,7 @@ async function handler(event) {
 
         var allowlistedPattern = matchesUaAllowlist(request, LEGACY_CLIENT_ALLOWLIST_PATTERNS);
         if (allowlistedPattern) {
-            console.log("allowlist_bypass pattern=" + allowlistedPattern);
+            console.log("allowlist_bypass pattern=" + allowlistedPattern + " client_version=" + hdr(request, "x-nfhs-client-version"));
             return request;
         }
 

@@ -884,3 +884,116 @@ describe('CTA validator — VID-3587 capable-client header revokes DMA bypass', 
     expect(logs.some(l => l.includes('blackout_dma broadcast=abc') && l.includes('mode=log'))).toBe(true);
   });
 });
+
+describe('CTA validator — log-line observability (ua + client_version on every audit line)', () => {
+  // Every audit line the compliance stream consumes should carry both
+  // the request UA and the X-NFHS-Client-Version header (or `-` when
+  // absent). Both fields go through the same sanitizer as the revoke
+  // path — control-char strip + 64-char cap — so a hostile viewer
+  // can't inject line breaks into any of these streams.
+  const BLOCKED_METRO = 602;
+  const BLOCKED_KVS = { 'blackout:abc': '602,524', 'key:default': 'signing-key' };
+
+  test('blackout_dma logs ua + client_version (both sanitized)', async () => {
+    const { handler, logs } = loadValidator(
+      render({ dma_enforcement_mode: 'enforce', token_enforcement_mode: 'off' }),
+      BLOCKED_KVS,
+    );
+    await handler(makeRequest({
+      metroCode: BLOCKED_METRO,
+      userAgent: 'NFHS Network/3.6.8 (Linux;Android 14)',
+      extraHeaders: { 'X-NFHS-Client-Version': '3.6.8' },
+    }));
+    const line = logs.find(l => l.includes('blackout_dma'));
+    expect(line).toBeDefined();
+    expect(line).toContain('ua=NFHS Network/3.6.8 (Linux;Android 14)');
+    expect(line).toContain('client_version=3.6.8');
+  });
+
+  test('blackout_dma with missing X-NFHS-Client-Version logs client_version=-', async () => {
+    const { handler, logs } = loadValidator(
+      render({ dma_enforcement_mode: 'enforce', token_enforcement_mode: 'off' }),
+      BLOCKED_KVS,
+    );
+    await handler(makeRequest({
+      metroCode: BLOCKED_METRO,
+      userAgent: 'Mozilla/5.0 (something)',
+    }));
+    const line = logs.find(l => l.includes('blackout_dma'));
+    expect(line).toContain('ua=Mozilla/5.0 (something)');
+    expect(line).toContain('client_version=-');
+  });
+
+  test('blackout_dma sanitizes UA against CR/LF injection', async () => {
+    // Same log-injection guard as the client_version test — the ua
+    // field is client-controlled and lands in the same audit stream.
+    const { handler, logs } = loadValidator(
+      render({ dma_enforcement_mode: 'enforce', token_enforcement_mode: 'off' }),
+      BLOCKED_KVS,
+    );
+    await handler(makeRequest({
+      metroCode: BLOCKED_METRO,
+      userAgent: 'BadUA\r\nblackout_dma broadcast=fake metro=999',
+    }));
+    const line = logs.find(l => l.startsWith('blackout_dma'));
+    expect(line).not.toContain('\r');
+    expect(line).not.toContain('\n');
+    expect(line).toContain('ua=BadUA__blackout_dma');
+    // No forged line surfaced independently.
+    expect(logs.filter(l => l.startsWith('blackout_dma')).length).toBe(1);
+  });
+
+  test('token_reject logs ua + client_version', async () => {
+    const { handler, logs } = loadValidator(
+      render({ token_enforcement_mode: 'log' }),
+      { 'key:default': 'signing-key' },
+    );
+    await handler(makeRequest({
+      userAgent: 'curl/8.4.0',
+      extraHeaders: { 'X-NFHS-Client-Version': '9.9.9' },
+    }));
+    const line = logs.find(l => l.includes('token_reject'));
+    expect(line).toContain('reason=missing_token');
+    expect(line).toContain('ua=curl/8.4.0');
+    expect(line).toContain('client_version=9.9.9');
+    expect(line).toContain('mode=log');
+  });
+
+  test('allowlist_bypass logs client_version', async () => {
+    const { handler, logs } = loadValidator(
+      render({
+        token_enforcement_mode: 'enforce',
+        legacy_client_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      { 'key:default': 'signing-key' },
+    );
+    await handler(makeRequest({
+      userAgent: 'AppleCoreMedia/1.0.0',
+      extraHeaders: { 'X-NFHS-Client-Version': '3.6.8' },
+    }));
+    const line = logs.find(l => l.includes('allowlist_bypass'));
+    expect(line).toContain('pattern=^AppleCoreMedia');
+    expect(line).toContain('client_version=3.6.8');
+  });
+
+  test('dma_bypass_allowlist_hit logs client_version=- (header absent by definition on this path)', async () => {
+    // If X-NFHS-Client-Version WAS present, the revoke path fires
+    // instead. So this log line's client_version is always "-" — but
+    // include it explicitly so log parsers can rely on a consistent
+    // field set across every dma_bypass_* audit event.
+    const { handler, logs } = loadValidator(
+      render({
+        dma_enforcement_mode: 'enforce',
+        token_enforcement_mode: 'off',
+        dma_bypass_allowlist_json: '["^AppleCoreMedia/"]',
+      }),
+      BLOCKED_KVS,
+    );
+    await handler(makeRequest({
+      metroCode: BLOCKED_METRO,
+      userAgent: 'AppleCoreMedia/1.0.0',
+    }));
+    const line = logs.find(l => l.includes('dma_bypass_allowlist_hit'));
+    expect(line).toContain('client_version=-');
+  });
+});

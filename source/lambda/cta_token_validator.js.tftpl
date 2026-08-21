@@ -79,30 +79,17 @@ async function checkDmaBlackout(request, kvs) {
     if (!metroHeader) return null;
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
 
-    // Viewer WOULD be blocked. Bypass allowlist → log the leak, forward.
-    // A UA match here means "this client family does not render a
-    // blackout-message UI, so let the stream continue rather than
-    // dropping the viewer into an unhelpful 451." Header-presence
-    // override below revokes the bypass for clients that have signaled
-    // they DO render the UI (VID-3587 — nfhs-mobile 3.6.6+ ships the
-    // header via react-native-video source.headers). Presence-only
-    // match: value is logged for context but not parsed, so future app
-    // versions inherit the revoke without a CTA-side change. Header is
-    // NOT consulted on the legacy_client_allowlist path because token
-    // minting is a separate capability that native clients haven't
-    // shipped yet.
+    // Bypass allowlist: UA match → forward (client has no blackout UI).
+    // VID-3587 header override: if X-NFHS-Client-Version is present,
+    // client HAS blackout UI, so revoke the bypass and let DMA fire.
+    // Header applies to DMA list only, not legacy_client_allowlist.
+    // Sanitize + cap value: attacker-controlled, and this log line
+    // feeds the rights-compliance audit stream — CR/LF could forge
+    // entries.
     var bypassPattern = matchesUaAllowlist(request, DMA_BYPASS_ALLOWLIST_PATTERNS);
     if (bypassPattern) {
         var capableHeader = request.headers["x-nfhs-client-version"];
         if (capableHeader && capableHeader.value) {
-            // Sanitize before logging: client_version is fully
-            // attacker-controlled and this line lands in the audit
-            // stream rights-compliance uses to measure blackout
-            // leakage. A CR/LF in the header could forge fake
-            // dma_bypass_allowlist_hit / blackout_dma entries and
-            // corrupt that audit trail. Strip ASCII control chars
-            // (0x00-0x1F + DEL) and cap length so an outsize value
-            // can't dominate the log line either.
             var safeVersion = String(capableHeader.value).replace(/[\x00-\x1F\x7F]/g, "_").slice(0, 64);
             console.log("dma_bypass_revoked broadcast=" + broadcastId + " metro=" + metroHeader.value + " ua_pattern=" + bypassPattern + " client_version=" + safeVersion + " mode=" + DMA_ENFORCEMENT_MODE);
         } else {

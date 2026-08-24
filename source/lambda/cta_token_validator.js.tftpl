@@ -80,8 +80,6 @@ async function checkDmaBlackout(request, kvs) {
     try { blocklistCsv = await kvs.get("blackout:" + broadcastId); } catch (e) { return null; }
     if (!blocklistCsv) return null;
     var metroHeader = request.headers["cloudfront-viewer-metro-code"];
-    // VID-3609 DEBUG (temp): confirm cache-policy-headers fix visible.
-    console.log("dma_probe broadcast=" + broadcastId + " metro=" + (metroHeader ? metroHeader.value : "-"));
     if (!metroHeader) return null;
     if (!isMetroBlocked(metroHeader.value, blocklistCsv)) return null;
 

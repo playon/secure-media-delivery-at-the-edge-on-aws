@@ -79,6 +79,7 @@ legacy_client_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor",
   " CrKey/[0-9]",
 ]
 
@@ -91,10 +92,12 @@ legacy_client_allowlist = [
 # deliberately not included — see stage tfvars for the per-Cody
 # rationale.
 #
-# Not active until dma_enforcement_mode flips from "log" to "enforce"
-# on prod — this list is inert during log mode (validator still
-# forwards on log, no 451 is ever returned regardless of list content).
-# Safe to seed early.
+# VID-3587 header override: nfhs-mobile 3.6.6+ (iOS + Android) sends
+# `X-NFHS-Client-Version` on manifest requests. The validator revokes
+# the UA-based bypass when that header is present with any non-empty
+# value. Applies to THIS list only; token bypass stays UA-only because
+# native clients still can't mint CTA tokens. See stage tfvars for the
+# full VID-3587 rationale.
 #
 # See stage tfvars for the per-pattern justification + rationale.
 dma_bypass_allowlist = [
@@ -103,4 +106,5 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor",
 ]

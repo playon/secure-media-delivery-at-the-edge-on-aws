@@ -88,6 +88,24 @@ token_enforcement_mode = "log"
 #                                                  the monitor above —
 #                                                  internal service.
 #
+#   ^nfhs-postprocessor                          — postprocessor-v2
+#                                                  fetches vod.m3u8 +
+#                                                  segments off hls.bcast
+#                                                  during VOD processing.
+#                                                  Internal service —
+#                                                  no viewer, no
+#                                                  regional restriction
+#                                                  applies. Same
+#                                                  category as cc-api /
+#                                                  StreamMonitor. UA is
+#                                                  the bare
+#                                                  `nfhs-postprocessor`
+#                                                  (no version suffix),
+#                                                  so the pattern is a
+#                                                  prefix without the
+#                                                  trailing `/` that the
+#                                                  other entries carry.
+#
 #    CrKey/[0-9]                                  — Chromecast receiver
 #                                                  (VID-3581). Unanchored
 #                                                  substring match — the
@@ -110,6 +128,7 @@ legacy_client_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor",
   " CrKey/[0-9]",
 ]
 
@@ -138,6 +157,17 @@ legacy_client_allowlist = [
 # Rights-compliance status: product direction captured above. If a
 # formal sign-off is required, capture as a comment on VID-3581.
 #
+# VID-3587 header override: nfhs-mobile 3.6.6+ (iOS + Android, shipped
+# via APPS-823) sends `X-NFHS-Client-Version` on manifest requests via
+# react-native-video's `source.headers`. The validator's DMA-bypass
+# code path revokes the UA bypass when that header is present with any
+# non-empty value — the header signals "I can render a blackout UI,
+# block me if applicable." Applies to THIS list only; the token bypass
+# list (legacy_client_allowlist) stays UA-only because native clients
+# still can't mint CTA tokens. Presence-only match — the header value
+# is logged for CloudWatch context but not parsed, so future app
+# versions inherit the revoke without a CTA-side change.
+#
 # Retirement: each entry sunsets when its app ships blackout-message
 # UI. Prune from this list independently of the corresponding
 # legacy_client_allowlist entry — the two lists have different exit
@@ -148,6 +178,7 @@ dma_bypass_allowlist = [
   "^Roku/DVP-",
   "^Mozilla/5\\.0 \\(compatible; NFHSStreamMonitor",
   "^nfhs-cc-api/",
+  "^nfhs-postprocessor",
 ]
 
 # VID-3458: DMA blackout enforcement mode. Flipped to "enforce" after

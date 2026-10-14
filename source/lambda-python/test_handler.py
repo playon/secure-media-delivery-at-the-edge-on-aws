@@ -75,14 +75,16 @@ class TestMintRotation(unittest.TestCase):
         self.assert_signed_with(self.invoke(), 'new-key')
 
     def test_ttl_boundaries(self):
-        for ttl in (0, -1, 1.5, False, '', 'bad', '25h', 86401):
+        for ttl in (0, -1, 1.5, False, '', 'bad', '0s', '2h1', '121m', '3h', '1d', '25h', 7201, 86400, 86401):
             with self.subTest(ttl=ttl):
                 result = self.invoke(ttl)
                 self.assertEqual(result['statusCode'], 500)
                 self.assertIn('TTL must be', json.loads(result['body'])['error'])
         self.sm.get_secret_value.assert_not_called()
         self.sm.get_secret_value.return_value = {'SecretString': json.dumps({'signingKey': 'key'})}
-        self.assert_signed_with(self.invoke('1d'), 'key', 86400)
+        for ttl, seconds in (('1h', 3600), ('2h', 7200), ('120m', 7200), (7200, 7200)):
+            with self.subTest(ttl=ttl):
+                self.assert_signed_with(self.invoke(ttl), 'key', seconds)
         self.assert_signed_with(self.invoke(None), 'key', 7200)
 
 

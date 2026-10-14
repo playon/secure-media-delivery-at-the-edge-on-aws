@@ -98,8 +98,8 @@ module CTA
       match = ttl.match(/\A([0-9]+)([smhd])\z/)
       seconds = match ? match[1].to_i * { 's' => 1, 'm' => 60, 'h' => 3600, 'd' => 86400 }[match[2]] : nil
     end
-    unless seconds.is_a?(Integer) && seconds.positive? && seconds <= 86400
-      raise ArgumentError, 'TTL must be a positive integer duration of at most 86400 seconds'
+    unless seconds.is_a?(Integer) && seconds.positive? && seconds <= 7200
+      raise ArgumentError, 'TTL must be a positive integer duration of at most 7200 seconds'
     end
     seconds
   end

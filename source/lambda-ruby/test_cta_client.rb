@@ -7,14 +7,14 @@ class TestParseTTL < Minitest::Test
   def test_seconds; assert_equal 30, CTA.parse_ttl('30s'); end
   def test_minutes; assert_equal 300, CTA.parse_ttl('5m'); end
   def test_hours; assert_equal 7200, CTA.parse_ttl('2h'); end
-  def test_days; assert_equal 86400, CTA.parse_ttl('1d'); end
+  def test_maximum_minutes; assert_equal 7200, CTA.parse_ttl('120m'); end
   def test_int_passthrough; assert_equal 3600, CTA.parse_ttl(3600); end
   def test_invalid
-    ['bad', '', 0, -1, 1.5, nil, false, true, '0s', '25h', '2d', 86401].each do |ttl|
+    ['bad', '', 0, -1, 1.5, nil, false, true, '0s', '2h1', '121m', '3h', '1d', '25h', '2d', 7201, 86400, 86401].each do |ttl|
       assert_raises(ArgumentError) { CTA.parse_ttl(ttl) }
     end
   end
-  def test_maximum; assert_equal 86400, CTA.parse_ttl(86400); end
+  def test_maximum; assert_equal 7200, CTA.parse_ttl(7200); end
 end
 
 class TestCborEncode < Minitest::Test

@@ -152,11 +152,11 @@ export class CTASecureMediaStack extends Stack {
     }));
 
     // --- Key sync Lambda (custom resource + rotation) ---
-    const rotationOverlap = Number(config.main.rotationOverlapSeconds ?? 86400);
+    const rotationOverlap = Number(config.main.rotationOverlapSeconds ?? 7200);
     const rotationPropagation = Number(config.main.rotationPropagationSeconds ?? 300);
-    if (!Number.isSafeInteger(rotationOverlap) || rotationOverlap < 86400 ||
+    if (!Number.isSafeInteger(rotationOverlap) || rotationOverlap < 7200 ||
         !Number.isSafeInteger(rotationPropagation) || rotationPropagation < 300) {
-      throw new Error("Rotation requires integer overlap >=86400s and propagation >=300s");
+      throw new Error("Rotation requires integer overlap >=7200s and propagation >=300s");
     }
     const syncKeysToKvs = new lambda.Function(this, "SyncKeysToKvs", {
       runtime: lambda.Runtime.NODEJS_22_X,

@@ -87,13 +87,15 @@ class TestMintRotation < Minitest::Test
   end
 
   def test_ttl_boundaries
-    [0, -1, 1.5, nil, false, '', 'bad', '25h', 86401].each do |ttl|
+    [0, -1, 1.5, nil, false, '', 'bad', '0s', '2h1', '121m', '3h', '1d', '25h', 7201, 86400, 86401].each do |ttl|
       result = invoke(ttl)
       assert_equal 500, result[:statusCode]
       assert_includes JSON.parse(result[:body])['error'], 'TTL must be'
     end
     assert_equal 0, @calls
-    assert_signed_with invoke('1d'), 'old-key', 86400
+    [['1h', 3600], ['2h', 7200], ['120m', 7200], [7200, 7200]].each do |ttl, seconds|
+      assert_signed_with invoke(ttl), 'old-key', seconds
+    end
     assert_signed_with invoke(:omitted), 'old-key', 7200
   end
 end

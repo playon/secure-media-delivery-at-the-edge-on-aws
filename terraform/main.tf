@@ -78,12 +78,13 @@ resource "aws_cloudfront_function" "validator" {
   runtime = "cloudfront-js-2.0"
   comment = "CTA-5007-B CWT validator. VID-3439."
   publish = true
-  code = templatefile("${path.module}/../source/lambda/cta_token_validator.js.tftpl", {
+  # Keep readable source comments out of CloudFront's 10 KiB code allowance.
+  code = replace(templatefile("${path.module}/../source/lambda/cta_token_validator.js.tftpl", {
     dma_enforcement_mode         = var.dma_enforcement_mode
     token_enforcement_mode       = var.token_enforcement_mode
     legacy_client_allowlist_json = jsonencode(var.legacy_client_allowlist)
     dma_bypass_allowlist_json    = jsonencode(var.dma_bypass_allowlist)
-  })
+  }), "/(?m)^[\\t ]*//[^\\r\\n]*\\r?\\n/", "")
 
   key_value_store_associations = [aws_cloudfront_key_value_store.this.arn]
 }

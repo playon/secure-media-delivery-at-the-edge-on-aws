@@ -9,7 +9,12 @@ class TestParseTTL < Minitest::Test
   def test_hours; assert_equal 7200, CTA.parse_ttl('2h'); end
   def test_days; assert_equal 86400, CTA.parse_ttl('1d'); end
   def test_int_passthrough; assert_equal 3600, CTA.parse_ttl(3600); end
-  def test_invalid; assert_equal 7200, CTA.parse_ttl('bad'); end
+  def test_invalid
+    ['bad', '', 0, -1, 1.5, nil, false, true, '0s', '25h', '2d', 86401].each do |ttl|
+      assert_raises(ArgumentError) { CTA.parse_ttl(ttl) }
+    end
+  end
+  def test_maximum; assert_equal 86400, CTA.parse_ttl(86400); end
 end
 
 class TestCborEncode < Minitest::Test

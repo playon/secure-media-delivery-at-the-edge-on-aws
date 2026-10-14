@@ -11,7 +11,11 @@ class TestParseTTL(unittest.TestCase):
     def test_hours(self): self.assertEqual(parse_ttl('2h'), 7200)
     def test_days(self): self.assertEqual(parse_ttl('1d'), 86400)
     def test_int_passthrough(self): self.assertEqual(parse_ttl(3600), 3600)
-    def test_invalid(self): self.assertEqual(parse_ttl('bad'), 7200)
+    def test_invalid(self):
+        for ttl in ('bad', '', 0, -1, 1.5, None, False, True, '0s', '25h', '2d', 86401):
+            with self.subTest(ttl=ttl), self.assertRaises(ValueError):
+                parse_ttl(ttl)
+    def test_maximum(self): self.assertEqual(parse_ttl(86400), 86400)
 
 class TestCborEncode(unittest.TestCase):
     def test_int(self): self.assertEqual(cbor_encode(0), b'\x00')

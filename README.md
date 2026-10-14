@@ -214,12 +214,31 @@ The demo website is at `/website/index.html` and the revocation dashboard is at 
 
 ## Key Rotation
 
-Signing keys are stored in Secrets Manager and synced to CloudFront KeyValueStore. Rotation is handled by a Step Functions workflow:
+Scheduled rotation is **disabled by default**. Do not manually start rotation until the updated validators and mints are deployed together and the deployment checks below pass.
 
-1. Generates new 32-byte hex key
-2. Stores in Secrets Manager
-3. Syncs to KVS as `key:default`
-4. Preserves previous key as `key:previous` for graceful transition
+The Step Functions workflow uses one stable execution ARN as its rotation ID:
+
+1. **Prepare:** atomically publish the new raw signing key at `key:default`, the old key at `key:previous` as `{"signingKey":"…","expiresAt":null}`, and ownership state at `key:rotation`. The mint still reads the old Secrets Manager `AWSCURRENT` version. Both keys validate; normal token expiry, revocation, and policy checks still apply.
+2. **Wait for propagation:** wait at least 300 seconds, measured from confirmation of the atomic KVS update. This is a configured propagation allowance, **not an acknowledgement from every edge location**. Verify the allowance for each deployment before allowing rotation; increase it if needed.
+3. **Promote:** create an idempotent `AWSPENDING` secret version, then move `AWSCURRENT` with the old version as an ownership guard. Confirm the new version before starting the overlap clock.
+4. **Finalize overlap:** set the previous-key expiry to promotion confirmation + configured overlap + 60-second mint-cache allowance + 60-second in-flight allowance. Overlap must be at least 86400 seconds. At expiry, validators reject old-key signatures even if physical cleanup is delayed.
+5. **Cleanup:** after the deadline, confirm the mint still uses the new version, remove the pending label, and atomically delete `key:previous` and remove signing material from active rotation state. A key-free completion tombstone prevents old execution retries from affecting later rotations.
+
+Lambda mints refresh their signing key within **60 seconds** of a fetch starting, including fetch latency. A failed refresh refuses to mint with stale cached material. Supported TTLs are positive integer seconds or integer `s/m/h/d` durations, up to **86400 seconds (1 day)**; only an omitted TTL defaults to `2h`.
+
+### Failure recovery and deployment gate
+
+- Deploy validators and mints before changing rotation behavior. Keep existing EventBridge rotation rules disabled during rollout; applying these changes sets the schedule disabled unless explicitly opted in. Do not invoke the old `{rotate:true}` Lambda interface.
+- Inventory legacy/custom issuer TTLs. Previously issued tokens longer than one day must expire before the first rotation, or the configured overlap must cover their maximum remaining lifetime. All continuing issuers must comply with the supported TTL/cache bounds.
+- Verify old- and new-key requests through the actual CloudFront distribution, warm mint refresh, original token expiry, revocation/policy checks, and previous-key expiry/deletion. Local cryptographic tests do not prove AWS edge propagation.
+- Redrive a failed Step Functions execution with its **same execution ARN**. Do not start a second rotation or overwrite KVS/secret state. CAS ownership rejects competing executions. Initial deployment sync skips an active rotation rather than resetting it.
+- Before confirmed promotion, the previous-key deadline stays `null`, so a partial failure cannot expire the key still used by the mint. Resume the execution to finish promotion/finalization. After finalization, an interrupted cleanup does not extend signature acceptance; resume cleanup to physically delete the retained key.
+- Rotation inputs, outputs, and logs contain no signing material. Do not enable SDK wire logging or print KVS/secret contents during troubleshooting.
+
+Terraform controls: `rotation_enabled = false`, `rotation_overlap_seconds = 86400`, and `rotation_propagation_seconds = 300` by default. The monthly cadence applies only after opt-in.
+
+Terraform removes full-line JavaScript comments from the uploaded validator, retaining readable source while leaving room for configured allowlists within CloudFront's 10 KiB limit.
+
 
 ## Real-Time Log Analysis (Auto-Revocation Stack)
 

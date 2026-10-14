@@ -339,12 +339,29 @@ CloudFront Functions have a **10 KB code size limit**. Each additional check add
 
 ## Key Rotation
 
-Signing keys are stored in Secrets Manager and synced to CloudFront KeyValueStore. Rotation is handled by a Step Functions workflow:
+Scheduled rotation is **disabled by default**. Do not manually start rotation until the updated validators and mints are deployed together and the deployment checks below pass.
 
-1. Generates new 32-byte hex key
-2. Stores in Secrets Manager
-3. Syncs to KVS as `key:default`
-4. Preserves previous key as `key:previous` for graceful transition
+The Step Functions workflow uses one stable execution ARN as its rotation ID:
+
+1. **Prepare:** atomically publish the new raw signing key at `key:default`, the old key at `key:previous` as `{"signingKey":"…","expiresAt":null}`, and ownership state at `key:rotation`. The mint still reads the old Secrets Manager `AWSCURRENT` version. Both keys validate; normal token expiry, revocation, and policy checks still apply.
+2. **Wait for propagation:** wait at least 300 seconds, measured from confirmation of the atomic KVS update. This is a configured propagation allowance, **not an acknowledgement from every edge location**. Verify the allowance for each deployment before allowing rotation; increase it if needed.
+3. **Promote:** create an idempotent `AWSPENDING` secret version, then move `AWSCURRENT` with the old version as an ownership guard. Confirm the new version before starting the overlap clock.
+4. **Finalize overlap:** set the previous-key expiry to promotion confirmation + configured overlap + 60-second mint-cache allowance + 60-second in-flight allowance. Overlap must be at least 86400 seconds. At expiry, validators reject old-key signatures even if physical cleanup is delayed.
+5. **Cleanup:** after the deadline, confirm the mint still uses the new version, remove the pending label, and atomically delete `key:previous` and remove signing material from active rotation state. A key-free completion tombstone prevents old execution retries from affecting later rotations.
+
+Lambda mints refresh their signing key within **60 seconds** of a fetch starting, including fetch latency. A failed refresh refuses to mint with stale cached material. Supported TTLs are positive integer seconds or integer `s/m/h/d` durations, up to **86400 seconds (1 day)**; only an omitted TTL defaults to `2h`.
+
+### Failure recovery and deployment gate
+
+- Deploy validators and mints before changing rotation behavior. Keep existing EventBridge rotation rules disabled during rollout; applying these changes sets the schedule disabled unless explicitly opted in. Do not invoke the old `{rotate:true}` Lambda interface.
+- Inventory legacy/custom issuer TTLs. Previously issued tokens longer than one day must expire before the first rotation, or the configured overlap must cover their maximum remaining lifetime. All continuing issuers must comply with the supported TTL/cache bounds.
+- Verify old- and new-key requests through the actual CloudFront distribution, warm mint refresh, original token expiry, revocation/policy checks, and previous-key expiry/deletion. Local cryptographic tests do not prove AWS edge propagation.
+- Redrive a failed Step Functions execution with its **same execution ARN**. Do not start a second rotation or overwrite KVS/secret state. CAS ownership rejects competing executions. Initial deployment sync skips an active rotation rather than resetting it.
+- Before confirmed promotion, the previous-key deadline stays `null`, so a partial failure cannot expire the key still used by the mint. Resume the execution to finish promotion/finalization. After finalization, an interrupted cleanup does not extend signature acceptance; resume cleanup to physically delete the retained key.
+- Rotation inputs, outputs, and logs contain no signing material. Do not enable SDK wire logging or print KVS/secret contents during troubleshooting.
+
+CDK configuration: `main.rotationEnabled` defaults to false; `main.rotationOverlapSeconds` defaults to 86400; `main.rotationPropagationSeconds` defaults to 300. The monthly cadence applies only after opt-in.
+
 
 ## WAF Rate Limiting
 
@@ -486,7 +503,7 @@ A typical HLS viewer generates ~720 segment requests/hour (2s segments) plus per
 | **KVS reads** | 2 per request (signing key + revocation check) | 3M reads | [KVS pricing](https://aws.amazon.com/cloudfront/pricing/) |
 | **API Gateway** | 2 requests (initial token + 1 renewal) | 2,000 requests | [API Gateway pricing](https://aws.amazon.com/api-gateway/pricing/) |
 | **Lambda (token gen)** | 2 invocations × ~100ms | 2,000 invocations | [Lambda pricing](https://aws.amazon.com/lambda/pricing/) |
-| **Secrets Manager** | 0 (key cached in Lambda) | Negligible | [Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) |
+| **Secrets Manager** | Cache refresh at most once per 60 seconds per active warm mint environment | Depends on warm environment count | [Secrets Manager pricing](https://aws.amazon.com/secrets-manager/pricing/) |
 | **Kinesis (real-time logs)** | 1 record per CF request | 1.5M PUT records | [Kinesis pricing](https://aws.amazon.com/kinesis/data-streams/pricing/) |
 | **S3 (demo site)** | Static hosting only | Minimal | [S3 pricing](https://aws.amazon.com/s3/pricing/) |
 
@@ -495,7 +512,7 @@ A typical HLS viewer generates ~720 segment requests/hour (2s segments) plus per
 | Service | Frequency | Notes |
 |---------|-----------|-------|
 | **WAFv2 Web ACL** | Always-on | $5/month + $1/rule + $0.60/M requests evaluated |
-| **Step Functions (key rotation)** | Monthly (default) | ~5 state transitions per rotation |
+| **Step Functions (key rotation)** | Monthly after opt-in; disabled by default | 6 workflow states before retries |
 | **Lambda (KVS cleanup)** | Hourly | Single invocation, <1s duration |
 | **Secrets Manager** | 1 secret | $0.40/month |
 | **Bedrock (auto-revocation)** | Per Kinesis batch (if enabled) | Input/output tokens at Nova Lite rates |

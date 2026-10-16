@@ -158,6 +158,9 @@ export class CTASecureMediaStack extends Stack {
         !Number.isSafeInteger(rotationPropagation) || rotationPropagation < 300) {
       throw new Error("Rotation requires integer overlap >=7200s and propagation >=300s");
     }
+    if (rotationPropagation + rotationOverlap + 60 + 60 > 31449600) {
+      throw new Error("Rotation propagation + overlap + 60s mint cache + 60s in-flight allowance must not exceed 31449600s (364 days), reserving one day for workflow tasks and retries");
+    }
     const syncKeysToKvs = new lambda.Function(this, "SyncKeysToKvs", {
       runtime: lambda.Runtime.NODEJS_22_X,
       handler: "index.handler",

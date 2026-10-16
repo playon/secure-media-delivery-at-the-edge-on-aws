@@ -64,7 +64,7 @@ Request Format (POST body)
     {
         "policy": {
             "paths": ["/video/"],     // URI prefix restrictions
-            "ttl": "2h",              // Omitted: 2h; positive integer seconds or s/m/h/d, max 2h
+            "ttl": "2h",              // Omitted: 2h; positive integer seconds or s/m/h, max 7200 seconds
             "placement": "path",      // "path" (default) or "query"
             "sessionId": "abc-123"    // Session ID for revocation tracking
         },

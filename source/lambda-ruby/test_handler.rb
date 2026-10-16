@@ -93,7 +93,7 @@ class TestMintRotation < Minitest::Test
       assert_includes JSON.parse(result[:body])['error'], 'TTL must be'
     end
     assert_equal 0, @calls
-    [['1h', 3600], ['2h', 7200], ['120m', 7200], [7200, 7200]].each do |ttl, seconds|
+    [['1h', 3600], ['2h', 7200], ['120m', 7200], [1.0, 1], [3600.0, 3600], [1e3, 1000], [7200.0, 7200], [7200, 7200]].each do |ttl, seconds|
       assert_signed_with invoke(ttl), 'old-key', seconds
     end
     assert_signed_with invoke(:omitted), 'old-key', 7200

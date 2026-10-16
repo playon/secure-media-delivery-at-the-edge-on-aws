@@ -11,8 +11,15 @@ class TestParseTTL(unittest.TestCase):
     def test_hours(self): self.assertEqual(parse_ttl('2h'), 7200)
     def test_maximum_minutes(self): self.assertEqual(parse_ttl('120m'), 7200)
     def test_int_passthrough(self): self.assertEqual(parse_ttl(3600), 3600)
+    def test_integer_valued_json_numbers(self):
+        import json
+        for literal, expected in (('1.0', 1), ('3600.0', 3600), ('1e3', 1000), ('7200.0', 7200)):
+            with self.subTest(literal=literal):
+                seconds = parse_ttl(json.loads(literal))
+                self.assertIs(type(seconds), int)
+                self.assertEqual(seconds, expected)
     def test_invalid(self):
-        for ttl in ('bad', '', 0, -1, 1.5, None, False, True, '0s', '2h1', '121m', '3h', '1d', '25h', '2d', 7201, 86400, 86401):
+        for ttl in ('bad', '', 0, -1, 1.5, 0.0, -1.0, 0.5, 7199.5, 7200.5, 7201.0, float('nan'), float('inf'), -float('inf'), None, False, True, '0s', '2h1', '121m', '3h', '1d', '25h', '2d', 7201, 86400, 86401):
             with self.subTest(ttl=ttl), self.assertRaises(ValueError):
                 parse_ttl(ttl)
     def test_maximum(self): self.assertEqual(parse_ttl(7200), 7200)

@@ -82,7 +82,7 @@ class TestMintRotation(unittest.TestCase):
                 self.assertIn('TTL must be', json.loads(result['body'])['error'])
         self.sm.get_secret_value.assert_not_called()
         self.sm.get_secret_value.return_value = {'SecretString': json.dumps({'signingKey': 'key'})}
-        for ttl, seconds in (('1h', 3600), ('2h', 7200), ('120m', 7200), (7200, 7200)):
+        for ttl, seconds in (('1h', 3600), ('2h', 7200), ('120m', 7200), (1.0, 1), (3600.0, 3600), (1e3, 1000), (7200.0, 7200), (7200, 7200)):
             with self.subTest(ttl=ttl):
                 self.assert_signed_with(self.invoke(ttl), 'key', seconds)
         self.assert_signed_with(self.invoke(None), 'key', 7200)
